@@ -1,7 +1,7 @@
 # Visual Studio 2015 user specific files
-.vs/
-.idea/
-.vscode/
+.vs/*
+.idea/*
+.vscode/*
 
 # Precompiled Headers
 *.gch
@@ -36,6 +36,7 @@
 *.sdf
 *.VC.db
 *.VC.opendb
+*.vsconfig
 # Precompiled Assets
 SourceArt/**/*.png
 SourceArt/**/*.tga
@@ -67,3 +68,4 @@ Plugins/*/Intermediate/*
 DerivedDataCache/*
 /*.vsconfig
 Config/*
+/Config
