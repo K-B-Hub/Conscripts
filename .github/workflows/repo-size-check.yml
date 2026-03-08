@@ -1,0 +1,65 @@
+name: 레포지토리 용량 확인
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  check-repo-size:
+    name: 용량 확인 및 리포트
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: 레포지토리 용량 정보 조회
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          # GitHub API를 통해 레포지토리 크기(KB 단위) 조회
+          REPO_SIZE_KB=$(gh api repos/${REPO} --jq '.size')
+
+          REPO_SIZE_MB=$(echo "scale=2; ${REPO_SIZE_KB} / 1024" | bc)
+          REPO_SIZE_GB=$(echo "scale=4; ${REPO_SIZE_KB} / 1048576" | bc)
+
+          # GitHub 용량 제한 (단위: KB)
+          SOFT_LIMIT_KB=1048576   # 1 GB  – 경고 기준
+          HARD_LIMIT_KB=5242880   # 5 GB  – 강제 제한 기준
+
+          SOFT_LIMIT_MB=$(echo "scale=0; ${SOFT_LIMIT_KB} / 1024" | bc)
+          HARD_LIMIT_MB=$(echo "scale=0; ${HARD_LIMIT_KB} / 1024" | bc)
+
+          # 소프트 / 하드 제한 사용률 계산 (소수점 2자리)
+          SOFT_PCT=$(echo "scale=2; ${REPO_SIZE_KB} * 100 / ${SOFT_LIMIT_KB}" | bc)
+          HARD_PCT=$(echo "scale=2; ${REPO_SIZE_KB} * 100 / ${HARD_LIMIT_KB}" | bc)
+
+          # 상태 판정
+          if   [ "$(echo "${REPO_SIZE_KB} >= ${HARD_LIMIT_KB}" | bc)" -eq 1 ]; then
+            STATUS="🔴 초과 – 레포지토리 접근이 제한될 수 있습니다"
+          elif [ "$(echo "${REPO_SIZE_KB} >= ${SOFT_LIMIT_KB}" | bc)" -eq 1 ]; then
+            STATUS="🟠 경고 – 권장 용량(1 GB)을 초과했습니다"
+          elif [ "$(echo "${REPO_SIZE_KB} * 100 / ${SOFT_LIMIT_KB} >= 80" | bc)" -eq 1 ]; then
+            STATUS="🟡 주의 – 권장 용량의 80% 이상 사용 중입니다"
+          else
+            STATUS="🟢 정상"
+          fi
+
+          echo "=================================================="
+          echo "  📦 레포지토리 용량 리포트"
+          echo "=================================================="
+          echo "  레포지토리      : ${REPO}"
+          echo "  현재 용량       : ${REPO_SIZE_MB} MB  (${REPO_SIZE_GB} GB)"
+          echo "--------------------------------------------------"
+          echo "  용량 제한 (GitHub 기준)"
+          echo "    · 권장 상한   : ${SOFT_LIMIT_MB} MB  (1 GB)"
+          echo "    · 최대 허용   : ${HARD_LIMIT_MB} MB  (5 GB)"
+          echo "--------------------------------------------------"
+          echo "  사용률"
+          echo "    · 권장 기준   : ${SOFT_PCT}%"
+          echo "    · 최대 기준   : ${HARD_PCT}%"
+          echo "--------------------------------------------------"
+          echo "  상태            : ${STATUS}"
+          echo "=================================================="
