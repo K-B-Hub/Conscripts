@@ -68,3 +68,4 @@ Plugins/*/Intermediate/*
 DerivedDataCache/*
 /*.vsconfig
 /CLAUDE.md
+/Content/Assets
