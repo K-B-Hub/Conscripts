@@ -6,6 +6,8 @@
 #include "InputActionValue.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Characters/CharacterBase.h"
+#include "Actors/CursorIndicator.h"
 
 ABattleController::ABattleController()
 {
@@ -35,6 +37,31 @@ void ABattleController::BeginPlay()
 			const FRotator InitRot = SpringArm->GetRelativeRotation();
 			CurrentCameraYaw   = InitRot.Yaw;
 			CachedSpringArmPitch = InitRot.Pitch;
+		}
+	}
+
+	// 임시: 빙의된 Pawn으로 즉시 턴 시작 (추후 GameMode에서 호출 예정)
+	if (ACharacterBase* Unit = Cast<ACharacterBase>(GetPawn()))
+	{
+		InitTurn(Unit);
+	}
+}
+
+void ABattleController::InitTurn(ACharacterBase* TurnUnit)
+{
+	// 기존 인디케이터 정리
+	if (IsValid(CursorIndicatorInstance))
+	{
+		CursorIndicatorInstance->Destroy();
+		CursorIndicatorInstance = nullptr;
+	}
+
+	if (CursorIndicatorClass && IsValid(TurnUnit))
+	{
+		CursorIndicatorInstance = GetWorld()->SpawnActor<ACursorIndicator>(CursorIndicatorClass);
+		if (CursorIndicatorInstance)
+		{
+			CursorIndicatorInstance->SetActiveUnit(TurnUnit);
 		}
 	}
 }
@@ -141,15 +168,21 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 	const bool bHit = GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
 	if (!bHit) return;
 
-	// TODO: 선택된 유닛에게 HitResult.Location으로 이동 명령 전달
-	UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 명령: %s"), *HitResult.Location.ToString());
+	if (ACharacterBase* Unit = Cast<ACharacterBase>(GetPawn()))
+	{
+		Unit->MoveToLocation(HitResult.Location);
+		UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 명령: %s"), *HitResult.Location.ToString());
+	}
 }
 
 // ─── 이동 취소 (우클릭) ──────────────────────────────────────────────────────
 void ABattleController::OnCancelMove(const FInputActionValue& Value)
 {
-	// TODO: 선택된 유닛의 이동 명령 취소
-	UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 취소"));
+	if (ACharacterBase* Unit = Cast<ACharacterBase>(GetPawn()))
+	{
+		Unit->StopMovement();
+		UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 취소"));
+	}
 }
 
 // ─── 카메라 초기화 ───────────────────────────────────────────────────────────

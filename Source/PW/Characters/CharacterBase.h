@@ -37,4 +37,12 @@ protected:
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	// ─── 이동 인터페이스 ───────────────────────────────────────
+
+	/** NavMesh 경로로 목표 위치까지 이동 */
+	void MoveToLocation(const FVector& DestLocation);
+
+	/** 이동 중단 */
+	void StopMovement();
 };

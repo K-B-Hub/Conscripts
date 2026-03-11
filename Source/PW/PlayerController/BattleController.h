@@ -9,6 +9,8 @@
 struct FInputActionValue;
 class UInputMappingContext;
 class UInputAction;
+class ACursorIndicator;
+class ACharacterBase;
 
 /**
  * 전투 씬 플레이어 컨트롤러
@@ -21,6 +23,9 @@ class PW_API ABattleController : public APlayerController
 
 public:
 	ABattleController();
+
+	/** 턴 시작 시 호출 - 추후 GameMode에서 호출 예정 */
+	void InitTurn(ACharacterBase* TurnUnit);
 
 protected:
 	virtual void BeginPlay() override;
@@ -105,4 +110,14 @@ private:
 	// 스프링암 Attach/Detach 헬퍼
 	void AttachCameraToCharacter(class USpringArmComponent* SpringArm, APawn* OwnerPawn);
 	void DetachCameraFromCharacter(class USpringArmComponent* SpringArm);
+
+	// ─── 커서 인디케이터 ─────────────────────────────────────
+
+	/** 커서 인디케이터 클래스 (BP_CursorIndicator 지정) */
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<ACursorIndicator> CursorIndicatorClass;
+
+	// 스폰된 인디케이터 인스턴스 (GC 방지)
+	UPROPERTY()
+	TObjectPtr<ACursorIndicator> CursorIndicatorInstance = nullptr;
 };
