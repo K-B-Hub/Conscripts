@@ -2,8 +2,9 @@
 
 #include "Actors/CursorIndicator.h"
 #include "Characters/CharacterBase.h"
-#include "WidgetComponent/MoveIndicatorWidget.h"
+#include "Widget/MoveIndicatorWidget.h"
 #include "Components/DecalComponent.h"
+#include "Components/WidgetComponent.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
 
@@ -21,11 +22,10 @@ ACursorIndicator::ACursorIndicator()
 	// 데칼은 아래를 향하도록 회전 (DecalComponent 기본 방향: -X)
 	MoveDecal->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
 
-	// 거리 표시 위젯
-	DistanceWidget = CreateDefaultSubobject<UMoveIndicatorWidget>(TEXT("DistanceWidget"));
+	// 거리 표시 위젯 컴포넌트 (Widget Class는 BP_CursorIndicator에서 WBP_MoveIndicator로 지정)
+	DistanceWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("DistanceWidget"));
 	DistanceWidget->SetupAttachment(SceneRoot);
-	// 커서 위 일정 높이에 위치
-	DistanceWidget->SetRelativeLocation(FVector(0.f, 0.f, 80.f));
+	DistanceWidget->SetDrawSize(FVector2D(300, 100));
 	DistanceWidget->SetWidgetSpace(EWidgetSpace::Screen);
 }
 
@@ -33,12 +33,7 @@ void ACursorIndicator::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 머티리얼이 지정된 경우 데칼에 적용
-	if (DecalMaterial)
-	{
-		MoveDecal->SetDecalMaterial(DecalMaterial);
-	}
-	MoveDecal->DecalSize = DecalSize;
+	DistanceWidget->SetRelativeLocation(WidgetOffset);
 }
 
 void ACursorIndicator::Tick(float DeltaTime)
@@ -82,6 +77,11 @@ void ACursorIndicator::UpdatePathDistance()
 	if (Path && Path->IsValid())
 	{
 		const float Meters = Path->GetPathLength() / 100.f;
-		DistanceWidget->UpdateDistance(Meters);
+
+		// UWidgetComponent가 호스팅하는 위젯을 UMoveIndicatorWidget으로 캐스팅
+		if (UMoveIndicatorWidget* Widget = Cast<UMoveIndicatorWidget>(DistanceWidget->GetWidget()))
+		{
+			Widget->UpdateDistance(Meters);
+		}
 	}
 }

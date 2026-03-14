@@ -7,6 +7,7 @@
 #include "CursorIndicator.generated.h"
 
 class UDecalComponent;
+class UWidgetComponent;
 class UMoveIndicatorWidget;
 class ACharacterBase;
 
@@ -35,19 +36,13 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UDecalComponent> MoveDecal;
 
-	/** 경로 거리를 표시하는 위젯 컴포넌트 */
+	/** 경로 거리를 표시하는 위젯 컴포넌트 (Widget Class: WBP_MoveIndicator) */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
-	TObjectPtr<UMoveIndicatorWidget> DistanceWidget;
+	TObjectPtr<UWidgetComponent> DistanceWidget;
 
-	// ─── 비주얼 설정 (BP에서 할당) ───────────────────────────
-
-	/** 데칼에 적용할 머티리얼 */
+	/** 거리 위젯의 위치 오프셋 (월드 공간 기준, cm) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual")
-	TObjectPtr<UMaterialInterface> DecalMaterial;
-
-	/** 데칼 크기 (X: 깊이, Y/Z: 너비/높이) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual")
-	FVector DecalSize = FVector(5.f, 50.f, 50.f);
+	FVector WidgetOffset = FVector(0.f, 0.f, 80.f);
 
 	// ─── 인터페이스 ──────────────────────────────────────────
 
