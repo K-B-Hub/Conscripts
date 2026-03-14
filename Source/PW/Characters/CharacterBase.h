@@ -19,21 +19,54 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	// 컴포넌트 - C++에서 생성/관리, 에디터에서 구조 확인용으로만 노출
+	// 카메라 관련 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<class USpringArmComponent> SpringArmComponent;
-
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<class UCameraComponent> CameraComponent;
-
-	/** 카메라 붐 암 길이 */
+	//카메라 암 길이
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float CameraArmLength = 1400.f;
-
-	/** 카메라 내려다보는 각도 (Pitch, 음수일수록 더 가파름) */
+	float cameraArmLength = 1400.f;
+	// 카메라 내려다보는 각도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float CameraPitchAngle = -55.f;
-
+	float cameraPitchAngle = -55.f;
+	
+	//캐릭터 스탯
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 hp = 10;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 atk = 10;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 speed = 10;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 skill = 10;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 def = 10;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	float movingPoint = 9.0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	float currentMovingPoint = 9.0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 mentality = 1;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 stress = 0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 maxStress = 100;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 actionPoint = 2;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 currentActionPoint = 2;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 damageReduction = 0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 damageAmplication = 0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 penetration = 0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	float sight = 10;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 battleResource = 10;
+	
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;

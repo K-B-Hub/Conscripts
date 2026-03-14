@@ -15,9 +15,9 @@ ACharacterBase::ACharacterBase()
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArmComponent->SetupAttachment(RootComponent);
-	SpringArmComponent->TargetArmLength = CameraArmLength;
+	SpringArmComponent->TargetArmLength = cameraArmLength;
 
-	SpringArmComponent->SetRelativeRotation(FRotator(CameraPitchAngle, 0.f, 0.f));
+	SpringArmComponent->SetRelativeRotation(FRotator(cameraPitchAngle, 0.f, 0.f));
 
 	SpringArmComponent->bUsePawnControlRotation = false;
 	SpringArmComponent->bInheritPitch = false;

@@ -17,23 +17,23 @@ ACursorIndicator::ACursorIndicator()
 	SetRootComponent(SceneRoot);
 
 	// 바닥 데칼
-	MoveDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("MoveDecal"));
-	MoveDecal->SetupAttachment(SceneRoot);
+	moveDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("MoveDecal"));
+	moveDecal->SetupAttachment(SceneRoot);
 	// 데칼은 아래를 향하도록 회전 (DecalComponent 기본 방향: -X)
-	MoveDecal->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
+	moveDecal->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
 
 	// 거리 표시 위젯 컴포넌트 (Widget Class는 BP_CursorIndicator에서 WBP_MoveIndicator로 지정)
-	DistanceWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("DistanceWidget"));
-	DistanceWidget->SetupAttachment(SceneRoot);
-	DistanceWidget->SetDrawSize(FVector2D(300, 100));
-	DistanceWidget->SetWidgetSpace(EWidgetSpace::Screen);
+	distanceWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("DistanceWidget"));
+	distanceWidget->SetupAttachment(SceneRoot);
+	distanceWidget->SetDrawSize(FVector2D(300, 100));
+	distanceWidget->SetWidgetSpace(EWidgetSpace::Screen);
 }
 
 void ACursorIndicator::BeginPlay()
 {
 	Super::BeginPlay();
 
-	DistanceWidget->SetRelativeLocation(WidgetOffset);
+	distanceWidget->SetRelativeLocation(widgetOffset);
 }
 
 void ACursorIndicator::Tick(float DeltaTime)
@@ -51,26 +51,26 @@ void ACursorIndicator::Tick(float DeltaTime)
 	}
 
 	// ─── 2. 경로 거리 갱신 (0.1초 쓰로틀링) ─────────────────
-	PathUpdateTimer += DeltaTime;
-	if (PathUpdateTimer >= PathUpdateInterval)
+	pathUpdateTimer += DeltaTime;
+	if (pathUpdateTimer >= pathUpdateInterval)
 	{
-		PathUpdateTimer = 0.f;
+		pathUpdateTimer = 0.f;
 		UpdatePathDistance();
 	}
 }
 
 void ACursorIndicator::SetActiveUnit(ACharacterBase* Unit)
 {
-	ActiveUnit = Unit;
+	activeUnit = Unit;
 }
 
 void ACursorIndicator::UpdatePathDistance()
 {
-	if (!IsValid(ActiveUnit)) return;
+	if (!IsValid(activeUnit)) return;
 
 	UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
 		GetWorld(),
-		ActiveUnit->GetActorLocation(),
+		activeUnit->GetActorLocation(),
 		GetActorLocation()
 	);
 
@@ -79,7 +79,7 @@ void ACursorIndicator::UpdatePathDistance()
 		const float Meters = Path->GetPathLength() / 100.f;
 
 		// UWidgetComponent가 호스팅하는 위젯을 UMoveIndicatorWidget으로 캐스팅
-		if (UMoveIndicatorWidget* Widget = Cast<UMoveIndicatorWidget>(DistanceWidget->GetWidget()))
+		if (UMoveIndicatorWidget* Widget = Cast<UMoveIndicatorWidget>(distanceWidget->GetWidget()))
 		{
 			Widget->UpdateDistance(Meters);
 		}

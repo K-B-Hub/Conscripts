@@ -23,9 +23,9 @@ void ABattleController::BeginPlay()
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
 		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
-		if (BattleInputMappingContext)
+		if (battleInputMappingContext)
 		{
-			Subsystem->AddMappingContext(BattleInputMappingContext, 0);
+			Subsystem->AddMappingContext(battleInputMappingContext, 0);
 		}
 	}
 
@@ -35,8 +35,8 @@ void ABattleController::BeginPlay()
 		if (USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>())
 		{
 			const FRotator InitRot = SpringArm->GetRelativeRotation();
-			CurrentCameraYaw   = InitRot.Yaw;
-			CachedSpringArmPitch = InitRot.Pitch;
+			currentCameraYaw     = InitRot.Yaw;
+			cachedSpringArmPitch = InitRot.Pitch;
 		}
 	}
 
@@ -50,18 +50,18 @@ void ABattleController::BeginPlay()
 void ABattleController::InitTurn(ACharacterBase* TurnUnit)
 {
 	// 기존 인디케이터 정리
-	if (IsValid(CursorIndicatorInstance))
+	if (IsValid(cursorIndicatorInstance))
 	{
-		CursorIndicatorInstance->Destroy();
-		CursorIndicatorInstance = nullptr;
+		cursorIndicatorInstance->Destroy();
+		cursorIndicatorInstance = nullptr;
 	}
 
-	if (CursorIndicatorClass && IsValid(TurnUnit))
+	if (cursorIndicatorClass && IsValid(TurnUnit))
 	{
-		CursorIndicatorInstance = GetWorld()->SpawnActor<ACursorIndicator>(CursorIndicatorClass);
-		if (CursorIndicatorInstance)
+		cursorIndicatorInstance = GetWorld()->SpawnActor<ACursorIndicator>(cursorIndicatorClass);
+		if (cursorIndicatorInstance)
 		{
-			CursorIndicatorInstance->SetActiveUnit(TurnUnit);
+			cursorIndicatorInstance->SetActiveUnit(TurnUnit);
 		}
 	}
 }
@@ -73,29 +73,29 @@ void ABattleController::SetupInputComponent()
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent);
 	if (!EIC) return;
 
-	if (IA_CameraMove)
+	if (iA_CameraMove)
 	{
-		EIC->BindAction(IA_CameraMove, ETriggerEvent::Triggered, this, &ABattleController::OnCameraMove);
+		EIC->BindAction(iA_CameraMove, ETriggerEvent::Triggered, this, &ABattleController::OnCameraMove);
 	}
-	if (IA_CameraRotate)
+	if (iA_CameraRotate)
 	{
-		EIC->BindAction(IA_CameraRotate, ETriggerEvent::Triggered, this, &ABattleController::OnCameraRotate);
+		EIC->BindAction(iA_CameraRotate, ETriggerEvent::Triggered, this, &ABattleController::OnCameraRotate);
 	}
-	if (IA_CameraZoom)
+	if (iA_CameraZoom)
 	{
-		EIC->BindAction(IA_CameraZoom, ETriggerEvent::Triggered, this, &ABattleController::OnCameraZoom);
+		EIC->BindAction(iA_CameraZoom, ETriggerEvent::Triggered, this, &ABattleController::OnCameraZoom);
 	}
-	if (IA_MoveCommand)
+	if (iA_MoveCommand)
 	{
-		EIC->BindAction(IA_MoveCommand, ETriggerEvent::Started, this, &ABattleController::OnMoveCommand);
+		EIC->BindAction(iA_MoveCommand, ETriggerEvent::Started, this, &ABattleController::OnMoveCommand);
 	}
-	if (IA_CancelMove)
+	if (iA_CancelMove)
 	{
-		EIC->BindAction(IA_CancelMove, ETriggerEvent::Started, this, &ABattleController::OnCancelMove);
+		EIC->BindAction(iA_CancelMove, ETriggerEvent::Started, this, &ABattleController::OnCancelMove);
 	}
-	if (IA_CameraReset)
+	if (iA_CameraReset)
 	{
-		EIC->BindAction(IA_CameraReset, ETriggerEvent::Started, this, &ABattleController::OnCameraReset);
+		EIC->BindAction(iA_CameraReset, ETriggerEvent::Started, this, &ABattleController::OnCameraReset);
 	}
 }
 
@@ -117,12 +117,12 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 		DetachCameraFromCharacter(SpringArm);
 	}
 
-	const FRotator YawRotation(0.f, CurrentCameraYaw, 0.f);
+	const FRotator YawRotation(0.f, currentCameraYaw, 0.f);
 	const FVector ForwardDir = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 	const FVector RightDir   = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
 	const float DeltaTime = GetWorld()->GetDeltaSeconds();
-	const FVector Delta = (ForwardDir * MoveInput.Y + RightDir * MoveInput.X) * CameraMoveSpeed * DeltaTime;
+	const FVector Delta = (ForwardDir * MoveInput.Y + RightDir * MoveInput.X) * cameraMoveSpeed * DeltaTime;
 	SpringArm->AddWorldOffset(Delta);
 }
 
@@ -138,10 +138,10 @@ void ABattleController::OnCameraRotate(const FInputActionValue& Value)
 	const float RotateInput = Value.Get<float>();
 	const float DeltaTime = GetWorld()->GetDeltaSeconds();
 
-	CurrentCameraYaw += RotateInput * CameraRotateSpeed * DeltaTime;
+	currentCameraYaw += RotateInput * cameraRotateSpeed * DeltaTime;
 
-	// Pitch는 고정, Yaw만 변경 (attached 여부와 무관하게 동일 로직)
-	SpringArm->SetRelativeRotation(FRotator(CachedSpringArmPitch, CurrentCameraYaw, 0.f));
+	// Pitch는 고정, Yaw만 변경
+	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
 // ─── 카메라 줌 ───────────────────────────────────────────────────────────────
@@ -155,9 +155,9 @@ void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 
 	const float ZoomInput = Value.Get<float>();
 	SpringArm->TargetArmLength = FMath::Clamp(
-		SpringArm->TargetArmLength - ZoomInput * CameraZoomSpeed,
-		CameraZoomMin,
-		CameraZoomMax
+		SpringArm->TargetArmLength - ZoomInput * cameraZoomSpeed,
+		cameraZoomMin,
+		cameraZoomMax
 	);
 }
 
@@ -214,6 +214,6 @@ void ABattleController::AttachCameraToCharacter(USpringArmComponent* SpringArm, 
 		FAttachmentTransformRules::SnapToTargetNotIncludingScale
 	);
 	// SnapToTarget은 relative rotation을 초기화하므로 Pitch와 Yaw를 다시 설정
-	SpringArm->SetRelativeRotation(FRotator(CachedSpringArmPitch, CurrentCameraYaw, 0.f));
+	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 	bIsAttached = true;
 }

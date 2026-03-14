@@ -5,8 +5,8 @@
 
 void UMoveIndicatorWidget::UpdateDistance(float Meters)
 {
-	if (DistanceText)
+	if (distanceText)
 	{
-		DistanceText->SetText(FText::FromString(FString::Printf(TEXT("%.1f m"), Meters)));
+		distanceText->SetText(FText::FromString(FString::Printf(TEXT("%.1f m"), Meters)));
 	}
 }
