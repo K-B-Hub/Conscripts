@@ -66,6 +66,30 @@ protected:
 	float sight = 10;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
 	int32 battleResource = 10;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
+	float accuracy = 0.0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
+	float evasion = 0.0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
+	float critical = 0.0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Growth")
+	int32 hpGrowth = 50;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Growth")
+	int32 atkGrowth = 50;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Growth")
+	int32 speedGrowth = 50;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Growth")
+	int32 defGrowth = 50;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Growth")
+	int32 mentalityGrowth = 5;
+	
+	//레벨 관련
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Level")
+	int32 level = 1;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Level")
+	float exp = 0;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Level")
+	float maxExp = 100;
 	
 public:
 	// Called every frame
@@ -78,4 +102,6 @@ public:
 
 	/** 이동 중단 */
 	void StopMovement();
+	
+	int32 GetTurnOrder() const;
 };

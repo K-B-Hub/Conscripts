@@ -56,3 +56,8 @@ void ACharacterBase::StopMovement()
 	// 이동 중단: CharacterMovement의 속도를 즉시 0으로 설정
 	GetCharacterMovement()->StopMovementImmediately();
 }
+
+int32 ACharacterBase::GetTurnOrder() const
+{
+	return speed + FMath::RandRange(0, speed);
+}

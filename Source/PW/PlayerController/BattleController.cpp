@@ -40,11 +40,6 @@ void ABattleController::BeginPlay()
 		}
 	}
 
-	// 임시: 빙의된 Pawn으로 즉시 턴 시작 (추후 GameMode에서 호출 예정)
-	if (ACharacterBase* Unit = Cast<ACharacterBase>(GetPawn()))
-	{
-		InitTurn(Unit);
-	}
 }
 
 void ABattleController::InitTurn(ACharacterBase* TurnUnit)
