@@ -8,6 +8,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Characters/CharacterBase.h"
 #include "Actors/CursorIndicator.h"
+#include "Widget/TurnEndWidget.h"
 
 ABattleController::ABattleController()
 {
@@ -44,14 +45,12 @@ void ABattleController::BeginPlay()
 
 void ABattleController::InitTurn(ACharacterBase* TurnUnit)
 {
-	// 기존 인디케이터 정리
-	if (IsValid(cursorIndicatorInstance))
-	{
-		cursorIndicatorInstance->Destroy();
-		cursorIndicatorInstance = nullptr;
-	}
+	if (!IsValid(TurnUnit)) return;
 
-	if (cursorIndicatorClass && IsValid(TurnUnit))
+	activeUnit = TurnUnit;
+
+	// 커서 인디케이터 스폰
+	if (cursorIndicatorClass)
 	{
 		cursorIndicatorInstance = GetWorld()->SpawnActor<ACursorIndicator>(cursorIndicatorClass);
 		if (cursorIndicatorInstance)
@@ -59,6 +58,38 @@ void ABattleController::InitTurn(ACharacterBase* TurnUnit)
 			cursorIndicatorInstance->SetActiveUnit(TurnUnit);
 		}
 	}
+
+	// 턴 종료 위젯 생성 및 뷰포트 추가
+	if (turnEndWidgetClass)
+	{
+		turnEndWidgetInstance = CreateWidget<UTurnEndWidget>(this, turnEndWidgetClass);
+		if (turnEndWidgetInstance)
+		{
+			turnEndWidgetInstance->AddToViewport();
+		}
+	}
+}
+
+void ABattleController::EndTurn()
+{
+	// CharacterBase의 Tick 이동 상태(bIsMovingToTarget)까지 초기화
+	if (IsValid(activeUnit))
+	{
+		activeUnit->StopMovement();
+	}
+	// 기존 턴 종료 위젯 제거
+	if (IsValid(turnEndWidgetInstance))
+	{
+		turnEndWidgetInstance->RemoveFromParent();
+		turnEndWidgetInstance = nullptr;
+	}
+	// 기존 인디케이터 정리
+	if (IsValid(cursorIndicatorInstance))
+	{
+		cursorIndicatorInstance->Destroy();
+		cursorIndicatorInstance = nullptr;
+	}
+	activeUnit = nullptr;
 }
 
 void ABattleController::SetupInputComponent()
@@ -159,15 +190,14 @@ void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 // ─── 이동 명령 (좌클릭) ──────────────────────────────────────────────────────
 void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 {
-	FHitResult HitResult;
-	const bool bHit = GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
-	if (!bHit) return;
+	if (!activeUnit || !IsValid(cursorIndicatorInstance)) return;
 
-	if (ACharacterBase* Unit = Cast<ACharacterBase>(GetPawn()))
-	{
-		Unit->MoveToLocation(HitResult.Location);
-		UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 명령: %s"), *HitResult.Location.ToString());
-	}
+	const TArray<FVector>& PathPoints = cursorIndicatorInstance->GetCachedPathPoints();
+	if (PathPoints.Num() == 0) return;
+
+	activeUnit->MoveAlongPath(PathPoints);
+	UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 명령: %s (%d개 경유점)"),
+		*PathPoints.Last().ToString(), PathPoints.Num());
 }
 
 // ─── 이동 취소 (우클릭) ──────────────────────────────────────────────────────

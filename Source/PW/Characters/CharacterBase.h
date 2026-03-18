@@ -21,9 +21,9 @@ protected:
 
 	// 카메라 관련 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	TObjectPtr<class USpringArmComponent> SpringArmComponent;
+	TObjectPtr<class USpringArmComponent> springArmComponent;
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	TObjectPtr<class UCameraComponent> CameraComponent;
+	TObjectPtr<class UCameraComponent> cameraComponent;
 	//카메라 암 길이
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraArmLength = 1400.f;
@@ -97,11 +97,21 @@ public:
 
 	// ─── 이동 인터페이스 ───────────────────────────────────────
 
-	/** NavMesh 경로로 목표 위치까지 이동 */
-	void MoveToLocation(const FVector& DestLocation);
+	/** CursorIndicator에서 계산된 경유점 배열을 받아 순서대로 이동 */
+	void MoveAlongPath(const TArray<FVector>& Points);
 
 	/** 이동 중단 */
 	void StopMovement();
-	
+
 	int32 GetTurnOrder() const;
+
+private:
+	// NavMesh 경로 경유점 및 현재 인덱스
+	TArray<FVector> pathPoints;
+	int32 pathPointIndex = 0;
+
+	// 정확한 스냅을 위해 최종 목적지 보관
+	FVector moveDestination = FVector::ZeroVector;
+
+	bool bIsMovingToTarget = false;
 };

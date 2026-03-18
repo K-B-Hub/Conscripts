@@ -11,6 +11,7 @@ class UInputMappingContext;
 class UInputAction;
 class ACursorIndicator;
 class ACharacterBase;
+class UTurnEndWidget;
 
 // 전투 씬 플레이어 컨트롤러
 // EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
@@ -24,6 +25,7 @@ public:
 
 	// 턴 시작 시 호출 - 추후 GameMode에서 호출 예정
 	void InitTurn(ACharacterBase* TurnUnit);
+	void EndTurn();
 
 protected:
 	virtual void BeginPlay() override;
@@ -118,4 +120,17 @@ private:
 	// 스폰된 인디케이터 인스턴스 (GC 방지)
 	UPROPERTY()
 	TObjectPtr<ACursorIndicator> cursorIndicatorInstance = nullptr;
+
+	// ─── 턴 종료 위젯 ────────────────────────────────────────
+
+	// 턴 종료 버튼 위젯 클래스 (BP에서 WBP_TurnEnd 지정)
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UTurnEndWidget> turnEndWidgetClass;
+
+	// 생성된 위젯 인스턴스
+	UPROPERTY()
+	TObjectPtr<UTurnEndWidget> turnEndWidgetInstance = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<ACharacterBase> activeUnit = nullptr;
 };

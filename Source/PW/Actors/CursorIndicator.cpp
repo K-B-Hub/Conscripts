@@ -7,6 +7,7 @@
 #include "Components/WidgetComponent.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
+#include "DrawDebugHelpers.h"
 
 ACursorIndicator::ACursorIndicator()
 {
@@ -57,6 +58,18 @@ void ACursorIndicator::Tick(float DeltaTime)
 		pathUpdateTimer = 0.f;
 		UpdatePathDistance();
 	}
+
+	// ─── 3. 경로 시각화 ──────────────────────────────────────
+	for (int32 i = 0; i + 1 < cachedPathPoints.Num(); ++i)
+	{
+		DrawDebugLine(
+			GetWorld(),
+			cachedPathPoints[i] + FVector(0, 0, 5.f),
+			cachedPathPoints[i + 1] + FVector(0, 0, 5.f),
+			FColor::White,
+			false, -1.f, 0, 3.f
+		);
+	}
 }
 
 void ACursorIndicator::SetActiveUnit(ACharacterBase* Unit)
@@ -76,6 +89,13 @@ void ACursorIndicator::UpdatePathDistance()
 
 	if (Path && Path->IsValid())
 	{
+		// 경로 경유점 캐싱 (이동 명령 시 재사용)
+		cachedPathPoints.Empty();
+		for (const FNavPathPoint& Point : Path->GetPath()->GetPathPoints())
+		{
+			cachedPathPoints.Add(Point.Location);
+		}
+
 		const float Meters = Path->GetPathLength() / 100.f;
 
 		// UWidgetComponent가 호스팅하는 위젯을 UMoveIndicatorWidget으로 캐스팅
@@ -83,5 +103,9 @@ void ACursorIndicator::UpdatePathDistance()
 		{
 			Widget->UpdateDistance(Meters);
 		}
+	}
+	else
+	{
+		cachedPathPoints.Empty();
 	}
 }

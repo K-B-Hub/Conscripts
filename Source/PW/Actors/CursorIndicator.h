@@ -47,6 +47,9 @@ public:
 	// 턴이 시작된 캐릭터를 설정. BattleController에서 호출
 	void SetActiveUnit(ACharacterBase* Unit);
 
+	// 마지막으로 계산된 NavMesh 경로 경유점 반환 (이동 명령에 재사용)
+	const TArray<FVector>& GetCachedPathPoints() const { return cachedPathPoints; }
+
 private:
 	// 현재 이동 명령 대상 캐릭터 (GC 방지를 위해 UPROPERTY 필수)
 	UPROPERTY()
@@ -54,8 +57,11 @@ private:
 
 	// 경로 거리 계산 쓰로틀링 타이머
 	float pathUpdateTimer = 0.f;
-	static constexpr float pathUpdateInterval = 0.1f;
+	static constexpr float pathUpdateInterval = 0.008f;
 
-	// NavMesh 경로 거리를 계산하여 distanceWidget을 갱신
+	// 마지막으로 계산된 NavMesh 경로 경유점
+	TArray<FVector> cachedPathPoints;
+
+	// NavMesh 경로를 계산하여 거리 위젯 갱신 + 경로 캐싱
 	void UpdatePathDistance();
 };
