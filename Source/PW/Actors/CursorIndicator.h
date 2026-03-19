@@ -10,6 +10,7 @@ class UDecalComponent;
 class UWidgetComponent;
 class UMoveIndicatorWidget;
 class ACharacterBase;
+class USplineComponent;
 
 // 마우스 커서를 따라다니며 이동 목표 지점을 시각화하는 액터.
 // - moveDecal: 바닥에 이동 목표 데칼 표시
@@ -33,6 +34,10 @@ public:
 	// 바닥에 표시되는 이동 목표 데칼
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UDecalComponent> moveDecal;
+
+	// 이동 경로를 저장하는 스플라인 (경로 시각화 및 분기점 계산에 사용)
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<USplineComponent> pathSpline;
 
 	// 경로 거리를 표시하는 위젯 컴포넌트 (Widget Class: WBP_MoveIndicator)
 	UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -62,6 +67,14 @@ private:
 	// 마지막으로 계산된 NavMesh 경로 경유점
 	TArray<FVector> cachedPathPoints;
 
+	// 이동력 소진 분기점: 흰색/빨간색 경계 위치
+	// cachedSplitSegIndex == -1 이면 경로 전체가 이동 가능 범위
+	FVector cachedSplitPoint = FVector::ZeroVector;
+	int32 cachedSplitSegIndex = -1;
+
 	// NavMesh 경로를 계산하여 거리 위젯 갱신 + 경로 캐싱
 	void UpdatePathDistance();
+
+	// 경로 포인트 배열로 분기점을 계산하여 캐싱
+	void UpdateSplitPoint();
 };

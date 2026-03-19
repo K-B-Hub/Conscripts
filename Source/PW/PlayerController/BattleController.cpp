@@ -48,7 +48,8 @@ void ABattleController::InitTurn(ACharacterBase* TurnUnit)
 	if (!IsValid(TurnUnit)) return;
 
 	activeUnit = TurnUnit;
-
+	activeUnit->InitTurn();
+	
 	// 커서 인디케이터 스폰
 	if (cursorIndicatorClass)
 	{
@@ -75,7 +76,7 @@ void ABattleController::EndTurn()
 	// CharacterBase의 Tick 이동 상태(bIsMovingToTarget)까지 초기화
 	if (IsValid(activeUnit))
 	{
-		activeUnit->StopMovement();
+		activeUnit->EndTurn();
 	}
 	// 기존 턴 종료 위젯 제거
 	if (IsValid(turnEndWidgetInstance))

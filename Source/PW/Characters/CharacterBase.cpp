@@ -42,6 +42,19 @@ void ACharacterBase::Tick(float DeltaTime)
 	if (!bIsMovingToTarget || pathPoints.Num() == 0) return;
 
 	const FVector CurrentLoc = GetActorLocation();
+
+	// 이전 프레임 대비 이동한 수평 거리(cm)를 미터로 변환해 currentMovingPoint 차감
+	const float MovedCm = FVector::Dist(CurrentLoc, lastFrameLocation);
+	currentMovingPoint = FMath::Max(0.f, currentMovingPoint - MovedCm / 100.f);
+	lastFrameLocation = CurrentLoc;
+
+	// 이동력 소진 시 즉시 정지
+	if (currentMovingPoint <= 0.f)
+	{
+		StopMovement();
+		return;
+	}
+
 	const FVector Target = pathPoints[pathPointIndex];
 	const FVector Delta = Target - CurrentLoc;
 	const float Dist2D = FVector2D(Delta.X, Delta.Y).Size();
@@ -75,6 +88,7 @@ void ACharacterBase::MoveAlongPath(const TArray<FVector>& Points)
 	pathPoints = Points;
 	pathPointIndex = 0;
 	moveDestination = Points.Last();
+	lastFrameLocation = GetActorLocation(); // 첫 프레임 거리 오차 방지
 	bIsMovingToTarget = true;
 }
 
@@ -88,4 +102,17 @@ void ACharacterBase::StopMovement()
 int32 ACharacterBase::GetTurnOrder() const
 {
 	return speed + FMath::RandRange(0, speed);
+}
+
+//추후 상태이상 컴포넌트에서 턴 시작시 영향주는 상태이상 적용 및 턴수 감소 필요
+void ACharacterBase::InitTurn()
+{
+	currentActionPoint = actionPoint;
+	currentMovingPoint = movingPoint;
+}
+
+//추후 상태이상, 버프, 디버프 적용 및 턴수 감소 필요
+void ACharacterBase::EndTurn()
+{
+	StopMovement();
 }

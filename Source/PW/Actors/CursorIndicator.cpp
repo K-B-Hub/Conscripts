@@ -5,6 +5,7 @@
 #include "Widget/MoveIndicatorWidget.h"
 #include "Components/DecalComponent.h"
 #include "Components/WidgetComponent.h"
+#include "Components/SplineComponent.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
 #include "DrawDebugHelpers.h"
@@ -16,6 +17,11 @@ ACursorIndicator::ACursorIndicator()
 	// 루트 컴포넌트
 	USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	SetRootComponent(SceneRoot);
+
+	// 경로 스플라인 (자체 드로우 비활성 — 직접 DrawDebugLine으로 렌더링)
+	pathSpline = CreateDefaultSubobject<USplineComponent>(TEXT("PathSpline"));
+	pathSpline->SetupAttachment(SceneRoot);
+	pathSpline->SetDrawDebug(false);
 
 	// 바닥 데칼
 	moveDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("MoveDecal"));
@@ -59,16 +65,30 @@ void ACursorIndicator::Tick(float DeltaTime)
 		UpdatePathDistance();
 	}
 
-	// ─── 3. 경로 시각화 ──────────────────────────────────────
-	for (int32 i = 0; i + 1 < cachedPathPoints.Num(); ++i)
+	// ─── 3. 경로 시각화 (흰색: 이동 가능, 빨간색: 이동력 초과) ──
+	const int32 numPoints = cachedPathPoints.Num();
+	for (int32 i = 0; i + 1 < numPoints; ++i)
 	{
-		DrawDebugLine(
-			GetWorld(),
-			cachedPathPoints[i] + FVector(0, 0, 5.f),
-			cachedPathPoints[i + 1] + FVector(0, 0, 5.f),
-			FColor::White,
-			false, -1.f, 0, 3.f
-		);
+		const FVector A = cachedPathPoints[i]     + FVector(0, 0, 5.f);
+		const FVector B = cachedPathPoints[i + 1] + FVector(0, 0, 5.f);
+
+		if (cachedSplitSegIndex == -1 || i < cachedSplitSegIndex)
+		{
+			// 이동 가능 범위 전체 세그먼트 → 흰색
+			DrawDebugLine(GetWorld(), A, B, FColor::White, false, -1.f, 0, 3.f);
+		}
+		else if (i == cachedSplitSegIndex)
+		{
+			// 분기점을 포함하는 세그먼트 → 앞부분 흰색 / 뒷부분 빨간색
+			const FVector SplitZ = cachedSplitPoint + FVector(0, 0, 5.f);
+			DrawDebugLine(GetWorld(), A,      SplitZ, FColor::White, false, -1.f, 0, 3.f);
+			DrawDebugLine(GetWorld(), SplitZ, B,      FColor::Red,   false, -1.f, 0, 3.f);
+		}
+		else
+		{
+			// 이동력 초과 범위 → 빨간색
+			DrawDebugLine(GetWorld(), A, B, FColor::Red, false, -1.f, 0, 3.f);
+		}
 	}
 }
 
@@ -96,9 +116,19 @@ void ACursorIndicator::UpdatePathDistance()
 			cachedPathPoints.Add(Point.Location);
 		}
 
+		// 스플라인 포인트 갱신
+		pathSpline->ClearSplinePoints(false);
+		for (const FVector& Point : cachedPathPoints)
+		{
+			pathSpline->AddSplinePoint(Point, ESplineCoordinateSpace::World, false);
+		}
+		pathSpline->UpdateSpline();
+
+		// 이동력 분기점 계산
+		UpdateSplitPoint();
+
 		const float Meters = Path->GetPathLength() / 100.f;
 
-		// UWidgetComponent가 호스팅하는 위젯을 UMoveIndicatorWidget으로 캐스팅
 		if (UMoveIndicatorWidget* Widget = Cast<UMoveIndicatorWidget>(distanceWidget->GetWidget()))
 		{
 			Widget->UpdateDistance(Meters);
@@ -107,5 +137,34 @@ void ACursorIndicator::UpdatePathDistance()
 	else
 	{
 		cachedPathPoints.Empty();
+		pathSpline->ClearSplinePoints();
+		cachedSplitSegIndex = -1;
 	}
+}
+
+void ACursorIndicator::UpdateSplitPoint()
+{
+	cachedSplitSegIndex = -1;
+
+	if (!IsValid(activeUnit) || cachedPathPoints.Num() < 2) return;
+
+	// 현재 이동력(m)을 cm으로 변환
+	const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
+	float accumulated = 0.f;
+
+	for (int32 i = 0; i + 1 < cachedPathPoints.Num(); ++i)
+	{
+		const float segLen = FVector::Dist(cachedPathPoints[i], cachedPathPoints[i + 1]);
+
+		if (accumulated + segLen >= budgetCm)
+		{
+			// 이 세그먼트 안에서 이동력 소진 → Lerp로 정확한 분기점 보간
+			const float t = (budgetCm - accumulated) / segLen;
+			cachedSplitPoint = FMath::Lerp(cachedPathPoints[i], cachedPathPoints[i + 1], t);
+			cachedSplitSegIndex = i;
+			return;
+		}
+		accumulated += segLen;
+	}
+	// 누적 거리가 예산 미만 → 경로 전체가 이동 가능 (cachedSplitSegIndex = -1 유지)
 }
