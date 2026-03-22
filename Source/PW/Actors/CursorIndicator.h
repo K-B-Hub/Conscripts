@@ -55,6 +55,9 @@ public:
 	// 마지막으로 계산된 NavMesh 경로 경유점 반환 (이동 명령에 재사용)
 	const TArray<FVector>& GetCachedPathPoints() const { return cachedPathPoints; }
 
+	// 이동 명령 직후 호출 — 현재 데칼 위치에 커서를 고정하고 경로 표시를 숨김
+	void LockAtCurrentPosition();
+
 private:
 	// 현재 이동 명령 대상 캐릭터 (GC 방지를 위해 UPROPERTY 필수)
 	UPROPERTY()
@@ -71,6 +74,10 @@ private:
 	// cachedSplitSegIndex == -1 이면 경로 전체가 이동 가능 범위
 	FVector cachedSplitPoint = FVector::ZeroVector;
 	int32 cachedSplitSegIndex = -1;
+
+	// 이동 중 커서 고정 모드
+	bool bIsLocked = false;
+	FVector lockedIndicatorPos = FVector::ZeroVector;
 
 	// NavMesh 경로를 계산하여 거리 위젯 갱신 + 경로 캐싱
 	void UpdatePathDistance();

@@ -47,6 +47,22 @@ void ACursorIndicator::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// ─── 0. 이동 완료 감지 → 잠금 자동 해제 ─────────────────
+	if (bIsLocked)
+	{
+		if (!IsValid(activeUnit) || !activeUnit->IsMoving())
+		{
+			bIsLocked = false;
+		}
+		else
+		{
+			// 이동 중: 데칼·위젯을 고정 위치에 유지하고 나머지 로직 건너뜀
+			moveDecal->SetWorldLocation(lockedIndicatorPos);
+			distanceWidget->SetWorldLocation(lockedIndicatorPos + widgetOffset);
+			return;
+		}
+	}
+
 	// ─── 1. 커서 위치로 액터 이동 ────────────────────────────
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (!PC) return;
@@ -90,11 +106,30 @@ void ACursorIndicator::Tick(float DeltaTime)
 			DrawDebugLine(GetWorld(), A, B, FColor::Red, false, -1.f, 0, 3.f);
 		}
 	}
+
+	// ─── 4. 데칼·위젯 위치: 이동 가능 범위 경계까지만 따라오기 ──
+	// 액터 자체는 커서 위치를 유지 (NavMesh 경로 도착점으로 사용됨)
+	// 컴포넌트만 독립적으로 위치 조정
+	const FVector indicatorPos = (cachedSplitSegIndex == -1)
+		? GetActorLocation()      // 이동 가능 범위 내 → 커서 위치
+		: cachedSplitPoint;       // 이동력 초과 → 분기점에 고정
+
+	moveDecal->SetWorldLocation(indicatorPos);
+	distanceWidget->SetWorldLocation(indicatorPos + widgetOffset);
 }
 
 void ACursorIndicator::SetActiveUnit(ACharacterBase* Unit)
 {
 	activeUnit = Unit;
+}
+
+void ACursorIndicator::LockAtCurrentPosition()
+{
+	// 이동 명령 시점의 데칼 위치(이동 가능 범위 경계)를 고정 위치로 저장
+	lockedIndicatorPos = (cachedSplitSegIndex == -1)
+		? GetActorLocation()
+		: cachedSplitPoint;
+	bIsLocked = true;
 }
 
 void ACursorIndicator::UpdatePathDistance()

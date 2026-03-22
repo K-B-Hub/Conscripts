@@ -196,6 +196,7 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 	const TArray<FVector>& PathPoints = cursorIndicatorInstance->GetCachedPathPoints();
 	if (PathPoints.Num() == 0) return;
 
+	cursorIndicatorInstance->LockAtCurrentPosition();
 	activeUnit->MoveAlongPath(PathPoints);
 	UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 명령: %s (%d개 경유점)"),
 		*PathPoints.Last().ToString(), PathPoints.Num());

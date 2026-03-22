@@ -105,6 +105,7 @@ public:
 
 	int32 GetTurnOrder() const;
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
+	bool IsMoving() const { return bIsMovingToTarget; }
 
 	void InitTurn();
 	void EndTurn();
