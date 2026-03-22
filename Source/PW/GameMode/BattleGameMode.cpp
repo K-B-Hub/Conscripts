@@ -81,7 +81,7 @@ void ABattleGameMode::StartCurrentTurn()
 		if (BattleController)
 		{
 			BattleController->Possess(Ally);
-			BattleController->InitTurn(TurnUnit);
+			BattleController->InitTurn(Ally);
 		}
 	}
 }

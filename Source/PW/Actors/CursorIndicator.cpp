@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Actors/CursorIndicator.h"
-#include "Characters/CharacterBase.h"
+#include "Characters/AllyCharacterBase.h"
 #include "Widget/MoveIndicatorWidget.h"
 #include "Components/DecalComponent.h"
 #include "Components/WidgetComponent.h"
@@ -118,7 +118,7 @@ void ACursorIndicator::Tick(float DeltaTime)
 	distanceWidget->SetWorldLocation(indicatorPos + widgetOffset);
 }
 
-void ACursorIndicator::SetActiveUnit(ACharacterBase* Unit)
+void ACursorIndicator::SetActiveUnit(AAllyCharacterBase* Unit)
 {
 	activeUnit = Unit;
 }
@@ -162,11 +162,15 @@ void ACursorIndicator::UpdatePathDistance()
 		// 이동력 분기점 계산
 		UpdateSplitPoint();
 
-		const float Meters = Path->GetPathLength() / 100.f;
+		// 데칼 위치까지의 거리 표시:
+		// 범위 내 → 실제 경로 거리 / 범위 초과 → 이동력(예산) 그대로
+		const float displayMeters = (cachedSplitSegIndex == -1)
+			? Path->GetPathLength() / 100.f
+			: activeUnit->GetCurrentMovingPoint();
 
 		if (UMoveIndicatorWidget* Widget = Cast<UMoveIndicatorWidget>(distanceWidget->GetWidget()))
 		{
-			Widget->UpdateDistance(Meters);
+			Widget->UpdateDistance(displayMeters);
 		}
 	}
 	else

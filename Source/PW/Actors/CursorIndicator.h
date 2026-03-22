@@ -9,7 +9,7 @@
 class UDecalComponent;
 class UWidgetComponent;
 class UMoveIndicatorWidget;
-class ACharacterBase;
+class AAllyCharacterBase;
 class USplineComponent;
 
 // 마우스 커서를 따라다니며 이동 목표 지점을 시각화하는 액터.
@@ -50,7 +50,7 @@ public:
 	// ─── 인터페이스 ──────────────────────────────────────────
 
 	// 턴이 시작된 캐릭터를 설정. BattleController에서 호출
-	void SetActiveUnit(ACharacterBase* Unit);
+	void SetActiveUnit(AAllyCharacterBase* Unit);
 
 	// 마지막으로 계산된 NavMesh 경로 경유점 반환 (이동 명령에 재사용)
 	const TArray<FVector>& GetCachedPathPoints() const { return cachedPathPoints; }
@@ -61,7 +61,7 @@ public:
 private:
 	// 현재 이동 명령 대상 캐릭터 (GC 방지를 위해 UPROPERTY 필수)
 	UPROPERTY()
-	TObjectPtr<ACharacterBase> activeUnit = nullptr;
+	TObjectPtr<AAllyCharacterBase> activeUnit = nullptr;
 
 	// 경로 거리 계산 쓰로틀링 타이머
 	float pathUpdateTimer = 0.f;

@@ -6,7 +6,7 @@
 #include "InputActionValue.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Characters/CharacterBase.h"
+#include "Characters/AllyCharacterBase.h"
 #include "Actors/CursorIndicator.h"
 #include "Widget/TurnEndWidget.h"
 
@@ -43,7 +43,7 @@ void ABattleController::BeginPlay()
 
 }
 
-void ABattleController::InitTurn(ACharacterBase* TurnUnit)
+void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 {
 	if (!IsValid(TurnUnit)) return;
 
@@ -205,7 +205,7 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 // ─── 이동 취소 (우클릭) ──────────────────────────────────────────────────────
 void ABattleController::OnCancelMove(const FInputActionValue& Value)
 {
-	if (ACharacterBase* Unit = Cast<ACharacterBase>(GetPawn()))
+	if (AAllyCharacterBase* Unit = Cast<AAllyCharacterBase>(GetPawn()))
 	{
 		Unit->StopMovement();
 		UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 취소"));

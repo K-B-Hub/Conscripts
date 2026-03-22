@@ -24,14 +24,14 @@ protected:
 	TObjectPtr<class USpringArmComponent> springArmComponent;
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<class UCameraComponent> cameraComponent;
-	//카메라 암 길이
+	// 카메라 암 길이
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraArmLength = 1400.f;
 	// 카메라 내려다보는 각도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraPitchAngle = -55.f;
-	
-	//캐릭터 스탯
+
+	// 캐릭터 스탯
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	int32 hp = 10;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
@@ -82,44 +82,22 @@ protected:
 	int32 defGrowth = 50;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
 	int32 mentalityGrowth = 5;
-	
-	//레벨 관련
+
+	// 레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	int32 level = 1;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	float exp = 0;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	float maxExp = 100;
-	
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// ─── 이동 인터페이스 ───────────────────────────────────────
-
-	/** CursorIndicator에서 계산된 경유점 배열을 받아 순서대로 이동 */
-	void MoveAlongPath(const TArray<FVector>& Points);
-
-	/** 이동 중단 */
-	void StopMovement();
-
 	int32 GetTurnOrder() const;
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
-	bool IsMoving() const { return bIsMovingToTarget; }
 
 	void InitTurn();
-	void EndTurn();
-	
-private:
-	// NavMesh 경로 경유점 및 현재 인덱스
-	TArray<FVector> pathPoints;
-	int32 pathPointIndex = 0;
-
-	// 정확한 스냅을 위해 최종 목적지 보관
-	FVector moveDestination = FVector::ZeroVector;
-
-	bool bIsMovingToTarget = false;
-
-	// 이전 프레임 위치 (이동 거리 실시간 차감용)
-	FVector lastFrameLocation = FVector::ZeroVector;
+	virtual void EndTurn();
 };

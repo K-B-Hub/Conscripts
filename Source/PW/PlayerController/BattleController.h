@@ -10,7 +10,7 @@ struct FInputActionValue;
 class UInputMappingContext;
 class UInputAction;
 class ACursorIndicator;
-class ACharacterBase;
+class AAllyCharacterBase;
 class UTurnEndWidget;
 
 // 전투 씬 플레이어 컨트롤러
@@ -23,8 +23,8 @@ class PW_API ABattleController : public APlayerController
 public:
 	ABattleController();
 
-	// 턴 시작 시 호출 - 추후 GameMode에서 호출 예정
-	void InitTurn(ACharacterBase* TurnUnit);
+	// 턴 시작 시 호출 - GameMode에서 호출
+	void InitTurn(AAllyCharacterBase* TurnUnit);
 	void EndTurn();
 
 protected:
@@ -132,5 +132,5 @@ private:
 	TObjectPtr<UTurnEndWidget> turnEndWidgetInstance = nullptr;
 
 	UPROPERTY()
-	TObjectPtr<ACharacterBase> activeUnit = nullptr;
+	TObjectPtr<AAllyCharacterBase> activeUnit = nullptr;
 };
