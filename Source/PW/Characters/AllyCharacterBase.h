@@ -27,6 +27,10 @@ public:
 
 	bool IsMoving() const { return bIsMovingToTarget; }
 
+	// 목적지 도착 전 감속을 시작할 거리 (cm)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
+	float moveDecelRadius = 80.f;
+
 private:
 	// NavMesh 경로 경유점 및 현재 인덱스
 	TArray<FVector> pathPoints;

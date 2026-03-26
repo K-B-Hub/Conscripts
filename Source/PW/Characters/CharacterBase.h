@@ -6,6 +6,8 @@
 #include "GameFramework/Character.h"
 #include "CharacterBase.generated.h"
 
+class UStaticMeshComponent;
+
 UCLASS()
 class PW_API ACharacterBase : public ACharacter
 {
@@ -18,6 +20,11 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	// 무기 메시 컴포넌트 (오른손 소켓에 자동 부착)
+	// 에디터 BP의 Class Defaults에서 Static Mesh를 할당해 사용
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr<UStaticMeshComponent> WeaponMeshComp;
 
 	// 카메라 관련 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Camera")

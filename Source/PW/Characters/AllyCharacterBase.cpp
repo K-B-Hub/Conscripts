@@ -42,9 +42,16 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 		}
 	}
 
-	// 다음 경유점 방향으로 입력
+	// 다음 경유점 방향으로 입력 (목적지 근접 시 감속)
 	const FVector MoveDir = FVector(Delta.X, Delta.Y, 0.f).GetSafeNormal();
-	AddMovementInput(MoveDir, 1.0f);
+
+	const float distToDestination = FVector2D(moveDestination.X - CurrentLoc.X,
+	                                           moveDestination.Y - CurrentLoc.Y).Size();
+	const float moveScale = (distToDestination < moveDecelRadius)
+		? FMath::Max(0.15f, distToDestination / moveDecelRadius)
+		: 1.0f;
+
+	AddMovementInput(MoveDir, moveScale);
 }
 
 void AAllyCharacterBase::EndTurn()
