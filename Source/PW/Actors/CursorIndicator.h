@@ -11,6 +11,7 @@ class UWidgetComponent;
 class UMoveIndicatorWidget;
 class AAllyCharacterBase;
 class USplineComponent;
+class USplineMeshComponent;
 
 // 마우스 커서를 따라다니며 이동 목표 지점을 시각화하는 액터.
 // - moveDecal: 바닥에 이동 목표 데칼 표시
@@ -39,6 +40,10 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<USplineComponent> pathSpline;
 
+	// 경로 메쉬 컴포넌트의 부모 — 절대 월드 좌표 고정 (액터 이동 영향 차단)
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<USceneComponent> pathMeshRoot;
+
 	// 경로 거리를 표시하는 위젯 컴포넌트 (Widget Class: WBP_MoveIndicator)
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UWidgetComponent> distanceWidget;
@@ -46,6 +51,32 @@ public:
 	// 거리 위젯의 위치 오프셋 (월드 공간 기준, cm)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual")
 	FVector widgetOffset = FVector(0.f, 0.f, 80.f);
+
+	// ─── 경로 스플라인 메쉬 설정 ────────────────────────────
+
+	// 경로 세그먼트에 사용할 스태틱 메쉬 (BP에서 지정)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
+	TObjectPtr<UStaticMesh> pathSegmentMesh;
+
+	// 이동 가능 구간 머티리얼 (흰색/초록 계열)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
+	TObjectPtr<UMaterialInterface> pathMaterialReachable;
+
+	// 이동 불가 구간 머티리얼 (빨간색 계열)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
+	TObjectPtr<UMaterialInterface> pathMaterialUnreachable;
+
+	// 경로 메쉬 단면 스케일 (X=폭, Y=높이). 길이는 경유점 간 거리가 결정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
+	FVector2D pathMeshScale = FVector2D(1.f, 0.05f);
+
+	// 경로 세분화 간격 (cm). 값이 작을수록 지형 밀착도↑, 라인 트레이스 횟수↑
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
+	float pathSubdivisionLength = 10.f;
+
+	// 지면 스냅 후 메쉬를 띄울 높이 (cm)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
+	float pathGroundOffset = 3.f;
 
 	// ─── 인터페이스 ──────────────────────────────────────────
 
@@ -79,9 +110,19 @@ private:
 	bool bIsLocked = false;
 	FVector lockedIndicatorPos = FVector::ZeroVector;
 
+	// 런타임에 생성되는 경로 세그먼트 메쉬 목록 (GC 방지용 UPROPERTY)
+	UPROPERTY()
+	TArray<TObjectPtr<USplineMeshComponent>> pathMeshes;
+
 	// NavMesh 경로를 계산하여 거리 위젯 갱신 + 경로 캐싱
 	void UpdatePathDistance();
 
 	// 경로 포인트 배열로 분기점을 계산하여 캐싱
 	void UpdateSplitPoint();
+
+	// 캐시된 경로 포인트로 SplineMeshComponent 배열 재구성
+	void RebuildPathMeshes();
+
+	// 월드 좌표를 지면에 스냅 (라인 트레이스)
+	FVector SnapToGround(const FVector& WorldPoint) const;
 };

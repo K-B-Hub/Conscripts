@@ -15,6 +15,7 @@ ABattleController::ABattleController()
 	bShowMouseCursor = true;
 	bEnableClickEvents = true;
 	bEnableMouseOverEvents = true;
+	PrimaryActorTick.bCanEverTick = true;
 }
 
 void ABattleController::BeginPlay()
@@ -126,6 +127,30 @@ void ABattleController::SetupInputComponent()
 	}
 }
 
+// ─── Tick: 감속 및 지면 스냅 ─────────────────────────────────────────────────
+void ABattleController::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// 입력이 없는 프레임: 속도를 0으로 감속하며 남은 관성 적용
+	if (!bCameraInputActive && !cameraVelocity.IsNearlyZero(1.f))
+	{
+		cameraVelocity = FMath::VInterpTo(cameraVelocity, FVector::ZeroVector, DeltaTime, cameraMoveSmoothing);
+
+		APawn* ControlledPawn = GetPawn();
+		if (ControlledPawn)
+		{
+			if (USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>())
+			{
+				SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
+				SnapSpringArmToGround(SpringArm);
+			}
+		}
+	}
+
+	bCameraInputActive = false;
+}
+
 // ─── 카메라 이동 ──────────────────────────────────────────────────────────────
 void ABattleController::OnCameraMove(const FInputActionValue& Value)
 {
@@ -149,8 +174,15 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 	const FVector RightDir   = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
 	const float DeltaTime = GetWorld()->GetDeltaSeconds();
-	const FVector Delta = (ForwardDir * MoveInput.Y + RightDir * MoveInput.X) * cameraMoveSpeed * DeltaTime;
-	SpringArm->AddWorldOffset(Delta);
+
+	// 목표 속도를 향해 부드럽게 가속 (VInterpTo = 지수 감쇠 보간)
+	const FVector TargetVelocity = (ForwardDir * MoveInput.Y + RightDir * MoveInput.X) * cameraMoveSpeed;
+	cameraVelocity = FMath::VInterpTo(cameraVelocity, TargetVelocity, DeltaTime, cameraMoveSmoothing);
+
+	SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
+	SnapSpringArmToGround(SpringArm);
+
+	bCameraInputActive = true;
 }
 
 // ─── 카메라 회전 ──────────────────────────────────────────────────────────────
@@ -222,6 +254,21 @@ void ABattleController::OnCameraReset(const FInputActionValue& Value)
 	if (!SpringArm) return;
 
 	AttachCameraToCharacter(SpringArm, ControlledPawn);
+}
+
+// ─── 헬퍼: 지면 스냅 ─────────────────────────────────────────────────────────
+void ABattleController::SnapSpringArmToGround(USpringArmComponent* SpringArm)
+{
+	const FVector PivotPos = SpringArm->GetComponentLocation();
+	FHitResult GroundHit;
+	if (GetWorld()->LineTraceSingleByChannel(
+		GroundHit,
+		PivotPos + FVector(0.f, 0.f, 500.f),
+		PivotPos - FVector(0.f, 0.f, 500.f),
+		ECC_Visibility))
+	{
+		SpringArm->SetWorldLocation(FVector(PivotPos.X, PivotPos.Y, GroundHit.Location.Z + cameraGroundOffset));
+	}
 }
 
 // ─── 헬퍼: 카메라 분리 ───────────────────────────────────────────────────────
