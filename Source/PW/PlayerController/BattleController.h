@@ -30,6 +30,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
+	virtual void Tick(float DeltaTime) override;
 
 	// ─── 입력 매핑 컨텍스트 ───────────────────────────────────
 
@@ -85,6 +86,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraZoomMax = 2500.f;
 
+	// 지면 스냅 후 스프링암 피벗을 띄울 높이 (cm)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+	float cameraGroundOffset = 10.f;
+
+	// 카메라 이동 보간 속도 (높을수록 반응이 빠름, 낮을수록 부드럽게 가속/감속)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+	float cameraMoveSmoothing = 8.f;
+
 private:
 	// ─── 입력 콜백 ───────────────────────────────────────────
 
@@ -110,6 +119,15 @@ private:
 	// 스프링암 Attach/Detach 헬퍼
 	void AttachCameraToCharacter(class USpringArmComponent* SpringArm, APawn* OwnerPawn);
 	void DetachCameraFromCharacter(class USpringArmComponent* SpringArm);
+
+	// 스프링암 피벗을 지면에 스냅 (경사면 관통 방지)
+	void SnapSpringArmToGround(class USpringArmComponent* SpringArm);
+
+	// 카메라 이동 속도 (월드 공간, 매 프레임 Interp로 갱신)
+	FVector cameraVelocity = FVector::ZeroVector;
+
+	// 이번 프레임에 카메라 이동 입력이 있었는지 여부 (감속 판단용)
+	bool bCameraInputActive = false;
 
 	// ─── 커서 인디케이터 ─────────────────────────────────────
 

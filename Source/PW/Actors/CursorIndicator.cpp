@@ -6,9 +6,9 @@
 #include "Components/DecalComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Components/SplineComponent.h"
+#include "Components/SplineMeshComponent.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
-#include "DrawDebugHelpers.h"
 
 ACursorIndicator::ACursorIndicator()
 {
@@ -18,10 +18,16 @@ ACursorIndicator::ACursorIndicator()
 	USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	SetRootComponent(SceneRoot);
 
-	// 경로 스플라인 (자체 드로우 비활성 — 직접 DrawDebugLine으로 렌더링)
+	// 경로 스플라인 (접선 계산 전용 — SplineMeshComponent가 시각화 담당)
 	pathSpline = CreateDefaultSubobject<USplineComponent>(TEXT("PathSpline"));
 	pathSpline->SetupAttachment(SceneRoot);
 	pathSpline->SetDrawDebug(false);
+
+	// 경로 메쉬 루트: 절대 월드 좌표 고정
+	// 액터가 커서를 따라 이동해도 경로 메쉬 위치가 흔들리지 않도록 부모 트랜스폼 차단
+	pathMeshRoot = CreateDefaultSubobject<USceneComponent>(TEXT("PathMeshRoot"));
+	pathMeshRoot->SetupAttachment(SceneRoot);
+	pathMeshRoot->SetAbsolute(true, true, true);
 
 	// 바닥 데칼
 	moveDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("MoveDecal"));
@@ -81,33 +87,8 @@ void ACursorIndicator::Tick(float DeltaTime)
 		UpdatePathDistance();
 	}
 
-	// ─── 3. 경로 시각화 (흰색: 이동 가능, 빨간색: 이동력 초과) ──
-	const int32 numPoints = cachedPathPoints.Num();
-	for (int32 i = 0; i + 1 < numPoints; ++i)
-	{
-		const FVector A = cachedPathPoints[i]     + FVector(0, 0, 5.f);
-		const FVector B = cachedPathPoints[i + 1] + FVector(0, 0, 5.f);
-
-		if (cachedSplitSegIndex == -1 || i < cachedSplitSegIndex)
-		{
-			// 이동 가능 범위 전체 세그먼트 → 흰색
-			DrawDebugLine(GetWorld(), A, B, FColor::White, false, -1.f, 0, 3.f);
-		}
-		else if (i == cachedSplitSegIndex)
-		{
-			// 분기점을 포함하는 세그먼트 → 앞부분 흰색 / 뒷부분 빨간색
-			const FVector SplitZ = cachedSplitPoint + FVector(0, 0, 5.f);
-			DrawDebugLine(GetWorld(), A,      SplitZ, FColor::White, false, -1.f, 0, 3.f);
-			DrawDebugLine(GetWorld(), SplitZ, B,      FColor::Red,   false, -1.f, 0, 3.f);
-		}
-		else
-		{
-			// 이동력 초과 범위 → 빨간색
-			DrawDebugLine(GetWorld(), A, B, FColor::Red, false, -1.f, 0, 3.f);
-		}
-	}
-
-	// ─── 4. 데칼·위젯 위치: 이동 가능 범위 경계까지만 따라오기 ──
+	// ─── 3. 데칼·위젯 위치: 이동 가능 범위 경계까지만 따라오기 ──
+	// (경로 시각화는 UpdatePathDistance에서 RebuildPathMeshes로 처리)
 	// 액터 자체는 커서 위치를 유지 (NavMesh 경로 도착점으로 사용됨)
 	// 컴포넌트만 독립적으로 위치 조정
 	const FVector indicatorPos = (cachedSplitSegIndex == -1)
@@ -162,6 +143,9 @@ void ACursorIndicator::UpdatePathDistance()
 		// 이동력 분기점 계산
 		UpdateSplitPoint();
 
+		// 경로 스플라인 메쉬 재구성
+		RebuildPathMeshes();
+
 		// 데칼 위치까지의 거리 표시:
 		// 범위 내 → 실제 경로 거리 / 범위 초과 → 이동력(예산) 그대로
 		const float displayMeters = (cachedSplitSegIndex == -1)
@@ -178,7 +162,100 @@ void ACursorIndicator::UpdatePathDistance()
 		cachedPathPoints.Empty();
 		pathSpline->ClearSplinePoints();
 		cachedSplitSegIndex = -1;
+		RebuildPathMeshes(); // 경로 없음 → 메쉬 전부 제거
 	}
+}
+
+void ACursorIndicator::RebuildPathMeshes()
+{
+	// ─── 0. 기존 메쉬 제거 ───────────────────────────────────
+	for (USplineMeshComponent* Mesh : pathMeshes)
+	{
+		if (IsValid(Mesh)) Mesh->DestroyComponent();
+	}
+	pathMeshes.Empty();
+
+	if (!pathSegmentMesh || cachedPathPoints.Num() < 2) return;
+
+	// ─── 1. 일정 간격으로 세분화 + 지면 스냅 ────────────────
+	// NavMesh 경유점 사이를 pathSubdivisionLength(cm) 간격으로 나눠
+	// 각 점을 라인 트레이스로 지면에 밀착시킴
+	TArray<FVector> densePoints;
+	for (int32 i = 0; i + 1 < cachedPathPoints.Num(); ++i)
+	{
+		const FVector& A = cachedPathPoints[i];
+		const FVector& B = cachedPathPoints[i + 1];
+		const int32 numSubs = FMath::Max(1, FMath::CeilToInt(FVector::Dist(A, B) / pathSubdivisionLength));
+		for (int32 j = 0; j < numSubs; ++j)
+		{
+			densePoints.Add(SnapToGround(FMath::Lerp(A, B, (float)j / numSubs)));
+		}
+	}
+	densePoints.Add(SnapToGround(cachedPathPoints.Last()));
+
+	// ─── 2. 세분화된 점 기준으로 이동력 분기점 삽입 ─────────
+	// 누적 거리로 예산 소진 지점을 찾아 densePoints에 삽입
+	int32 visualUnreachableStart = -1;
+	if (IsValid(activeUnit))
+	{
+		const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
+		float accumulated = 0.f;
+		for (int32 i = 0; i + 1 < densePoints.Num(); ++i)
+		{
+			const float segLen = FVector::Dist(densePoints[i], densePoints[i + 1]);
+			if (accumulated + segLen >= budgetCm)
+			{
+				const float t = (budgetCm - accumulated) / segLen;
+				densePoints.Insert(SnapToGround(FMath::Lerp(densePoints[i], densePoints[i + 1], t)), i + 1);
+				visualUnreachableStart = i + 1; // 이 인덱스부터 시작하는 세그먼트 → 빨간색
+				break;
+			}
+			accumulated += segLen;
+		}
+	}
+
+	// ─── 3. Catmull-Rom 접선 계산 람다 ──────────────────────
+	// 이전/다음 점 방향의 평균으로 부드러운 곡선 접선 생성
+	auto GetTangent = [&](int32 idx) -> FVector
+	{
+		const int32 last = densePoints.Num() - 1;
+		if (idx <= 0)    return densePoints[1] - densePoints[0];
+		if (idx >= last) return densePoints[last] - densePoints[last - 1];
+		return (densePoints[idx + 1] - densePoints[idx - 1]) * 0.5f;
+	};
+
+	// ─── 4. 세그먼트마다 SplineMeshComponent 생성 ────────────
+	for (int32 i = 0; i + 1 < densePoints.Num(); ++i)
+	{
+		USplineMeshComponent* SplineMesh = NewObject<USplineMeshComponent>(this);
+		SplineMesh->SetStaticMesh(pathSegmentMesh);
+		SplineMesh->SetMobility(EComponentMobility::Movable);
+		SplineMesh->SetupAttachment(pathMeshRoot); // 절대 좌표 루트 — 월드 좌표 직접 사용
+		SplineMesh->RegisterComponent();
+
+		SplineMesh->SetStartAndEnd(densePoints[i], GetTangent(i), densePoints[i + 1], GetTangent(i + 1), false);
+		SplineMesh->SetStartScale(pathMeshScale, false);
+		SplineMesh->SetEndScale(pathMeshScale, true);
+
+		const bool bUnreachable = (visualUnreachableStart != -1) && (i >= visualUnreachableStart);
+		UMaterialInterface* Mat = bUnreachable ? pathMaterialUnreachable : pathMaterialReachable;
+		if (Mat) SplineMesh->SetMaterial(0, Mat);
+
+		pathMeshes.Add(SplineMesh);
+	}
+}
+
+FVector ACursorIndicator::SnapToGround(const FVector& WorldPoint) const
+{
+	FHitResult Hit;
+	const FVector Start = WorldPoint + FVector(0.f, 0.f, 500.f);
+	const FVector End   = WorldPoint - FVector(0.f, 0.f, 500.f);
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility))
+	{
+		return Hit.Location + FVector(0.f, 0.f, pathGroundOffset);
+	}
+	// 트레이스 실패 시 원래 위치 유지
+	return WorldPoint;
 }
 
 void ACursorIndicator::UpdateSplitPoint()
