@@ -66,3 +66,8 @@ void ACharacterBase::InitTurn()
 void ACharacterBase::EndTurn()
 {
 }
+
+UStaticMeshComponent* ACharacterBase::GetWeaponMeshComponent() const
+{
+	return WeaponMeshComp;
+}

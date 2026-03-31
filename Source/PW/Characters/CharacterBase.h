@@ -107,4 +107,6 @@ public:
 
 	void InitTurn();
 	virtual void EndTurn();
+	
+	UStaticMeshComponent* GetWeaponMeshComponent() const;
 };

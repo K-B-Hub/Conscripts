@@ -8,6 +8,7 @@
 
 class ACharacterBase;
 class UStaticMeshComponent;
+class USkeletalMeshComponent;
 /**
  * 
  */
@@ -34,9 +35,9 @@ protected:
 	float InterpSpeed = 8.0f;
 
 	// ─── Hand IK ─────────────────────────────────────────────────
-	// Anim Graph의 Two Bone IK 노드가 이 트랜스폼을 목표로 왼손을 정렬함 (컴포넌트 공간)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|IK")
-	FTransform LeftHandIKTransform;
+	// TwoBoneIK Effector Location 핀에 직접 연결 (컴포넌트 공간 위치)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Animation|IK")
+	FVector leftHandIKLocation;
 
 	// false일 때 IK 연산 생략 (무기 미장착, 특정 동작 중 등)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation|IK")
@@ -50,6 +51,8 @@ private:
 	// CharacterBase::WeaponMeshComp 캐시
 	// 무기가 교체/제거되면 IsValid()가 false가 되어 자동으로 재탐색됨
 	TWeakObjectPtr<UStaticMeshComponent> CachedWeaponMesh;
+	
+	USkeletalMeshComponent* charMesh = nullptr;
 
 	void UpdateLeftHandIK();
 };
