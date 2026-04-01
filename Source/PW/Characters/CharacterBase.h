@@ -7,6 +7,7 @@
 #include "CharacterBase.generated.h"
 
 class UStaticMeshComponent;
+class UWidgetComponent;
 
 UCLASS()
 class PW_API ACharacterBase : public ACharacter
@@ -20,6 +21,11 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	// 체력 위젯 컴포넌트 (캐릭터 머리 위에 표시)
+	// 에디터 BP의 Class Defaults에서 Widget Class를 할당해 사용
+	UPROPERTY(VisibleAnywhere, Category = "UI")
+	TObjectPtr<UWidgetComponent> healthWidgetComponent;
 
 	// 무기 메시 컴포넌트 (오른손 소켓에 자동 부착)
 	// 에디터 BP의 Class Defaults에서 Static Mesh를 할당해 사용
@@ -39,6 +45,8 @@ protected:
 	float cameraPitchAngle = -55.f;
 
 	// 캐릭터 스탯
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 maxHp = 10;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	int32 hp = 10;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
@@ -104,9 +112,19 @@ public:
 
 	int32 GetTurnOrder() const;
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
+	int32 GetHp() const { return hp; }
+	int32 GetMaxHp() const { return maxHp; }
+	int32 GetCurrentActionPoint() const { return currentActionPoint; }
+	int32 GetBattleResource() const { return battleResource; }
 
 	void InitTurn();
 	virtual void EndTurn();
-	
+
+	// 데미지 수신 — hp를 감소시키고 HealthWidget 갱신 (양수: 데미지, 음수: 회복)
+	void ReceiveDamage(int32 Amount);
+
+	// 캡슐의 NavMesh 등록 여부 토글 후 NavOctree 즉시 갱신
+	void SetNavObstacleEnabled(bool bEnabled);
+
 	UStaticMeshComponent* GetWeaponMeshComponent() const;
 };

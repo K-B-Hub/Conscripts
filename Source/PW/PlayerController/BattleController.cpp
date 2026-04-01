@@ -58,6 +58,7 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 		return;
 	}
 	activeUnit->InitTurn();
+	activeUnit->SetNavObstacleEnabled(false); // 본인 경로 계산 시 자신이 장애물이 되지 않도록
 	OnCameraReset(FInputActionValue()); // 카메라 초기화 및 추적 모드 활성화
 
 	// 이동 완료 델리게이트 바인딩 (EndTurn에서 해제)
@@ -80,6 +81,7 @@ void ABattleController::EndTurn()
 	{
 		// 델리게이트 해제 후 이동 종료 (해제 먼저 해야 OnUnitMovementCompleted 오발 방지)
 		activeUnit->OnMovementCompleted.RemoveAll(this);
+		activeUnit->SetNavObstacleEnabled(true); // 턴 종료 후 다시 장애물로 등록
 		ExitMoveMode();
 		activeUnit->EndTurn();
 	}

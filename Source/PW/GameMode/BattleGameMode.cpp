@@ -16,6 +16,14 @@ void ABattleGameMode::BeginPlay()
 	Super::BeginPlay();
 
 	BuildTurnOrder();
+	
+	for (ACharacterBase* Character : turnOrder)
+	{
+		if (IsValid(Character))
+		{
+			Character->SetNavObstacleEnabled(true);
+		}
+	}
 
 	if (turnOrder.Num() > 0)
 	{
