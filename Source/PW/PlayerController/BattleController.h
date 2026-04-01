@@ -27,6 +27,9 @@ public:
 	void InitTurn(AAllyCharacterBase* TurnUnit);
 	void EndTurn();
 
+	// MoveWidget 버튼에서 호출 - 이동 모드 토글
+	void ToggleMoveMode();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
@@ -109,19 +112,27 @@ private:
 	// 현재 카메라가 바라보는 Yaw 각도 (회전 누적용)
 	float currentCameraYaw = 0.f;
 
-	// true: 스프링암이 캐릭터 루트에 attached → 캐릭터 이동을 따라감
-	// false: 스프링암이 world에 독립 → 카메라 위치 고정
-	bool bIsAttached = true;
+	// true: Tick에서 스프링암 위치를 캐릭터 위치로 고정
+	// false: 자유 이동 모드
+	class USpringArmComponent* cachedSpringArm = nullptr;
+	bool bIsFollowingCharacter = true;
 
 	// Detach 후에도 Pitch를 복원하기 위해 초기값 캐싱
 	float cachedSpringArmPitch = -55.f;
 
-	// 스프링암 Attach/Detach 헬퍼
-	void AttachCameraToCharacter(class USpringArmComponent* SpringArm, APawn* OwnerPawn);
-	void DetachCameraFromCharacter(class USpringArmComponent* SpringArm);
-
 	// 스프링암 피벗을 지면에 스냅 (경사면 관통 방지)
-	void SnapSpringArmToGround(class USpringArmComponent* SpringArm);
+	void SnapSpringArmToGround(USpringArmComponent* SpringArm);
+
+	// ─── 이동 모드 ────────────────────────────────────────────
+	void EnterMoveMode();
+	void ExitMoveMode();
+	void ResetCursorIndicator(); // 이동 완료 후 커서 인디케이터 리셋
+
+	// activeUnit->OnMovementCompleted 수신 핸들러
+	void OnUnitMovementCompleted();
+
+	// true: 이동 모드 활성 (커서 인디케이터 표시, 이동/취소 입력 유효)
+	bool bIsMoveMode = false;
 
 	// 카메라 이동 속도 (월드 공간, 매 프레임 Interp로 갱신)
 	FVector cameraVelocity = FVector::ZeroVector;

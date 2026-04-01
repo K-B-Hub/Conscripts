@@ -49,17 +49,20 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 	if (!IsValid(TurnUnit)) return;
 
 	activeUnit = TurnUnit;
-	activeUnit->InitTurn();
-	
-	// 커서 인디케이터 스폰
-	if (cursorIndicatorClass)
+	cachedSpringArm = activeUnit
+		? activeUnit->FindComponentByClass<USpringArmComponent>()
+		: nullptr;
+	if (cachedSpringArm == nullptr)
 	{
-		cursorIndicatorInstance = GetWorld()->SpawnActor<ACursorIndicator>(cursorIndicatorClass);
-		if (cursorIndicatorInstance)
-		{
-			cursorIndicatorInstance->SetActiveUnit(TurnUnit);
-		}
+		UE_LOG(LogTemp, Warning, TEXT("[BattleController] InitTurn: 유효한 SpringArmComponent를 찾을 수 없습니다."));
+		return;
 	}
+	activeUnit->InitTurn();
+	activeUnit->SetNavObstacleEnabled(false); // 본인 경로 계산 시 자신이 장애물이 되지 않도록
+	OnCameraReset(FInputActionValue()); // 카메라 초기화 및 추적 모드 활성화
+
+	// 이동 완료 델리게이트 바인딩 (EndTurn에서 해제)
+	activeUnit->OnMovementCompleted.AddUObject(this, &ABattleController::OnUnitMovementCompleted);
 
 	// 턴 종료 위젯 생성 및 뷰포트 추가
 	if (turnEndWidgetClass)
@@ -74,22 +77,18 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 
 void ABattleController::EndTurn()
 {
-	// CharacterBase의 Tick 이동 상태(bIsMovingToTarget)까지 초기화
 	if (IsValid(activeUnit))
 	{
+		// 델리게이트 해제 후 이동 종료 (해제 먼저 해야 OnUnitMovementCompleted 오발 방지)
+		activeUnit->OnMovementCompleted.RemoveAll(this);
+		activeUnit->SetNavObstacleEnabled(true); // 턴 종료 후 다시 장애물로 등록
+		ExitMoveMode();
 		activeUnit->EndTurn();
 	}
-	// 기존 턴 종료 위젯 제거
 	if (IsValid(turnEndWidgetInstance))
 	{
 		turnEndWidgetInstance->RemoveFromParent();
 		turnEndWidgetInstance = nullptr;
-	}
-	// 기존 인디케이터 정리
-	if (IsValid(cursorIndicatorInstance))
-	{
-		cursorIndicatorInstance->Destroy();
-		cursorIndicatorInstance = nullptr;
 	}
 	activeUnit = nullptr;
 }
@@ -127,24 +126,25 @@ void ABattleController::SetupInputComponent()
 	}
 }
 
-// ─── Tick: 감속 및 지면 스냅 ─────────────────────────────────────────────────
+// ─── Tick: 캐릭터 추적 / 감속 / 지면 스냅 ───────────────────────────────────
 void ABattleController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// 입력이 없는 프레임: 속도를 0으로 감속하며 남은 관성 적용
-	if (!bCameraInputActive && !cameraVelocity.IsNearlyZero(1.f))
+	if (cachedSpringArm)
 	{
-		cameraVelocity = FMath::VInterpTo(cameraVelocity, FVector::ZeroVector, DeltaTime, cameraMoveSmoothing);
-
-		APawn* ControlledPawn = GetPawn();
-		if (ControlledPawn)
+		// 카메라 추적 모드: 스프링암 위치를 캐릭터 위치로 고정
+		if (bIsFollowingCharacter && activeUnit)
 		{
-			if (USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>())
-			{
-				SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
-				SnapSpringArmToGround(SpringArm);
-			}
+			cachedSpringArm->SetWorldLocation(activeUnit->GetActorLocation());
+			SnapSpringArmToGround(cachedSpringArm);
+		}
+		// 자유 이동 모드: 입력이 없으면 관성으로 감속
+		else if (!bCameraInputActive && !cameraVelocity.IsNearlyZero(1.f))
+		{
+			cameraVelocity = FMath::VInterpTo(cameraVelocity, FVector::ZeroVector, DeltaTime, cameraMoveSmoothing);
+			cachedSpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
+			SnapSpringArmToGround(cachedSpringArm);
 		}
 	}
 
@@ -163,11 +163,8 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 	const FVector2D MoveInput = Value.Get<FVector2D>();
 	if (MoveInput.IsNearlyZero()) return;
 
-	// 카메라를 처음 움직일 때 캐릭터로부터 분리
-	if (bIsAttached)
-	{
-		DetachCameraFromCharacter(SpringArm);
-	}
+	// 카메라를 움직이면 추적 모드 해제
+	bIsFollowingCharacter = false;
 
 	const FRotator YawRotation(0.f, currentCameraYaw, 0.f);
 	const FVector ForwardDir = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
@@ -223,7 +220,7 @@ void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 // ─── 이동 명령 (좌클릭) ──────────────────────────────────────────────────────
 void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 {
-	if (!activeUnit || !IsValid(cursorIndicatorInstance)) return;
+	if (!bIsMoveMode || !activeUnit || !IsValid(cursorIndicatorInstance)) return;
 
 	const TArray<FVector>& PathPoints = cursorIndicatorInstance->GetCachedPathPoints();
 	if (PathPoints.Num() == 0) return;
@@ -237,23 +234,78 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 // ─── 이동 취소 (우클릭) ──────────────────────────────────────────────────────
 void ABattleController::OnCancelMove(const FInputActionValue& Value)
 {
-	if (AAllyCharacterBase* Unit = Cast<AAllyCharacterBase>(GetPawn()))
-	{
-		Unit->StopMovement();
-		UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 취소"));
-	}
+	if (!bIsMoveMode || !activeUnit) return;
+
+	activeUnit->StopMovement();
+	UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 취소"));
 }
 
 // ─── 카메라 초기화 ───────────────────────────────────────────────────────────
 void ABattleController::OnCameraReset(const FInputActionValue& Value)
 {
-	APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn) return;
+	if (!cachedSpringArm || !activeUnit) return;
 
-	USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
-	if (!SpringArm) return;
+	// 스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화
+	cachedSpringArm->SetWorldLocation(activeUnit->GetActorLocation());
+	SnapSpringArmToGround(cachedSpringArm);
+	cameraVelocity = FVector::ZeroVector;
+	bIsFollowingCharacter = true;
+}
 
-	AttachCameraToCharacter(SpringArm, ControlledPawn);
+// ─── 이동 모드 ───────────────────────────────────────────────────────────────
+void ABattleController::ToggleMoveMode()
+{
+	if (bIsMoveMode) ExitMoveMode();
+	else             EnterMoveMode();
+}
+
+void ABattleController::EnterMoveMode()
+{
+	if (bIsMoveMode || !activeUnit || !cursorIndicatorClass) return;
+
+	cursorIndicatorInstance = GetWorld()->SpawnActor<ACursorIndicator>(cursorIndicatorClass);
+	if (cursorIndicatorInstance)
+	{
+		cursorIndicatorInstance->SetActiveUnit(activeUnit);
+	}
+	bIsMoveMode = true;
+}
+
+void ABattleController::ExitMoveMode()
+{
+	if (!bIsMoveMode) return;
+
+	if (IsValid(cursorIndicatorInstance))
+	{
+		cursorIndicatorInstance->Destroy();
+		cursorIndicatorInstance = nullptr;
+	}
+	bIsMoveMode = false;
+}
+
+void ABattleController::ResetCursorIndicator()
+{
+	// 잠금 해제만으로 마우스 추적 재개 — 스폰/파괴 불필요
+	if (IsValid(cursorIndicatorInstance))
+	{
+		cursorIndicatorInstance->Unlock();
+	}
+}
+
+void ABattleController::OnUnitMovementCompleted()
+{
+	if (!bIsMoveMode || !activeUnit) return;
+
+	if (activeUnit->GetCurrentMovingPoint() <= 0.f)
+	{
+		// 이동력 소진 → 이동 모드 자동 종료
+		ExitMoveMode();
+	}
+	else
+	{
+		// 이동력 잔여 → 커서 인디케이터 리셋해 다음 이동 준비
+		ResetCursorIndicator();
+	}
 }
 
 // ─── 헬퍼: 지면 스냅 ─────────────────────────────────────────────────────────
@@ -271,23 +323,3 @@ void ABattleController::SnapSpringArmToGround(USpringArmComponent* SpringArm)
 	}
 }
 
-// ─── 헬퍼: 카메라 분리 ───────────────────────────────────────────────────────
-void ABattleController::DetachCameraFromCharacter(USpringArmComponent* SpringArm)
-{
-	// 현재 world transform을 유지한 채 분리 → 카메라 위치 고정
-	SpringArm->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-	bIsAttached = false;
-}
-
-// ─── 헬퍼: 카메라 재부착 ─────────────────────────────────────────────────────
-void ABattleController::AttachCameraToCharacter(USpringArmComponent* SpringArm, APawn* OwnerPawn)
-{
-	// 캐릭터 루트에 스냅 후 Pitch/Yaw 복원
-	SpringArm->AttachToComponent(
-		OwnerPawn->GetRootComponent(),
-		FAttachmentTransformRules::SnapToTargetNotIncludingScale
-	);
-	// SnapToTarget은 relative rotation을 초기화하므로 Pitch와 Yaw를 다시 설정
-	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
-	bIsAttached = true;
-}

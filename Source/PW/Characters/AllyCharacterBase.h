@@ -27,6 +27,10 @@ public:
 
 	bool IsMoving() const { return bIsMovingToTarget; }
 
+	// 이동 자연 종료 시 브로드캐스트 (마지막 경유점 도달 or 이동력 소진)
+	// 취소(StopMovement) 또는 턴 종료(EndTurn)에서는 발생하지 않음
+	FSimpleMulticastDelegate OnMovementCompleted;
+
 	// 목적지 도착 전 감속을 시작할 거리 (cm)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
 	float moveDecelRadius = 80.f;

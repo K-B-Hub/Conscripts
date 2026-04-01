@@ -13,7 +13,7 @@ void UTurnEndWidget::NativeConstruct()
 
 	cachedGameMode = Cast<ABattleGameMode>(GetWorld()->GetAuthGameMode());
 	cachedController = Cast<ABattleController>(GetWorld()->GetFirstPlayerController());
-	
+	SetIsFocusable(false);
 	if (turnEndButton)
 	{
 		turnEndButton->OnClicked.AddDynamic(this, &UTurnEndWidget::OnTurnEndClicked);

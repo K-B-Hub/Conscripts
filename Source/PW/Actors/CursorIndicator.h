@@ -89,6 +89,9 @@ public:
 	// 이동 명령 직후 호출 — 현재 데칼 위치에 커서를 고정하고 경로 표시를 숨김
 	void LockAtCurrentPosition();
 
+	// 이동 완료 후 호출 — 잠금 해제하여 마우스 추적 재개
+	void Unlock();
+
 private:
 	// 현재 이동 명령 대상 캐릭터 (GC 방지를 위해 UPROPERTY 필수)
 	UPROPERTY()
