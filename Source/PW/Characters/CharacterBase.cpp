@@ -12,15 +12,10 @@ ACharacterBase::ACharacterBase()
 	PrimaryActorTick.bCanEverTick = true;
 
 	springArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	springArmComponent->SetupAttachment(RootComponent);
+	// 캐릭터 루트에 부착하지 않음 - BattleController Tick에서 월드 위치를 직접 제어
 	springArmComponent->TargetArmLength = cameraArmLength;
-
 	springArmComponent->SetRelativeRotation(FRotator(cameraPitchAngle, 0.f, 0.f));
-
 	springArmComponent->bUsePawnControlRotation = false;
-	springArmComponent->bInheritPitch = false;
-	springArmComponent->bInheritYaw = false;
-	springArmComponent->bInheritRoll = false;
 
 	cameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	cameraComponent->SetupAttachment(springArmComponent, USpringArmComponent::SocketName);

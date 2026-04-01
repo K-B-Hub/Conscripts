@@ -113,6 +113,11 @@ void ACursorIndicator::LockAtCurrentPosition()
 	bIsLocked = true;
 }
 
+void ACursorIndicator::Unlock()
+{
+	bIsLocked = false;
+}
+
 void ACursorIndicator::UpdatePathDistance()
 {
 	if (!IsValid(activeUnit)) return;

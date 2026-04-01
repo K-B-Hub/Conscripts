@@ -16,10 +16,11 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 	currentMovingPoint = FMath::Max(0.f, currentMovingPoint - MovedCm / 100.f);
 	lastFrameLocation = CurrentLoc;
 
-	// 이동력 소진 시 즉시 정지
+	// 이동력 소진 시 즉시 정지 후 자연 종료 알림
 	if (currentMovingPoint <= 0.f)
 	{
 		StopMovement();
+		OnMovementCompleted.Broadcast();
 		return;
 	}
 
@@ -32,12 +33,13 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 	{
 		pathPointIndex++;
 
-		// 마지막 경유점 도달 → 정확한 위치에 스냅 후 이동 종료
+		// 마지막 경유점 도달 → 정확한 위치에 스냅 후 이동 종료, 자연 종료 알림
 		if (pathPointIndex >= pathPoints.Num())
 		{
 			SetActorLocation(FVector(moveDestination.X, moveDestination.Y, CurrentLoc.Z));
 			GetCharacterMovement()->StopMovementImmediately();
 			bIsMovingToTarget = false;
+			OnMovementCompleted.Broadcast();
 			return;
 		}
 	}
