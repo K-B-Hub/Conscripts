@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -11,7 +11,11 @@ class UInputMappingContext;
 class UInputAction;
 class ACursorIndicator;
 class AAllyCharacterBase;
+class ACharacterBase;
 class UTurnEndWidget;
+class USkillWidget;
+class UActiveSkillBase;
+enum class EPickTeam : uint8;
 
 // 전투 씬 플레이어 컨트롤러
 // EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
@@ -29,6 +33,10 @@ public:
 
 	// MoveWidget 버튼에서 호출 - 이동 모드 토글
 	void ToggleMoveMode();
+
+	// SkillButton에서 호출 — 스킬 모드 진입/해제
+	void ActivateSkill(UActiveSkillBase* Skill);
+	void DeactivateSkill();
 
 protected:
 	virtual void BeginPlay() override;
@@ -159,6 +167,20 @@ private:
 	// 생성된 위젯 인스턴스
 	UPROPERTY()
 	TObjectPtr<UTurnEndWidget> turnEndWidgetInstance = nullptr;
+
+	// ─── 스킬 위젯 ──────────────────────────────────────────
+
+	// 스킬 위젯 클래스 (BP에서 WBP_SkillWidget 지정)
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<USkillWidget> skillWidgetClass;
+
+	// 생성된 스킬 위젯 인스턴스
+	UPROPERTY()
+	TObjectPtr<USkillWidget> skillWidgetInstance = nullptr;
+
+	// 스킬 실행 — 타겟 검증 후 ReflectDamage + Execute
+	void ExecuteSkill();
+	bool IsValidSkillTarget(ACharacterBase* Target, EPickTeam PickTeam) const;
 
 	UPROPERTY()
 	TObjectPtr<AAllyCharacterBase> activeUnit = nullptr;

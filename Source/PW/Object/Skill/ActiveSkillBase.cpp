@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Characters/CharacterBase.h"
@@ -17,7 +17,42 @@ bool UActiveSkillBase::CanExecute() const
 	return true;
 }
 
+void UActiveSkillBase::SetCalcedStats()
+{
+	ACharacterBase* ownerPtr = GetOwner();
+	if (!ownerPtr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ActiveSkillBase] SetCalcedStats: 스킬 소유자 없음"));
+		return;
+	}
+	
+	// (캐릭터 atk + 스킬 고정 피해) * 스킬 계수
+	calcDamage = ownerPtr->GetAtk() * damageRatio + baseDamage;
+	// 캐릭터 명중 + 스킬 보너스 명중
+	calcAccuracy = ownerPtr->GetAccuracy() + bonusAccuracy;
+	// 캐릭터 치명타 + 스킬 보너스 치명타
+	if (damageType == EDamageType::Area)
+	{
+		calcCritical = 0;
+	}
+	else
+	{
+		calcCritical = ownerPtr->GetCritical() + bonusCritical;
+	}
+	// 캐릭터 피해 증폭 + 스킬 보너스 피해 증폭
+	calcDamageAmplfication = ownerPtr->GetDamageAmplification() + bonusDamageAmplication;
+	// 캐릭터 관통력 + 스킬 보너스 관통력
+	calcPenetration = ownerPtr->GetPenetration() + bonusPenetration;
+}
+
 void UActiveSkillBase::Execute(const TArray<ACharacterBase*>& targets)
 {
-	// 파생 클래스에서 구현
+	Super::Execute(targets);
+	
+	ACharacterBase* ownerPtr = GetOwner();
+	if (!ownerPtr)
+	{
+		ownerPtr->ReduceActionPoint(actionPointCost);
+		ownerPtr->ReduceBattleResource(battleResourceCost);
+	}
 }
