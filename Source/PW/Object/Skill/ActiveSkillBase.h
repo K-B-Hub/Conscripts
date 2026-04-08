@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -100,7 +100,14 @@ public:
 
 	// 스킬 사용 가능 여부 검사 (AP, 전투 자원)
 	bool CanExecute() const;
-
-	// 스킬 실행 — 파생 클래스에서 스킬 고유 로직 구현
-	virtual void Execute(const TArray<ACharacterBase*>& targets);
+	
+	void SetCalcedStats();
+	
+	float calcDamage;
+	float calcAccuracy;
+	float calcCritical;
+	int32 calcDamageAmplfication;
+	int32 calcPenetration;
+	
+	void Execute(const TArray<ACharacterBase*>& targets) override;
 };

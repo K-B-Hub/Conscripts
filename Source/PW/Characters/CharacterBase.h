@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 
 class UStaticMeshComponent;
 class UWidgetComponent;
+class USkillComponent;
 
 UCLASS()
 class PW_API ACharacterBase : public ACharacter
@@ -27,10 +28,19 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "UI")
 	TObjectPtr<UWidgetComponent> healthWidgetComponent;
 
+	// 스킬 전투 예측 위젯 컴포넌트 (체력 위젯 위에 표시)
+	// AttackRangeIndicator 오버랩 시 활성화
+	UPROPERTY(VisibleAnywhere, Category = "UI")
+	TObjectPtr<UWidgetComponent> skillInfoWidgetComponent;
+
 	// 무기 메시 컴포넌트 (오른손 소켓에 자동 부착)
 	// 에디터 BP의 Class Defaults에서 Static Mesh를 할당해 사용
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UStaticMeshComponent> WeaponMeshComp;
+
+	// 스킬 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Skill")
+	TObjectPtr<USkillComponent> skillComponent;
 
 	// 카메라 관련 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -74,7 +84,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	int32 damageReduction = 0;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
-	int32 damageAmplication = 0;
+	int32 damageAmplification = 0;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	int32 penetration = 0;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
@@ -97,6 +107,14 @@ protected:
 	int32 defGrowth = 50;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
 	int32 mentalityGrowth = 5;
+	
+	//AttackRangeIndicator와 오버렙 시 미리 계산해 값을 저장
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
+	float pendingDMG;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
+	float pendingAccuracy;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
+	float pendingCritical;
 
 	// 레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
@@ -106,6 +124,8 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	float maxExp = 100;
 
+	virtual void SetDefaultSkills();
+	void SetDefaultStats();
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -115,7 +135,17 @@ public:
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
 	int32 GetCurrentActionPoint() const { return currentActionPoint; }
+	void ReduceActionPoint(int32 amount);
 	int32 GetBattleResource() const { return battleResource; }
+	void ReduceBattleResource(int32 amount);
+	int32 GetAtk() const { return atk; }
+	float GetAccuracy() const { return accuracy; }
+	float GetCritical() const { return critical; }
+	int32 GetDamageAmplification() const { return damageAmplification; }
+	int32 GetPenetration() const { return penetration; }
+	
+	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration);
+	void ReflectDamage();
 
 	void InitTurn();
 	virtual void EndTurn();
@@ -126,5 +156,11 @@ public:
 	// 캡슐의 NavMesh 등록 여부 토글 후 NavOctree 즉시 갱신
 	void SetNavObstacleEnabled(bool bEnabled);
 
+	// 스킬 전투 예측 위젯 표시/숨김
+	void ShowSkillInfo();
+	void HideSkillInfo();
+	void ClearPendingDamage();
+
 	UStaticMeshComponent* GetWeaponMeshComponent() const;
+	USkillComponent* GetSkillComponent() const { return skillComponent; }
 };

@@ -11,7 +11,7 @@ enum class ESelectMode : uint8		//스킬 사용시 선택 방식
 };
 
 UENUM(BlueprintType)
-enum class EPickTeam : uint8		//선택 대상, SelectMode의 2,3일때만 진입해 확인
+enum class EPickTeam : uint8		//선택 대상, SelectMode의 2일때만 진입해 확인
 {
 	EnemyOnly   UMETA(DisplayName = "Enemy Only"),	//적만 선택 가능
 	AllyOnly    UMETA(DisplayName = "Ally Only"),	//아군만 선택 가능
