@@ -7,6 +7,8 @@
 #include "Enum/SkillTypes.h"
 #include "ActiveSkillBase.generated.h"
 
+class UAnimMontage;
+
 // 모든 액티브 스킬의 기반 클래스
 // 타겟팅 플래그, 범위, 전투 스탯 수정치를 보유하며 Execute()를 통해 실행
 UCLASS(Abstract, BlueprintType)
@@ -95,6 +97,16 @@ public:
 	// 추가 피해 증폭
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Combat")
 	int32 bonusDamageAmplication = 0;
+
+	// ─── 애니메이션 ──────────────────────────────────────────
+
+	// 스킬 사용 시 재생할 애님 몽타주 (없으면 재생 생략)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
+	TObjectPtr<UAnimMontage> skillMontage;
+
+	// 몽타주 재생 속도 (1.0 = 원본 속도, 낮을수록 느림)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
+	float montagePlayRate = 1.0f;
 
 	// ─── 인터페이스 ──────────────────────────────────────────
 

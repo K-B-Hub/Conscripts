@@ -11,6 +11,7 @@ void USkillWidget::InitSkills(USkillComponent* SkillComp)
 	if (!SkillComp || !SkillButtonContainer || !skillButtonClass) return;
 
 	SkillButtonContainer->ClearChildren();
+	skillButtons.Empty();
 
 	TArray<UActiveSkillBase*> ActiveSkills = SkillComp->GetActiveSkills();
 	for (UActiveSkillBase* Skill : ActiveSkills)
@@ -20,6 +21,18 @@ void USkillWidget::InitSkills(USkillComponent* SkillComp)
 		{
 			Button->InitSkill(Skill);
 			SkillButtonContainer->AddChildToVerticalBox(Button);
+			skillButtons.Add(Button);
+		}
+	}
+}
+
+void USkillWidget::RefreshButtons()
+{
+	for (USkillButton* Button : skillButtons)
+	{
+		if (IsValid(Button))
+		{
+			Button->RefreshButtonState();
 		}
 	}
 }

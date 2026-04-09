@@ -18,7 +18,6 @@ ACharacterBase::ACharacterBase()
 	PrimaryActorTick.bCanEverTick = true;
 
 	springArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	// 캐릭터 루트에 부착하지 않음 - BattleController Tick에서 월드 위치를 직접 제어
 	springArmComponent->TargetArmLength = cameraArmLength;
 	springArmComponent->SetRelativeRotation(FRotator(cameraPitchAngle, 0.f, 0.f));
 	springArmComponent->bUsePawnControlRotation = false;
@@ -27,14 +26,12 @@ ACharacterBase::ACharacterBase()
 	cameraComponent->SetupAttachment(springArmComponent, USpringArmComponent::SocketName);
 	cameraComponent->bUsePawnControlRotation = false;
 
-	// 체력 위젯 컴포넌트 — 화면 공간(Screen)으로 설정해 항상 카메라를 향하도록
 	healthWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("HealthWidget"));
 	healthWidgetComponent->SetupAttachment(RootComponent);
 	healthWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 120.f)); // 캡슐 상단 위
 	healthWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
 	healthWidgetComponent->SetDrawSize(FVector2D(150.f, 20.f));
 
-	// 스킬 전투 예측 위젯 — 체력 위젯 위에 표시, 기본 비활성
 	skillInfoWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("SkillInfoWidget"));
 	skillInfoWidgetComponent->SetupAttachment(RootComponent);
 	skillInfoWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 150.f));
@@ -42,13 +39,10 @@ ACharacterBase::ACharacterBase()
 	skillInfoWidgetComponent->SetDrawSize(FVector2D(200.f, 60.f));
 	skillInfoWidgetComponent->SetVisibility(false);
 
-	// 무기 메시를 오른손 소켓에 부착
-	// ⚠️ 소켓 이름을 스켈레톤 에디터에서 만든 이름과 동일하게 맞춰야 함
 	WeaponMeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMeshComp->SetupAttachment(GetMesh(), FName("WeaponSocket_R"));
 	WeaponMeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	
-	// 스킬 컴포넌트
 	skillComponent = CreateDefaultSubobject<USkillComponent>(TEXT("SkillComponent"));
 	if (skillComponent)
 	{
@@ -57,12 +51,10 @@ ACharacterBase::ACharacterBase()
 
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
 
-	// 캡슐/메시가 스프링암 카메라 충돌 프로브에 걸리지 않도록 Camera 채널 무시
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 
-	// 이동 방향으로 캐릭터가 자동 회전하도록 설정
-	bUseControllerRotationYaw = false; // 컨트롤러 회전 비활성화 (OrientToMovement와 충돌)
+	bUseControllerRotationYaw = false; 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 540.f, 0.f);
 }
@@ -72,14 +64,10 @@ void ACharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// NavOctree 초기 등록은 BattleGameMode::BeginPlay에서 일괄 처리
-
-	// HealthWidget 초기화 — Widget Class는 BP에서 할당
 	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
 		HealthWidget->InitHealth(maxHp, hp);
 	}
-	// 스킬 등록 후 스탯 계산 — BeginPlay에서 호출해야 파생 클래스 override가 실행됨
 	SetDefaultStats();
 	SetDefaultSkills();
 }
@@ -143,15 +131,12 @@ void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critica
 
 void ACharacterBase::ReflectDamage()
 {
-	// 명중 판정
 	float hitRoll = FMath::FRandRange(0.f, 100.f);
 	if (hitRoll > pendingAccuracy)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 공격 회피"), *GetName());
 		return;
 	}
-
-	// 크리티컬 판정 (크리티컬 시 2배 데미지)
 	float critRoll = FMath::FRandRange(0.f, 100.f);
 	int32 finalDamage = (critRoll <= pendingCritical)
 		? FMath::RoundToInt(pendingDMG * 2.f)
@@ -160,14 +145,14 @@ void ACharacterBase::ReflectDamage()
 	ReceiveDamage(finalDamage);
 }
 
-// 추후 상태이상 컴포넌트에서 턴 시작시 영향주는 상태이상 적용 및 턴수 감소 필요
+//추후 상태이상 컴포넌트에서 턴 시작시 영향주는 상태이상 적용 및 턴수 감소 필요
 void ACharacterBase::InitTurn()
 {
 	currentActionPoint = actionPoint;
 	currentMovingPoint = movingPoint;
 }
 
-// 추후 상태이상, 버프, 디버프 적용 및 턴수 감소 필요
+//추후 상태이상, 버프, 디버프 적용 및 턴수 감소 필요
 void ACharacterBase::EndTurn()
 {
 }

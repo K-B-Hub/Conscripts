@@ -2,6 +2,7 @@
 
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Characters/CharacterBase.h"
+#include "Animation/AnimMontage.h"
 
 bool UActiveSkillBase::CanExecute() const
 {
@@ -48,11 +49,22 @@ void UActiveSkillBase::SetCalcedStats()
 void UActiveSkillBase::Execute(const TArray<ACharacterBase*>& targets)
 {
 	Super::Execute(targets);
-	
+
 	ACharacterBase* ownerPtr = GetOwner();
-	if (!ownerPtr)
+	if (!ownerPtr) return;
+
+	ownerPtr->ReduceActionPoint(actionPointCost);
+	ownerPtr->ReduceBattleResource(battleResourceCost);
+
+	// 스킬 몽타주 재생
+	if (skillMontage)
 	{
-		ownerPtr->ReduceActionPoint(actionPointCost);
-		ownerPtr->ReduceBattleResource(battleResourceCost);
+		const float Duration = ownerPtr->PlayAnimMontage(skillMontage, montagePlayRate);
+		UE_LOG(LogTemp, Log, TEXT("[ActiveSkillBase] 몽타주 재생: %s (Duration: %.2f) — 0이면 ABP의 AnimGraph에 DefaultSlot 노드 필요"),
+			*skillMontage->GetName(), Duration);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ActiveSkillBase] skillMontage가 nullptr — 에셋 경로 확인 필요"));
 	}
 }

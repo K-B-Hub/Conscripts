@@ -92,6 +92,11 @@ public:
 	// 이동 완료 후 호출 — 잠금 해제하여 마우스 추적 재개
 	void Unlock();
 
+	// 외부에서 위치를 직접 지정 (스킬 자동이동 경로 표시 등)
+	// 설정 시 커서 추적 대신 지정된 좌표로 경로를 계산
+	void SetTargetOverride(const FVector& Target);
+	void ClearTargetOverride();
+
 private:
 	// 현재 이동 명령 대상 캐릭터 (GC 방지를 위해 UPROPERTY 필수)
 	UPROPERTY()
@@ -112,6 +117,10 @@ private:
 	// 이동 중 커서 고정 모드
 	bool bIsLocked = false;
 	FVector lockedIndicatorPos = FVector::ZeroVector;
+
+	// 외부 위치 지정 모드 (커서 추적 대신 사용)
+	bool bHasTargetOverride = false;
+	FVector targetOverride = FVector::ZeroVector;
 
 	// 런타임에 생성되는 경로 세그먼트 메쉬 목록 (GC 방지용 UPROPERTY)
 	UPROPERTY()

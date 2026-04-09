@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Actors/AttackRangeIndicator.h"
+#include "Actors/CursorIndicator.h"
 #include "Components/DecalComponent.h"
 #include "Components/SphereComponent.h"
 #include "Characters/CharacterBase.h"
@@ -8,6 +9,7 @@
 #include "Characters/EnemyBase.h"
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "DrawDebugHelpers.h"
 
 AAttackRangeIndicator::AAttackRangeIndicator()
 {
@@ -16,7 +18,6 @@ AAttackRangeIndicator::AAttackRangeIndicator()
 	rootScene = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	RootComponent = rootScene;
 
-	// 오버랩 감지용 구체 — Pawn 채널만 오버랩, 나머지 무시
 	overlapSphere = CreateDefaultSubobject<USphereComponent>(TEXT("OverlapSphere"));
 	overlapSphere->SetupAttachment(RootComponent);
 	overlapSphere->SetSphereRadius(1.f);
@@ -26,7 +27,6 @@ AAttackRangeIndicator::AAttackRangeIndicator()
 	overlapSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	overlapSphere->SetGenerateOverlapEvents(true);
 
-	// 범위 공격 데칼 — 기본 비활성, InitIndicator에서 필요 시 활성화
 	areaDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("AreaDecal"));
 	areaDecal->SetupAttachment(RootComponent);
 	areaDecal->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
@@ -41,6 +41,12 @@ void AAttackRangeIndicator::BeginPlay()
 	overlapSphere->OnComponentEndOverlap.AddDynamic(this, &AAttackRangeIndicator::OnOverlapEnd);
 }
 
+void AAttackRangeIndicator::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	DestroyMovePathIndicator();
+	Super::EndPlay(EndPlayReason);
+}
+
 void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkillBase* Skill)
 {
 	caster = InCaster;
@@ -51,7 +57,6 @@ void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkill
 
 	if (bIsAreaAttack)
 	{
-		// 범위 공격 — 데칼 표시, 오버랩 구체 크기를 범위에 맞게 설정
 		if (areaDecalMaterial)
 		{
 			areaDecal->SetDecalMaterial(areaDecalMaterial);
@@ -78,25 +83,30 @@ void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkill
 	}
 	else
 	{
-		// 단일 대상 — 데칼 비활성, 매우 작은 구체로 점 오버랩
 		areaDecal->SetVisibility(false);
-		overlapSphere->SetSphereRadius(1.f);
+		overlapSphere->SetSphereRadius(10.f);
 	}
 }
-
-// ─── Tick: 마우스 추적 + 사거리 제한 ────────────────────────────────────────────
 
 void AAttackRangeIndicator::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Self 모드 — 시전자 위치에 고정, 마우스 추적 불필요
 	if (bFixedAtCaster)
 	{
 		if (caster.IsValid())
 		{
 			SetActorLocation(caster->GetActorLocation(), false, nullptr, ETeleportType::TeleportPhysics);
 		}
+		DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
+			overlapSphere->GetScaledSphereRadius(), 24, FColor::Cyan, false, 0.f);
+		return;
+	}
+
+	if (bIsLocked)
+	{
+		DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
+			overlapSphere->GetScaledSphereRadius(), 24, FColor::Yellow, false, 0.f);
 		return;
 	}
 
@@ -104,29 +114,124 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 	if (!PC) return;
 
 	FHitResult HitResult;
-	if (!PC->GetHitResultUnderCursor(ECC_Visibility, false, HitResult)) return;
+	FVector TargetLocation;
+	ACharacterBase* NewSnappedTarget = nullptr;
 
-	FVector TargetLocation = HitResult.Location;
+	if (cachedSkill && cachedSkill->selectMode == ESelectMode::SinglePick)
+	{
+		TArray<TEnumAsByte<EObjectTypeQuery>> PawnObjectTypes;
+		PawnObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
 
-	// pickRange > 0이면 시전자 기준 사거리 내로 제한
+		FHitResult PawnHit;
+		if (PC->GetHitResultUnderCursorForObjects(PawnObjectTypes, false, PawnHit))
+		{
+			ACharacterBase* HitCharacter = Cast<ACharacterBase>(PawnHit.GetActor());
+			if (HitCharacter && HitCharacter != caster.Get() && IsPickTarget(HitCharacter))
+			{
+				TargetLocation = HitCharacter->GetActorLocation();
+				NewSnappedTarget = HitCharacter;
+			}
+		}
+	}
+
+	if (!NewSnappedTarget)
+	{
+		if (!PC->GetHitResultUnderCursor(ECC_Visibility, false, HitResult)) return;
+		TargetLocation = HitResult.Location;
+	}
+
+	snappedTarget = NewSnappedTarget;
+
+	bIsOutOfRange = false;
 	if (pickRange > 0.f && caster.IsValid())
 	{
 		const FVector CasterLocation = caster->GetActorLocation();
 		FVector Offset = TargetLocation - CasterLocation;
 		Offset.Z = 0.f;
+		const float Dist2D = Offset.Size();
 
-		if (Offset.SizeSquared() > pickRange * pickRange)
+		if (Dist2D > pickRange)
 		{
-			Offset = Offset.GetSafeNormal() * pickRange;
-			TargetLocation = CasterLocation + Offset;
-			TargetLocation.Z = HitResult.Location.Z;
+			bIsOutOfRange = true;
+			const FVector Dir2D = Offset.GetSafeNormal();
+			moveToPoint = CasterLocation + Dir2D * (Dist2D - pickRange);
+			moveToPoint.Z = CasterLocation.Z;
 		}
 	}
 
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
+
+	const bool bIsMultiPick = cachedSkill && cachedSkill->pickCount > 1;
+	if (bIsOutOfRange && !bIsMultiPick)
+	{
+		if (!movePathIndicator) SpawnMovePathIndicator();
+		if (movePathIndicator) movePathIndicator->SetTargetOverride(moveToPoint);
+	}
+	else
+	{
+		DestroyMovePathIndicator();
+	}
+
+	const FColor DebugColor = bIsOutOfRange ? FColor::Red : FColor::Green;
+	DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
+		overlapSphere->GetScaledSphereRadius(), 24, DebugColor, false, 0.f);
 }
 
-// ─── EAreaTarget 필터 ────────────────────────────────────────────────────────
+bool AAttackRangeIndicator::ComputeOutOfRange() const
+{
+	if (pickRange <= 0.f || !caster.IsValid()) return false;
+	FVector Offset = GetActorLocation() - caster->GetActorLocation();
+	Offset.Z = 0.f;
+	return Offset.SizeSquared() > pickRange * pickRange;
+}
+
+const TArray<FVector>& AAttackRangeIndicator::GetMovePath() const
+{
+	if (movePathIndicator)
+	{
+		return movePathIndicator->GetCachedPathPoints();
+	}
+	static TArray<FVector> Empty;
+	return Empty;
+}
+
+void AAttackRangeIndicator::LockAtCurrentPosition()
+{
+	bIsLocked = true;
+	if (movePathIndicator)
+	{
+		movePathIndicator->LockAtCurrentPosition();
+	}
+}
+
+void AAttackRangeIndicator::Unlock()
+{
+	bIsLocked = false;
+	DestroyMovePathIndicator();
+}
+
+void AAttackRangeIndicator::SpawnMovePathIndicator()
+{
+	if (movePathIndicator || !cursorIndicatorClass || !caster.IsValid()) return;
+
+	AAllyCharacterBase* AllyCaster = Cast<AAllyCharacterBase>(caster.Get());
+	if (!AllyCaster) return;
+
+	movePathIndicator = GetWorld()->SpawnActor<ACursorIndicator>(cursorIndicatorClass);
+	if (movePathIndicator)
+	{
+		movePathIndicator->SetActiveUnit(AllyCaster);
+	}
+}
+
+void AAttackRangeIndicator::DestroyMovePathIndicator()
+{
+	if (IsValid(movePathIndicator))
+	{
+		movePathIndicator->Destroy();
+		movePathIndicator = nullptr;
+	}
+}
 
 bool AAttackRangeIndicator::IsAreaTarget(ACharacterBase* Character) const
 {
@@ -141,13 +246,26 @@ bool AAttackRangeIndicator::IsAreaTarget(ACharacterBase* Character) const
 	case EAreaTarget::All:
 		return true;
 	case EAreaTarget::None:
-		// 단일 대상 모드 — EAreaTarget 필터 없음, EPickTeam은 클릭 시 BattleController에서 검증
 		return true;
 	}
 	return false;
 }
 
-// ─── 오버랩 콜백 ────────────────────────────────────────────────────────────────
+bool AAttackRangeIndicator::IsPickTarget(ACharacterBase* Character) const
+{
+	if (!cachedSkill || !Character) return false;
+
+	switch (cachedSkill->pickTeam)
+	{
+	case EPickTeam::EnemyOnly:
+		return Cast<AEnemyBase>(Character) != nullptr;
+	case EPickTeam::AllyOnly:
+		return Cast<AAllyCharacterBase>(Character) != nullptr;
+	case EPickTeam::Any:
+		return true;
+	}
+	return false;
+}
 
 void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
@@ -156,15 +274,13 @@ void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedCompon
 	ACharacterBase* Character = Cast<ACharacterBase>(OtherActor);
 	if (!Character) return;
 
-	// 시전자 자신은 제외
 	if (caster.IsValid() && Character == caster.Get()) return;
 
-	// EAreaTarget 기준으로 스킬 적용 대상이 아니면 무시
+	//SkillType에 맞는 대상이 아닐시 return
 	if (!IsAreaTarget(Character)) return;
 
 	overlappingTargets.AddUnique(Character);
 
-	// SkillComponent 타겟 목록에 직접 추가
 	if (caster.IsValid())
 	{
 		if (USkillComponent* SkillComp = caster->FindComponentByClass<USkillComponent>())
@@ -173,7 +289,6 @@ void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedCompon
 		}
 	}
 
-	// Skill의 calc 스탯으로 전투 예측 계산 및 위젯 표시
 	if (cachedSkill)
 	{
 		Character->CalculateDamage(
@@ -193,10 +308,8 @@ void AAttackRangeIndicator::OnOverlapEnd(UPrimitiveComponent* OverlappedComponen
 	ACharacterBase* Character = Cast<ACharacterBase>(OtherActor);
 	if (!Character) return;
 
-	// IsAreaTarget을 통과하지 못한 캐릭터는 목록에 없으므로 그냥 제거 시도
 	overlappingTargets.Remove(Character);
 
-	// SkillComponent 타겟 목록에서 직접 제거
 	if (caster.IsValid())
 	{
 		if (USkillComponent* SkillComp = caster->FindComponentByClass<USkillComponent>())
@@ -205,7 +318,6 @@ void AAttackRangeIndicator::OnOverlapEnd(UPrimitiveComponent* OverlappedComponen
 		}
 	}
 
-	// 전투 예측 위젯 숨김 및 pending 값 초기화
 	Character->HideSkillInfo();
 	Character->ClearPendingDamage();
 }

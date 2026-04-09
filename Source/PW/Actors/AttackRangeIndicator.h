@@ -9,7 +9,9 @@
 class UDecalComponent;
 class USphereComponent;
 class ACharacterBase;
+class AAllyCharacterBase;
 class UActiveSkillBase;
+class ACursorIndicator;
 
 // 마우스를 따라다니며 스킬 영향 범위를 표시하는 액터
 // Skill 객체를 직접 참조해 자체 초기화하고, 오버랩 시 전투 예측 위젯을 표시
@@ -27,9 +29,23 @@ public:
 
 	const TArray<ACharacterBase*>& GetOverlappingTargets() const { return overlappingTargets; }
 
+	// SinglePick 모드에서 현재 스냅 중인 캐릭터 (스냅 안 됐으면 nullptr)
+	ACharacterBase* GetSnappedTarget() const { return snappedTarget.Get(); }
+
+	// 현재 인디케이터 위치가 시전자 기준 사거리 밖인지 실시간 계산
+	bool ComputeOutOfRange() const;
+
+	// 자동이동용 NavMesh 경로 반환 (CursorIndicator에 위임)
+	const TArray<FVector>& GetMovePath() const;
+
+	// 자동이동 중 위치 고정 / 해제
+	void LockAtCurrentPosition();
+	void Unlock();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 	UPROPERTY(VisibleAnywhere)
@@ -68,8 +84,14 @@ private:
 	// 오버랩 중인 캐릭터 목록
 	TArray<ACharacterBase*> overlappingTargets;
 
+	// SinglePick 모드에서 현재 스냅된 캐릭터
+	TWeakObjectPtr<ACharacterBase> snappedTarget;
+
 	// EAreaTarget 기준으로 해당 캐릭터가 스킬 적용 대상인지 확인
 	bool IsAreaTarget(ACharacterBase* Character) const;
+
+	// EPickTeam 기준으로 해당 캐릭터가 선택 대상인지 확인
+	bool IsPickTarget(ACharacterBase* Character) const;
 
 	UFUNCTION()
 	void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
@@ -79,4 +101,25 @@ private:
 	UFUNCTION()
 	void OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	// ─── 사거리 밖 자동이동 ─────────────────────────────────────
+
+	// CursorIndicator 클래스 (BP에서 지정 — 이동 모드와 동일 클래스)
+	UPROPERTY(EditDefaultsOnly, Category = "Path")
+	TSubclassOf<ACursorIndicator> cursorIndicatorClass;
+
+	// 사거리 밖일 때 스폰된 CursorIndicator 인스턴스
+	UPROPERTY()
+	TObjectPtr<ACursorIndicator> movePathIndicator;
+
+	// 사거리 밖 여부 및 이동 목표 지점
+	bool bIsOutOfRange = false;
+	FVector moveToPoint = FVector::ZeroVector;
+
+	// 자동이동 중 위치 잠금
+	bool bIsLocked = false;
+
+	// CursorIndicator 생성/제거
+	void SpawnMovePathIndicator();
+	void DestroyMovePathIndicator();
 };

@@ -27,6 +27,13 @@ void USkillButton::InitSkill(UActiveSkillBase* InSkill)
 	}
 }
 
+void USkillButton::RefreshButtonState()
+{
+	if (!SkillButtonElement || !skill) return;
+
+	SkillButtonElement->SetIsEnabled(skill->CanExecute());
+}
+
 void USkillButton::OnSkillButtonClicked()
 {
 	if (!skill) return;

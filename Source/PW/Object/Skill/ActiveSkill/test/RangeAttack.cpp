@@ -29,6 +29,12 @@ URangeAttack::URangeAttack()
 	baseDamage = 1;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
+	
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire_Montage"));
+	if (MontageAsset.Succeeded())
+	{
+		skillMontage = MontageAsset.Object;
+	}
 }
 
 void URangeAttack::Execute(const TArray<ACharacterBase*>& targets)

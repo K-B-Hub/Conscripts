@@ -6,6 +6,7 @@
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkill/test/RangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
+#include "Object/Skill/ActiveSkill/test/MultiPick.h"
 
 AAllyTest::AAllyTest()
 {
@@ -30,5 +31,10 @@ void AAllyTest::SetDefaultSkills()
 	if (TestSkill2)
 	{
 		skillComponent->AddSkill(TestSkill2);
+	}
+	UMultiPick* TestSkill3 = NewObject<UMultiPick>(this, UMultiPick::StaticClass(), TEXT("TestSkill3"));
+	if (TestSkill3)
+	{
+		skillComponent->AddSkill(TestSkill3);
 	}
 }

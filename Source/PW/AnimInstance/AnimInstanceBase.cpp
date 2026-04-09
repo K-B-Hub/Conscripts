@@ -16,6 +16,7 @@ void UAnimInstanceBase::NativeInitializeAnimation()
 	Super::NativeInitializeAnimation();
 
 	OwnerCharacter = Cast<ACharacterBase>(GetOwningActor());
+	if (!OwnerCharacter) return;
 
 	UStaticMeshComponent* Mesh = OwnerCharacter->GetWeaponMeshComponent();
 	if (Mesh && Mesh->DoesSocketExist(LeftHandGripSocketName))
