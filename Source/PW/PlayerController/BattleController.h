@@ -15,7 +15,7 @@ class ACharacterBase;
 class UTurnEndWidget;
 class USkillWidget;
 class UActiveSkillBase;
-enum class EPickTeam : uint8;
+class AAttackRangeIndicator;
 
 // 전투 씬 플레이어 컨트롤러
 // EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
@@ -180,7 +180,16 @@ private:
 
 	// 스킬 실행 — 타겟 검증 후 ReflectDamage + Execute
 	void ExecuteSkill();
-	bool IsValidSkillTarget(ACharacterBase* Target, EPickTeam PickTeam) const;
+
+	// 스킬 버튼 활성/비활성 상태 갱신
+	void RefreshSkillButtons();
+
+	// 사거리 밖 자동이동 후 스킬 실행 대기 플래그
+	bool bPendingSkillExec = false;
+
+	// ─── 멀티픽 (pickCount > 1) ─────────────────────────────────
+	TArray<ACharacterBase*> pickedTargets;
+	int32 remainingPicks = 0;
 
 	UPROPERTY()
 	TObjectPtr<AAllyCharacterBase> activeUnit = nullptr;

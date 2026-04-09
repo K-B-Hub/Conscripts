@@ -16,6 +16,7 @@
 #include "Characters/EnemyBase.h"
 #include "Enum/SkillTypes.h"
 #include "Components/CapsuleComponent.h"
+#include "Actors/AttackRangeIndicator.h"
 
 ABattleController::ABattleController()
 {
@@ -273,12 +274,17 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 // ─── 이동 취소 (우클릭) ──────────────────────────────────────────────────────
 void ABattleController::OnCancelMove(const FInputActionValue& Value)
 {
-	// 스킬 모드 활성 시 스킬 취소 우선
+	// 스킬 모드 활성 시 스킬 취소 우선 (자동이동 중이면 이동도 중단)
 	if (activeUnit)
 	{
 		USkillComponent* SkillComp = activeUnit->GetSkillComponent();
 		if (SkillComp && SkillComp->IsSkillActive())
 		{
+			if (bPendingSkillExec)
+			{
+				activeUnit->StopMovement();
+				bPendingSkillExec = false;
+			}
 			SkillComp->DeactivateSkill();
 			return;
 		}
@@ -315,6 +321,11 @@ void ABattleController::ActivateSkill(UActiveSkillBase* Skill)
 	// 이동 모드와 상호 배타
 	if (bIsMoveMode) ExitMoveMode();
 
+	// 멀티픽 초기화
+	pickedTargets.Empty();
+	remainingPicks = (Skill->selectMode == ESelectMode::SinglePick && Skill->pickCount > 1)
+		? Skill->pickCount : 0;
+
 	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
 	if (SkillComp)
 	{
@@ -325,6 +336,10 @@ void ABattleController::ActivateSkill(UActiveSkillBase* Skill)
 void ABattleController::DeactivateSkill()
 {
 	if (!activeUnit) return;
+
+	bPendingSkillExec = false;
+	pickedTargets.Empty();
+	remainingPicks = 0;
 
 	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
 	if (SkillComp && SkillComp->IsSkillActive())
@@ -382,7 +397,52 @@ void ABattleController::ResetCursorIndicator()
 
 void ABattleController::OnUnitMovementCompleted()
 {
-	if (!bIsMoveMode || !activeUnit) return;
+	if (!activeUnit) return;
+
+	// 자동이동 후 스킬 실행 — 이동 전 경로 검증 완료, 바로 실행
+	if (bPendingSkillExec)
+	{
+		bPendingSkillExec = false;
+		USkillComponent* SkillComp = activeUnit->GetSkillComponent();
+		if (!SkillComp) return;
+
+		AAttackRangeIndicator* Indicator = SkillComp->GetAttackRangeIndicator();
+
+		// 인디케이터 방향으로 캐릭터 회전 (Self 제외)
+		UActiveSkillBase* Skill = SkillComp->GetCurrentSkill();
+		if (!Skill) return;
+
+		if (Indicator && Skill->selectMode != ESelectMode::Self)
+		{
+			FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
+			Dir.Z = 0.f;
+			if (!Dir.IsNearlyZero())
+			{
+				activeUnit->SetActorRotation(Dir.Rotation());
+			}
+		}
+
+		if (Indicator) Indicator->Unlock();
+
+		const TArray<ACharacterBase*> Targets = SkillComp->GetCurrentTargets();
+		if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
+
+		for (ACharacterBase* Target : Targets)
+		{
+			Target->ReflectDamage();
+		}
+
+		Skill->Execute(Targets);
+		SkillComp->DeactivateSkill();
+		RefreshSkillButtons();
+
+		UE_LOG(LogTemp, Log, TEXT("[BattleController] 자동이동 후 스킬 실행: %s → %d명 대상"),
+			*Skill->skillName.ToString(), Targets.Num());
+		return;
+	}
+
+	// 이동 모드 처리
+	if (!bIsMoveMode) return;
 
 	if (activeUnit->GetCurrentMovingPoint() <= 0.f)
 	{
@@ -405,22 +465,98 @@ void ABattleController::ExecuteSkill()
 	UActiveSkillBase* Skill = SkillComp->GetCurrentSkill();
 	if (!Skill) return;
 
-	// Self 모드가 아닌 경우 — 커서 아래 클릭 대상을 EPickTeam으로 검증
+	AAttackRangeIndicator* Indicator = SkillComp->GetAttackRangeIndicator();
+
+	// SinglePick — 스냅 상태 검증
 	if (Skill->selectMode == ESelectMode::SinglePick)
 	{
-		// ECC_Visibility 사용: 캐릭터 메시/캡슐이 Visibility를 Block함
-		// (ECC_Pawn은 캡슐이 ECR_Overlap으로 응답해 바닥에 히트되므로 사용 불가)
-		FHitResult HitResult;
-		GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+		if (!Indicator || !Indicator->GetSnappedTarget()) return;
+	}
 
-		ACharacterBase* ClickedChar = Cast<ACharacterBase>(HitResult.GetActor());
-		// 단일 대상 — 반드시 유효한 캐릭터를 클릭해야 함
-		if (!IsValidSkillTarget(ClickedChar, Skill->pickTeam)) return;
+	// ─── 멀티픽 모드 (pickCount > 1, SinglePick) ─────────────
+	if (Skill->selectMode == ESelectMode::SinglePick && Skill->pickCount > 1)
+	{
+		ACharacterBase* SnappedTarget = Indicator->GetSnappedTarget();
+		if (!SnappedTarget) return;
+
+		// 사거리 밖 대상은 선택 불가
+		if (Indicator->ComputeOutOfRange()) return;
+
+		// 동일 대상 중복 허용 — Add 사용
+		pickedTargets.Add(SnappedTarget);
+		remainingPicks--;
+
+		UE_LOG(LogTemp, Log, TEXT("[BattleController] 멀티픽: %s 선택 (남은 선택: %d)"),
+			*SnappedTarget->GetName(), remainingPicks);
+
+		if (remainingPicks > 0) return;
+
+		// 모든 선택 완료 → 실행
+		// 인디케이터 방향으로 캐릭터 회전
+		if (Indicator)
+		{
+			FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
+			Dir.Z = 0.f;
+			if (!Dir.IsNearlyZero())
+			{
+				activeUnit->SetActorRotation(Dir.Rotation());
+			}
+		}
+
+		for (ACharacterBase* Target : pickedTargets)
+		{
+			Target->ReflectDamage();
+		}
+
+		Skill->Execute(pickedTargets);
+		pickedTargets.Empty();
+		remainingPicks = 0;
+		SkillComp->DeactivateSkill();
+		RefreshSkillButtons();
+
+		UE_LOG(LogTemp, Log, TEXT("[BattleController] 멀티픽 스킬 실행: %s → %d회 적용"),
+			*Skill->skillName.ToString(), Skill->pickCount);
+		return;
+	}
+
+	// 사거리 밖 → 이동력이 충분한 경우에만 자동이동 (멀티픽은 자동이동 불가)
+	if (Indicator && Indicator->ComputeOutOfRange())
+	{
+		const TArray<FVector>& MovePath = Indicator->GetMovePath();
+		if (MovePath.Num() < 2) return;
+
+		// 경로 총 거리 계산
+		float pathDistanceCm = 0.f;
+		for (int32 i = 0; i + 1 < MovePath.Num(); ++i)
+		{
+			pathDistanceCm += FVector::Dist(MovePath[i], MovePath[i + 1]);
+		}
+
+		// 이동력 부족 시 자동이동 불가
+		const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
+		if (pathDistanceCm > budgetCm) return;
+
+		Indicator->LockAtCurrentPosition();
+		bPendingSkillExec = true;
+		activeUnit->MoveAlongPath(MovePath);
+		return;
+	}
+
+	// 인디케이터 방향으로 캐릭터 회전 (Self 제외)
+	if (Indicator && Skill->selectMode != ESelectMode::Self)
+	{
+		FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
+		Dir.Z = 0.f;
+		if (!Dir.IsNearlyZero())
+		{
+			activeUnit->SetActorRotation(Dir.Rotation());
+		}
 	}
 
 	// 스킬 영향 대상은 오버랩 단계에서 EAreaTarget으로 이미 필터된 SkillComponent 목록 사용
 	const TArray<ACharacterBase*> Targets = SkillComp->GetCurrentTargets();
-	if (Targets.Num() == 0 && Skill->selectMode != ESelectMode::Self) return;
+	// SinglePick만 타겟 필수 — Self, GroundPoint는 타겟 없이도 실행 가능
+	if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
 	// 전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨 → 바로 ReflectDamage
 	for (ACharacterBase* Target : Targets)
@@ -433,25 +569,21 @@ void ABattleController::ExecuteSkill()
 
 	// 스킬 사용 완료 → 비활성화
 	SkillComp->DeactivateSkill();
+	RefreshSkillButtons();
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleController] 스킬 실행: %s → %d명 대상"),
 		*Skill->skillName.ToString(), Targets.Num());
 }
 
-bool ABattleController::IsValidSkillTarget(ACharacterBase* Target, EPickTeam PickTeam) const
-{
-	if (!Target) return false;
 
-	switch (PickTeam)
+
+// ─── 스킬 버튼 상태 갱신 ─────────────────────────────────────────────────────
+void ABattleController::RefreshSkillButtons()
+{
+	if (IsValid(skillWidgetInstance))
 	{
-	case EPickTeam::EnemyOnly:
-		return Cast<AEnemyBase>(Target) != nullptr;
-	case EPickTeam::AllyOnly:
-		return Cast<AAllyCharacterBase>(Target) != nullptr;
-	case EPickTeam::Any:
-		return true;
+		skillWidgetInstance->RefreshButtons();
 	}
-	return false;
 }
 
 // ─── 헬퍼: 지면 스냅 ─────────────────────────────────────────────────────────

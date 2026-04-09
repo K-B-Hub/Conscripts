@@ -69,14 +69,21 @@ void ACursorIndicator::Tick(float DeltaTime)
 		}
 	}
 
-	// ─── 1. 커서 위치로 액터 이동 ────────────────────────────
-	APlayerController* PC = GetWorld()->GetFirstPlayerController();
-	if (!PC) return;
-
-	FHitResult HitResult;
-	if (PC->GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+	// ─── 1. 액터 위치 갱신: 외부 지정 또는 커서 추적 ─────────
+	if (bHasTargetOverride)
 	{
-		SetActorLocation(HitResult.Location);
+		SetActorLocation(targetOverride);
+	}
+	else
+	{
+		APlayerController* PC = GetWorld()->GetFirstPlayerController();
+		if (!PC) return;
+
+		FHitResult HitResult;
+		if (PC->GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+		{
+			SetActorLocation(HitResult.Location);
+		}
 	}
 
 	// ─── 2. 경로 거리 갱신 (0.1초 쓰로틀링) ─────────────────
@@ -116,6 +123,17 @@ void ACursorIndicator::LockAtCurrentPosition()
 void ACursorIndicator::Unlock()
 {
 	bIsLocked = false;
+}
+
+void ACursorIndicator::SetTargetOverride(const FVector& Target)
+{
+	bHasTargetOverride = true;
+	targetOverride = Target;
+}
+
+void ACursorIndicator::ClearTargetOverride()
+{
+	bHasTargetOverride = false;
 }
 
 void ACursorIndicator::UpdatePathDistance()

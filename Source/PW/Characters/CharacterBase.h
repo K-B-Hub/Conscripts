@@ -16,41 +16,34 @@ class PW_API ACharacterBase : public ACharacter
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this character's properties
 	ACharacterBase();
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	// 체력 위젯 컴포넌트 (캐릭터 머리 위에 표시)
-	// 에디터 BP의 Class Defaults에서 Widget Class를 할당해 사용
+	//체력 위젯 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "UI")
 	TObjectPtr<UWidgetComponent> healthWidgetComponent;
 
-	// 스킬 전투 예측 위젯 컴포넌트 (체력 위젯 위에 표시)
-	// AttackRangeIndicator 오버랩 시 활성화
+	//스킬 정보 예측 위젯 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "UI")
 	TObjectPtr<UWidgetComponent> skillInfoWidgetComponent;
 
-	// 무기 메시 컴포넌트 (오른손 소켓에 자동 부착)
-	// 에디터 BP의 Class Defaults에서 Static Mesh를 할당해 사용
+	//무기 메시 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UStaticMeshComponent> WeaponMeshComp;
 
-	// 스킬 컴포넌트
+	//스킬 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Skill")
 	TObjectPtr<USkillComponent> skillComponent;
 
-	// 카메라 관련 컴포넌트
+	//카메라 관련
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<class USpringArmComponent> springArmComponent;
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<class UCameraComponent> cameraComponent;
-	// 카메라 암 길이
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraArmLength = 1400.f;
-	// 카메라 내려다보는 각도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraPitchAngle = -55.f;
 
@@ -116,7 +109,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	float pendingCritical;
 
-	// 레벨 관련
+	//레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	int32 level = 1;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
@@ -124,13 +117,17 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	float maxExp = 100;
 
+	//캐릭터의 기본 스킬, 파생 클래스에서 구현
 	virtual void SetDefaultSkills();
+	//스탯에 따른 캐릭터의 기본 명중, 치명, 회피 계산
 	void SetDefaultStats();
 public:
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	//턴 순서 계산
 	int32 GetTurnOrder() const;
+	
+	//각종 스탯의 Getter
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
@@ -144,19 +141,21 @@ public:
 	int32 GetDamageAmplification() const { return damageAmplification; }
 	int32 GetPenetration() const { return penetration; }
 	
+	//AttackRangeIndicator 오버렙 시 데미지 미리 계산
 	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration);
+	//미리 계산해둔 값으로 치명타, 회피 여부 계산 후 데미지 적용
 	void ReflectDamage();
-
+	
 	void InitTurn();
 	virtual void EndTurn();
 
-	// 데미지 수신 — hp를 감소시키고 HealthWidget 갱신 (양수: 데미지, 음수: 회복)
+	//데미지 적용 후 HealthWidget 갱신, 음수일시 회복
 	void ReceiveDamage(int32 Amount);
 
-	// 캡슐의 NavMesh 등록 여부 토글 후 NavOctree 즉시 갱신
+	//캡슐의 NavMesh 등록 여부 토글
 	void SetNavObstacleEnabled(bool bEnabled);
 
-	// 스킬 전투 예측 위젯 표시/숨김
+	//스킬 정보 예측 위젯 표시/숨김
 	void ShowSkillInfo();
 	void HideSkillInfo();
 	void ClearPendingDamage();

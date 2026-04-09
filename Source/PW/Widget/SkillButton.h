@@ -21,6 +21,9 @@ public:
 	// 대응할 스킬 설정 및 UI 갱신
 	void InitSkill(UActiveSkillBase* InSkill);
 
+	// CanExecute() 결과에 따라 버튼 활성/비활성 갱신
+	void RefreshButtonState();
+
 protected:
 	virtual void NativeConstruct() override;
 

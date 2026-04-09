@@ -1,12 +1,12 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
+#include "Object/Skill/ActiveSkill/test/MultiPick.h"
 
-USingleRangeAttack::USingleRangeAttack()
+UMultiPick::UMultiPick()
 {
-	skillName = NSLOCTEXT("Skill", "SingleRangeAttack_Name", "단일 원거리 공격");
-	skillDescription = NSLOCTEXT("Skill", "SingleRangeAttack_Description", "단일 대상에게 사거리 내에서 공격합니다.");
+	skillName = NSLOCTEXT("Skill", "SingleRangeAttack_Name", "다중 원거리 공격");
+	skillDescription = NSLOCTEXT("Skill", "SingleRangeAttack_Description", "3명의 대상에게 사거리 내에서 공격합니다.");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -18,7 +18,7 @@ USingleRangeAttack::USingleRangeAttack()
 	//areaParameter2 = 0.f;				//단일 공격이니 확인 안함
 
 	pickRange = 1200.f;
-	pickCount = 1;
+	pickCount = 2;
 	
 	battleResourceCost = 0;
 	actionPointCost = 2;
@@ -37,9 +37,7 @@ USingleRangeAttack::USingleRangeAttack()
 	}
 }
 
-void USingleRangeAttack::Execute(const TArray<ACharacterBase*>& targets)
+void UMultiPick::Execute(const TArray<ACharacterBase*>& targets)
 {
 	Super::Execute(targets);
-	
-	
 }

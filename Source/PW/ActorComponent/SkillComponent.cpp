@@ -29,10 +29,9 @@ void USkillComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	ownerCharacter = Cast<ACharacterBase>(UActorComponent::GetOwner());		//실제 객체로 재등록
+	//CDO에서 실제 객체로 재등록
+	ownerCharacter = Cast<ACharacterBase>(UActorComponent::GetOwner());
 }
-
-// ─── 스킬 추가/제거 ─────────────────────────────────────────────────────────────
 
 void USkillComponent::AddSkill(USkillBase* Skill)
 {
@@ -50,15 +49,12 @@ void USkillComponent::RemoveSkill(USkillBase* Skill)
 {
 	if (!Skill) return;
 
-	// 활성화 중인 스킬이 제거되면 먼저 비활성화
 	if (currentSkill == Skill)
 	{
 		DeactivateSkill();
 	}
 	skills.Remove(Skill);
 }
-
-// ─── 스킬 조회 ──────────────────────────────────────────────────────────────────
 
 TArray<UActiveSkillBase*> USkillComponent::GetActiveSkills() const
 {
@@ -72,9 +68,6 @@ TArray<UActiveSkillBase*> USkillComponent::GetActiveSkills() const
 	}
 	return ActiveSkills;
 }
-
-// ─── 스킬 활성화/비활성화 ───────────────────────────────────────────────────────
-
 void USkillComponent::ActivateSkill(UActiveSkillBase* Skill)
 {
 	if (!Skill || !Skill->CanExecute()) return;
@@ -100,8 +93,6 @@ void USkillComponent::DeactivateSkill()
 	ClearCurrentTargets();
 	currentSkill = nullptr;
 }
-
-// ─── 타겟 관리 ──────────────────────────────────────────────────────────────────
 
 void USkillComponent::AddTarget(ACharacterBase* Target)
 {
@@ -135,8 +126,6 @@ void USkillComponent::CalcSkillStats()
 	}
 }
 
-// ─── 인디케이터 ─────────────────────────────────────────────────────────────────
-
 void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 {
 	if (!ownerCharacter) return;
@@ -146,7 +135,7 @@ void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 
 	const FVector CasterLocation = ownerCharacter->GetActorLocation();
 
-	// SkillRangeIndicator — Self 모드는 고정 위치이므로 사거리 표시 불필요
+	// SkillRangeIndicator 초기화
 	if (skillRangeIndicatorClass && Skill->pickRange > 0.f && Skill->selectMode != ESelectMode::Self)
 	{
 		skillRangeIndicator = World->SpawnActor<ASkillRangeIndicator>(
@@ -157,7 +146,7 @@ void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 		}
 	}
 
-	// AttackRangeIndicator — Skill 객체 직접 전달해 자체 초기화
+	//AttackRangeIndicator 초기화
 	if (attackRangeIndicatorClass)
 	{
 		attackRangeIndicator = World->SpawnActor<AAttackRangeIndicator>(
