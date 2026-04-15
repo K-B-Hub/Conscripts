@@ -119,6 +119,16 @@ private:
 	// 자동이동 중 위치 잠금
 	bool bIsLocked = false;
 
+	// NavMesh 경로 위에서 사거리 내 + 시야선 확보된 최적 이동 지점 계산
+	void ComputeOptimalMovePoint();
+
+	// 최적 이동 지점 계산 쓰로틀링
+	float optimalPointUpdateTimer = 0.f;
+
+	// 최적 이동 지점 갱신 간격 (초)
+	UPROPERTY(EditDefaultsOnly, Category = "Path")
+	float optimalPointUpdateInterval = 0.05f;
+
 	// CursorIndicator 생성/제거
 	void SpawnMovePathIndicator();
 	void DestroyMovePathIndicator();

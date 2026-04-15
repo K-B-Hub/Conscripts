@@ -10,6 +10,8 @@
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
 #include "DrawDebugHelpers.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
 
 AAttackRangeIndicator::AAttackRangeIndicator()
 {
@@ -145,17 +147,11 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 	bIsOutOfRange = false;
 	if (pickRange > 0.f && caster.IsValid())
 	{
-		const FVector CasterLocation = caster->GetActorLocation();
-		FVector Offset = TargetLocation - CasterLocation;
+		FVector Offset = TargetLocation - caster->GetActorLocation();
 		Offset.Z = 0.f;
-		const float Dist2D = Offset.Size();
-
-		if (Dist2D > pickRange)
+		if (Offset.Size() > pickRange)
 		{
 			bIsOutOfRange = true;
-			const FVector Dir2D = Offset.GetSafeNormal();
-			moveToPoint = CasterLocation + Dir2D * (Dist2D - pickRange);
-			moveToPoint.Z = CasterLocation.Z;
 		}
 	}
 
@@ -164,11 +160,20 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 	const bool bIsMultiPick = cachedSkill && cachedSkill->pickCount > 1;
 	if (bIsOutOfRange && !bIsMultiPick)
 	{
+		// 쓰로틀링된 최적 이동 지점 계산
+		optimalPointUpdateTimer += DeltaTime;
+		if (optimalPointUpdateTimer >= optimalPointUpdateInterval)
+		{
+			optimalPointUpdateTimer = 0.f;
+			ComputeOptimalMovePoint();
+		}
+
 		if (!movePathIndicator) SpawnMovePathIndicator();
 		if (movePathIndicator) movePathIndicator->SetTargetOverride(moveToPoint);
 	}
 	else
 	{
+		optimalPointUpdateTimer = 0.f;
 		DestroyMovePathIndicator();
 	}
 
@@ -208,6 +213,99 @@ void AAttackRangeIndicator::Unlock()
 {
 	bIsLocked = false;
 	DestroyMovePathIndicator();
+}
+
+void AAttackRangeIndicator::ComputeOptimalMovePoint()
+{
+	if (!caster.IsValid() || !cachedSkill) return;
+
+	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
+	if (!NavSys) return;
+
+	const FVector CasterLocation = caster->GetActorLocation();
+	const FVector TargetLocation = GetActorLocation();
+
+	// 시전자 → 인디케이터 위치까지 NavMesh 경로 계산
+	UNavigationPath* Path = NavSys->FindPathToLocationSynchronously(
+		GetWorld(), CasterLocation, TargetLocation);
+	if (!Path || !Path->IsValid()) return;
+
+	const TArray<FNavPathPoint>& PathPoints = Path->GetPath()->GetPathPoints();
+	if (PathPoints.Num() < 2) return;
+
+	// 경로를 시전자→타겟 방향으로 순회하며
+	// 거리 < 사거리 && 시야선 확보인 첫 지점을 자동이동 지점으로 선택
+	// 경로 포인트 사이를 보간해 사거리 경계 지점을 정확히 계산
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(caster.Get());
+	const FVector EyeHeight(0.f, 0.f, 80.f);
+
+	auto Dist2DToTarget = [&](const FVector& Point) -> float
+	{
+		FVector Offset = TargetLocation - Point;
+		Offset.Z = 0.f;
+		return Offset.Size();
+	};
+
+	for (int32 i = 0; i + 1 < PathPoints.Num(); ++i)
+	{
+		const FVector& A = PathPoints[i].Location;
+		const FVector& B = PathPoints[i + 1].Location;
+		const float DistA = Dist2DToTarget(A);
+		const float DistB = Dist2DToTarget(B);
+
+		// 이 세그먼트에서 사거리 안으로 진입하는 경우 → 경계 지점 보간
+		FVector Candidate;
+		if (DistA >= pickRange && DistB < pickRange)
+		{
+			// A(밖)→B(안) 구간에서 정확한 경계 지점 보간
+			const float t = (DistA - pickRange) / (DistA - DistB);
+			Candidate = FMath::Lerp(A, B, t);
+		}
+		else if (DistA < pickRange)
+		{
+			// 이미 사거리 안 — 이 지점 사용
+			Candidate = A;
+		}
+		else
+		{
+			continue;
+		}
+
+		// 시야선 체크
+		FHitResult LOSHit;
+		bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+			LOSHit,
+			Candidate + EyeHeight,
+			TargetLocation + EyeHeight,
+			ECC_Visibility,
+			TraceParams);
+
+		if (!bBlocked)
+		{
+			moveToPoint = Candidate;
+			return;
+		}
+	}
+
+	// 마지막 포인트(타겟 위치) 체크
+	const FVector& LastPoint = PathPoints.Last().Location;
+	if (Dist2DToTarget(LastPoint) < pickRange)
+	{
+		FHitResult LOSHit;
+		bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+			LOSHit,
+			LastPoint + EyeHeight,
+			TargetLocation + EyeHeight,
+			ECC_Visibility,
+			TraceParams);
+
+		if (!bBlocked)
+		{
+			moveToPoint = LastPoint;
+			return;
+		}
+	}
 }
 
 void AAttackRangeIndicator::SpawnMovePathIndicator()
