@@ -145,20 +145,37 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 	snappedTarget = NewSnappedTarget;
 
 	bIsOutOfRange = false;
+	bool bNeedsAutoMove = false;
 	if (pickRange > 0.f && caster.IsValid())
 	{
-		FVector Offset = TargetLocation - caster->GetActorLocation();
+		const FVector CasterLoc = caster->GetActorLocation();
+		FVector Offset = TargetLocation - CasterLoc;
 		Offset.Z = 0.f;
 		if (Offset.Size() > pickRange)
 		{
 			bIsOutOfRange = true;
+			bNeedsAutoMove = true;
+		}
+		else
+		{
+			// 사거리 내지만 시야선 차단 시에도 자동이동 필요
+			FCollisionQueryParams LOSParams;
+			LOSParams.AddIgnoredActor(caster.Get());
+			const FVector EyeHeight(0.f, 0.f, 80.f);
+			FHitResult LOSHit;
+			bNeedsAutoMove = GetWorld()->LineTraceSingleByChannel(
+				LOSHit,
+				CasterLoc + EyeHeight,
+				TargetLocation + EyeHeight,
+				ECC_Visibility,
+				LOSParams);
 		}
 	}
 
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
 	const bool bIsMultiPick = cachedSkill && cachedSkill->pickCount > 1;
-	if (bIsOutOfRange && !bIsMultiPick)
+	if (bNeedsAutoMove && !bIsMultiPick)
 	{
 		// 쓰로틀링된 최적 이동 지점 계산
 		optimalPointUpdateTimer += DeltaTime;
@@ -177,7 +194,7 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 		DestroyMovePathIndicator();
 	}
 
-	const FColor DebugColor = bIsOutOfRange ? FColor::Red : FColor::Green;
+	const FColor DebugColor = bNeedsAutoMove ? FColor::Red : FColor::Green;
 	DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
 		overlapSphere->GetScaledSphereRadius(), 24, DebugColor, false, 0.f);
 }
@@ -185,9 +202,26 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 bool AAttackRangeIndicator::ComputeOutOfRange() const
 {
 	if (pickRange <= 0.f || !caster.IsValid()) return false;
-	FVector Offset = GetActorLocation() - caster->GetActorLocation();
+
+	const FVector CasterLoc = caster->GetActorLocation();
+	const FVector TargetLoc = GetActorLocation();
+
+	// 사거리 체크
+	FVector Offset = TargetLoc - CasterLoc;
 	Offset.Z = 0.f;
-	return Offset.SizeSquared() > pickRange * pickRange;
+	if (Offset.SizeSquared() > pickRange * pickRange) return true;
+
+	// 시야선 체크
+	FCollisionQueryParams LOSParams;
+	LOSParams.AddIgnoredActor(caster.Get());
+	const FVector EyeHeight(0.f, 0.f, 80.f);
+	FHitResult LOSHit;
+	return GetWorld()->LineTraceSingleByChannel(
+		LOSHit,
+		CasterLoc + EyeHeight,
+		TargetLoc + EyeHeight,
+		ECC_Visibility,
+		LOSParams);
 }
 
 const TArray<FVector>& AAttackRangeIndicator::GetMovePath() const

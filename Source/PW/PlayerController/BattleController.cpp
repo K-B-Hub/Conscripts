@@ -17,6 +17,7 @@
 #include "Enum/SkillTypes.h"
 #include "Components/CapsuleComponent.h"
 #include "Actors/AttackRangeIndicator.h"
+#include "Landscape.h"
 
 ABattleController::ABattleController()
 {
@@ -588,14 +589,22 @@ void ABattleController::RefreshSkillButtons()
 void ABattleController::SnapSpringArmToGround(USpringArmComponent* SpringArm)
 {
 	const FVector PivotPos = SpringArm->GetComponentLocation();
-	FHitResult GroundHit;
-	if (GetWorld()->LineTraceSingleByChannel(
-		GroundHit,
+
+	// 랜드스케이프만 감지하기 위해 멀티 트레이스 후 필터링
+	TArray<FHitResult> Hits;
+	GetWorld()->LineTraceMultiByChannel(
+		Hits,
 		PivotPos + FVector(0.f, 0.f, 500.f),
 		PivotPos - FVector(0.f, 0.f, 500.f),
-		ECC_Visibility))
+		ECC_Visibility);
+
+	for (const FHitResult& Hit : Hits)
 	{
-		SpringArm->SetWorldLocation(FVector(PivotPos.X, PivotPos.Y, GroundHit.Location.Z + cameraGroundOffset));
+		if (Hit.GetActor() && Hit.GetActor()->IsA<ALandscapeProxy>())
+		{
+			SpringArm->SetWorldLocation(FVector(PivotPos.X, PivotPos.Y, Hit.Location.Z + cameraGroundOffset));
+			return;
+		}
 	}
 }
 

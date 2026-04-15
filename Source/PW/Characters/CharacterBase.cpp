@@ -21,6 +21,7 @@ ACharacterBase::ACharacterBase()
 	springArmComponent->TargetArmLength = cameraArmLength;
 	springArmComponent->SetRelativeRotation(FRotator(cameraPitchAngle, 0.f, 0.f));
 	springArmComponent->bUsePawnControlRotation = false;
+	springArmComponent->bDoCollisionTest = false;
 
 	cameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	cameraComponent->SetupAttachment(springArmComponent, USpringArmComponent::SocketName);

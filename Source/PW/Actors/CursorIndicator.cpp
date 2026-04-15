@@ -253,6 +253,7 @@ void ACursorIndicator::RebuildPathMeshes()
 		USplineMeshComponent* SplineMesh = NewObject<USplineMeshComponent>(this);
 		SplineMesh->SetStaticMesh(pathSegmentMesh);
 		SplineMesh->SetMobility(EComponentMobility::Movable);
+		SplineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		SplineMesh->SetupAttachment(pathMeshRoot); // 절대 좌표 루트 — 월드 좌표 직접 사용
 		SplineMesh->RegisterComponent();
 
