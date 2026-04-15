@@ -91,6 +91,7 @@ void USkillComponent::DeactivateSkill()
 
 	DestroyIndicators();
 	ClearCurrentTargets();
+	ClearAccumulatedTargets();
 	currentSkill = nullptr;
 }
 
@@ -113,6 +114,16 @@ void USkillComponent::RemoveTarget(ACharacterBase* Target)
 void USkillComponent::ClearCurrentTargets()
 {
 	currentTargets.Empty();
+}
+
+void USkillComponent::AccumulateCurrentTargets()
+{
+	accumulatedTargets.Append(currentTargets);
+}
+
+void USkillComponent::ClearAccumulatedTargets()
+{
+	accumulatedTargets.Empty();
 }
 
 void USkillComponent::CalcSkillStats()

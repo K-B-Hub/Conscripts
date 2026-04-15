@@ -48,6 +48,11 @@ public:
 	void AddTarget(ACharacterBase* Target);
 	void RemoveTarget(ACharacterBase* Target);
 	void ClearCurrentTargets();
+
+	// 멀티픽: 현재 오버랩 대상을 누적 배열에 스냅샷 저장
+	void AccumulateCurrentTargets();
+	const TArray<ACharacterBase*>& GetAccumulatedTargets() const { return accumulatedTargets; }
+	void ClearAccumulatedTargets();
 	
 	//캐릭터의 스탯 변경 시 호출해 스킬들의 계산된 값 변경
 	void CalcSkillStats();
@@ -79,6 +84,9 @@ private:
 
 	//스킬 영향 범위 내 대상 목록
 	TArray<ACharacterBase*> currentTargets;
+
+	// 멀티픽용 누적 대상 목록 (각 pick 시점의 오버랩 대상 스냅샷)
+	TArray<ACharacterBase*> accumulatedTargets;
 
 	//인디케이터 생성
 	void SpawnIndicators(UActiveSkillBase* Skill);

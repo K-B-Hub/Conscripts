@@ -188,7 +188,6 @@ private:
 	bool bPendingSkillExec = false;
 
 	// ─── 멀티픽 (pickCount > 1) ─────────────────────────────────
-	TArray<ACharacterBase*> pickedTargets;
 	int32 remainingPicks = 0;
 
 	UPROPERTY()

@@ -322,7 +322,6 @@ void ABattleController::ActivateSkill(UActiveSkillBase* Skill)
 	if (bIsMoveMode) ExitMoveMode();
 
 	// 멀티픽 초기화
-	pickedTargets.Empty();
 	remainingPicks = (Skill->selectMode == ESelectMode::SinglePick && Skill->pickCount > 1)
 		? Skill->pickCount : 0;
 
@@ -338,7 +337,6 @@ void ABattleController::DeactivateSkill()
 	if (!activeUnit) return;
 
 	bPendingSkillExec = false;
-	pickedTargets.Empty();
 	remainingPicks = 0;
 
 	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
@@ -474,6 +472,7 @@ void ABattleController::ExecuteSkill()
 	}
 
 	// ─── 멀티픽 모드 (pickCount > 1, SinglePick) ─────────────
+	// pickedTarget(EPickTeam)은 사용 대상, 실제 영향 대상은 EAreaTarget 기반 오버랩
 	if (Skill->selectMode == ESelectMode::SinglePick && Skill->pickCount > 1)
 	{
 		ACharacterBase* SnappedTarget = Indicator->GetSnappedTarget();
@@ -482,17 +481,16 @@ void ABattleController::ExecuteSkill()
 		// 사거리 밖 대상은 선택 불가
 		if (Indicator->ComputeOutOfRange()) return;
 
-		// 동일 대상 중복 허용 — Add 사용
-		pickedTargets.Add(SnappedTarget);
+		// 현재 오버랩 대상(EAreaTarget 필터 적용됨)을 누적 저장
+		SkillComp->AccumulateCurrentTargets();
 		remainingPicks--;
 
-		UE_LOG(LogTemp, Log, TEXT("[BattleController] 멀티픽: %s 선택 (남은 선택: %d)"),
-			*SnappedTarget->GetName(), remainingPicks);
+		UE_LOG(LogTemp, Log, TEXT("[BattleController] 멀티픽: %s 선택 (남은 선택: %d, 누적 대상: %d)"),
+			*SnappedTarget->GetName(), remainingPicks, SkillComp->GetAccumulatedTargets().Num());
 
 		if (remainingPicks > 0) return;
 
-		// 모든 선택 완료 → 실행
-		// 인디케이터 방향으로 캐릭터 회전
+		// 모든 선택 완료 → 누적된 영향 대상으로 실행
 		if (Indicator)
 		{
 			FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
@@ -503,19 +501,19 @@ void ABattleController::ExecuteSkill()
 			}
 		}
 
-		for (ACharacterBase* Target : pickedTargets)
+		const TArray<ACharacterBase*>& AccTargets = SkillComp->GetAccumulatedTargets();
+		for (ACharacterBase* Target : AccTargets)
 		{
 			Target->ReflectDamage();
 		}
 
-		Skill->Execute(pickedTargets);
-		pickedTargets.Empty();
+		Skill->Execute(AccTargets);
 		remainingPicks = 0;
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
 
-		UE_LOG(LogTemp, Log, TEXT("[BattleController] 멀티픽 스킬 실행: %s → %d회 적용"),
-			*Skill->skillName.ToString(), Skill->pickCount);
+		UE_LOG(LogTemp, Log, TEXT("[BattleController] 멀티픽 스킬 실행: %s → %d명 대상"),
+			*Skill->skillName.ToString(), AccTargets.Num());
 		return;
 	}
 
