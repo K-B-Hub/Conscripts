@@ -12,6 +12,7 @@
 AAllyTest::AAllyTest()
 {
 	atk = 16;
+	skill = 50; //테스트용
 }
 
 void AAllyTest::BeginPlay()

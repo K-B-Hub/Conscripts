@@ -16,6 +16,7 @@ class PW_API AAllyCharacterBase : public ACharacterBase
 public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void EndTurn() override;
+	virtual void HandleDeath() override;
 
 	// ─── 이동 인터페이스 ───────────────────────────────────────
 

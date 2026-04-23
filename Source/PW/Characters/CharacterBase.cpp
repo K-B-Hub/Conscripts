@@ -68,6 +68,7 @@ void ACharacterBase::BeginPlay()
 	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
 		HealthWidget->InitHealth(maxHp, hp);
+		healthWidget = HealthWidget;
 	}
 	SetDefaultStats();
 	SetDefaultSkills();
@@ -98,6 +99,40 @@ void ACharacterBase::Tick(float DeltaTime)
 int32 ACharacterBase::GetTurnOrder() const
 {
 	return speed + FMath::RandRange(0, speed);
+}
+
+void ACharacterBase::GetEXP(bool bIsKill)
+{
+	if (bIsKill)
+	{
+		exp += 55;			//추후 경험치 공식 적용 필요
+	}
+	else
+	{
+		exp += 20;
+	}
+	if (exp >= 100)
+	{
+		exp -= 100;
+		LevelUp();
+	}
+}
+
+void ACharacterBase::LevelUp()
+{
+	level++;
+
+	if (FMath::RandRange(1, 100) <= hpGrowth)        { maxHp++; hp++; healthWidget->InitHealth(maxHp, hp); }
+	if (FMath::RandRange(1, 100) <= atkGrowth)       { atk++; }
+	if (FMath::RandRange(1, 100) <= speedGrowth)     { speed++; }
+	if (FMath::RandRange(1, 100) <= skillGrowth)     { skill++; }
+	if (FMath::RandRange(1, 100) <= defGrowth)       { def++; }
+	if (FMath::RandRange(1, 100) <= mentalityGrowth) { mentality++; }
+
+	// 파생 스탯(명중, 회피, 치명) 재계산
+	SetDefaultStats();
+
+	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 레벨업 → Lv.%d"), *GetName(), level);
 }
 
 void ACharacterBase::ReduceActionPoint(int32 amount)
@@ -168,6 +203,27 @@ void ACharacterBase::ReceiveDamage(int32 Amount)
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 데미지 %d 수신 → 잔여 체력 %d / %d"), *GetName(), Amount, hp, maxHp);
+
+	if (hp <= 0)
+	{
+		HandleDeath();
+	}
+}
+
+void ACharacterBase::HandleDeath()
+{
+	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 사망"), *GetName());
+
+	OnCharacterDeath.Broadcast(this);
+
+	// NavMesh 장애물 해제
+	SetNavObstacleEnabled(false);
+
+	// 충돌 비활성화 — Destroy 전 오버랩 정리 유도
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	Destroy();
 }
 
 void ACharacterBase::ShowSkillInfo()

@@ -14,6 +14,7 @@ class AAllyCharacterBase;
 class ACharacterBase;
 class UTurnEndWidget;
 class USkillWidget;
+class UMoveWidget;
 class UActiveSkillBase;
 class AAttackRangeIndicator;
 
@@ -157,6 +158,16 @@ private:
 	// 스폰된 인디케이터 인스턴스 (GC 방지)
 	UPROPERTY()
 	TObjectPtr<ACursorIndicator> cursorIndicatorInstance = nullptr;
+
+	// ─── 이동 위젯 ──────────────────────────────────────────
+
+	// 이동 버튼 위젯 클래스 (BP에서 WBP_MoveWidget 지정)
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UMoveWidget> moveWidgetClass;
+
+	// 생성된 이동 위젯 인스턴스
+	UPROPERTY()
+	TObjectPtr<UMoveWidget> moveWidgetInstance = nullptr;
 
 	// ─── 턴 종료 위젯 ────────────────────────────────────────
 

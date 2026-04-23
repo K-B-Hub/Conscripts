@@ -7,6 +7,8 @@
 #include "BattleGameMode.generated.h"
 
 class ACharacterBase;
+class AAllyCharacterBase;
+class AEnemyBase;
 class ABattleController;
 
 UCLASS()
@@ -38,4 +40,18 @@ private:
 
 	// turnOrder[currentTurnIndex] 유닛의 턴을 시작
 	void StartCurrentTurn();
+
+	// 아군/적군 캐시 배열
+	UPROPERTY()
+	TArray<TObjectPtr<AAllyCharacterBase>> allies;
+	UPROPERTY()
+	TArray<TObjectPtr<AEnemyBase>> enemies;
+
+	// 캐릭터 사망 시 turnOrder/아군/적군 배열 정리
+	UFUNCTION()
+	void OnCharacterDeath(ACharacterBase* DeadCharacter);
+
+	// 적 사망 시 경험치 분배
+	UFUNCTION()
+	void OnEnemyDeath(AEnemyBase* DeadEnemy, AAllyCharacterBase* Killer);
 };

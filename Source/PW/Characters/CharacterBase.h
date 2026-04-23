@@ -6,9 +6,12 @@
 #include "GameFramework/Character.h"
 #include "CharacterBase.generated.h"
 
+class UHealthWidget;
 class UStaticMeshComponent;
 class UWidgetComponent;
 class USkillComponent;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 
 UCLASS()
 class PW_API ACharacterBase : public ACharacter
@@ -24,6 +27,8 @@ protected:
 	//체력 위젯 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "UI")
 	TObjectPtr<UWidgetComponent> healthWidgetComponent;
+	UPROPERTY(VisibleAnywhere, Category = "UI")
+	TObjectPtr<UHealthWidget> healthWidget;
 
 	//스킬 정보 예측 위젯 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "UI")
@@ -97,6 +102,8 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
 	int32 speedGrowth = 50;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
+	int32 skillGrowth = 50;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
 	int32 defGrowth = 50;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
 	int32 mentalityGrowth = 5;
@@ -121,11 +128,15 @@ protected:
 	virtual void SetDefaultSkills();
 	//스탯에 따른 캐릭터의 기본 명중, 치명, 회피 계산
 	void SetDefaultStats();
+	//레벨업
+	void LevelUp();
 public:
 	virtual void Tick(float DeltaTime) override;
 
 	//턴 순서 계산
 	int32 GetTurnOrder() const;
+	//경험치 획득
+	void GetEXP(bool bIsKill);
 	
 	//각종 스탯의 Getter
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
@@ -151,6 +162,12 @@ public:
 
 	//데미지 적용 후 HealthWidget 갱신, 음수일시 회복
 	void ReceiveDamage(int32 Amount);
+
+	// 사망 시 호출 — 파생 클래스에서 사전 처리 후 Super 호출
+	virtual void HandleDeath();
+
+	// 사망 시 GameMode 등 외부 시스템에 통보
+	FOnCharacterDeath OnCharacterDeath;
 
 	//캡슐의 NavMesh 등록 여부 토글
 	void SetNavObstacleEnabled(bool bEnabled);

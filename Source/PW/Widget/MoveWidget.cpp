@@ -24,3 +24,11 @@ void UMoveWidget::OnMoveButtonClicked()
 	// 클릭 후 포커스를 게임 뷰포트로 반환 — 버튼에 포커스가 남아 스페이스바 오입력 방지
 	UWidgetBlueprintLibrary::SetFocusToGameViewport();
 }
+
+void UMoveWidget::RefreshMoveButton(float currentMovingPoint)
+{
+	if (MoveButton)
+	{
+		MoveButton->SetIsEnabled(currentMovingPoint > 0.f);
+	}
+}

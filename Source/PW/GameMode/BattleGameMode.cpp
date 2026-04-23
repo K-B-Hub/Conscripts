@@ -15,20 +15,35 @@ void ABattleGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
-	BuildTurnOrder();
-	
-	for (ACharacterBase* Character : turnOrder)
+	// 모든 액터의 BeginPlay 완료를 보장하기 위해 첫 턴 시작을 다음 틱으로 지연
+	GetWorldTimerManager().SetTimerForNextTick([this]()
 	{
-		if (IsValid(Character))
-		{
-			Character->SetNavObstacleEnabled(true);
-		}
-	}
+		BuildTurnOrder();
 
-	if (turnOrder.Num() > 0)
-	{
-		StartCurrentTurn();
-	}
+		// 아군/적군 분류 및 적 사망 델리게이트 바인딩
+		for (ACharacterBase* Character : turnOrder)
+		{
+			if (!IsValid(Character)) continue;
+
+			Character->SetNavObstacleEnabled(true);
+			Character->OnCharacterDeath.AddDynamic(this, &ABattleGameMode::OnCharacterDeath);
+
+			if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(Character))
+			{
+				allies.Add(Ally);
+			}
+			else if (AEnemyBase* Enemy = Cast<AEnemyBase>(Character))
+			{
+				enemies.Add(Enemy);
+				Enemy->OnEnemyDeath.AddDynamic(this, &ABattleGameMode::OnEnemyDeath);
+			}
+		}
+
+		if (turnOrder.Num() > 0)
+		{
+			StartCurrentTurn();
+		}
+	});
 }
 
 void ABattleGameMode::BuildTurnOrder()
@@ -81,7 +96,9 @@ void ABattleGameMode::StartCurrentTurn()
 
 	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
 	{
-		//Enemy 접근해 AIController의 턴 시작 함수 호출
+		// 적군 AI 미구현 — 턴 스킵
+		OnTurnEnd();
+		return;
 	}
 	else if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(TurnUnit))
 	{
@@ -92,6 +109,50 @@ void ABattleGameMode::StartCurrentTurn()
 			BattleController->InitTurn(Ally);
 		}
 	}
+}
+
+void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
+{
+	// turnOrder에서 제거 — currentTurnIndex 보정
+	int32 DeadIndex = turnOrder.IndexOfByKey(DeadCharacter);
+	if (DeadIndex != INDEX_NONE)
+	{
+		turnOrder.RemoveAt(DeadIndex);
+		// 이미 지나간 인덱스가 제거되면 현재 인덱스 보정
+		if (DeadIndex < currentTurnIndex)
+		{
+			currentTurnIndex--;
+		}
+	}
+
+	// 아군/적군 배열에서 제거
+	if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(DeadCharacter))
+	{
+		allies.Remove(Ally);
+	}
+	else if (AEnemyBase* Enemy = Cast<AEnemyBase>(DeadCharacter))
+	{
+		enemies.Remove(Enemy);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] %s 전장에서 제거 (잔여: 아군 %d, 적 %d)"),
+		*DeadCharacter->GetName(), allies.Num(), enemies.Num());
+}
+
+void ABattleGameMode::OnEnemyDeath(AEnemyBase* DeadEnemy, AAllyCharacterBase* Killer)
+{
+	for (AAllyCharacterBase* Ally : allies)
+	{
+		if (!IsValid(Ally)) continue;
+
+		// 처치자는 true, 나머지 아군은 false
+		Ally->GetEXP(Ally == Killer);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] %s 처치 → 처치자: %s, 아군 %d명 경험치 획득"),
+		*DeadEnemy->GetName(),
+		Killer ? *Killer->GetName() : TEXT("없음"),
+		allies.Num());
 }
 
 void ABattleGameMode::OnTurnEnd()
