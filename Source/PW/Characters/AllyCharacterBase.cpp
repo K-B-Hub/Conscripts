@@ -62,6 +62,17 @@ void AAllyCharacterBase::EndTurn()
 	StopMovement();
 }
 
+void AAllyCharacterBase::HandleDeath()
+{
+	// 이동 중이면 정지
+	StopMovement();
+
+	// 델리게이트 바인딩 정리 — 소멸자에서 정리 시 크래시 방지
+	OnMovementCompleted.Clear();
+
+	Super::HandleDeath();
+}
+
 void AAllyCharacterBase::MoveAlongPath(const TArray<FVector>& Points)
 {
 	StopMovement();

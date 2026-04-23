@@ -56,7 +56,7 @@ void ACursorIndicator::Tick(float DeltaTime)
 	// ─── 0. 이동 완료 감지 → 잠금 자동 해제 ─────────────────
 	if (bIsLocked)
 	{
-		if (!IsValid(activeUnit) || !activeUnit->IsMoving())
+		if (!activeUnit.IsValid() || !activeUnit->IsMoving())
 		{
 			bIsLocked = false;
 		}
@@ -138,7 +138,7 @@ void ACursorIndicator::ClearTargetOverride()
 
 void ACursorIndicator::UpdatePathDistance()
 {
-	if (!IsValid(activeUnit)) return;
+	if (!activeUnit.IsValid()) return;
 
 	UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
 		GetWorld(),
@@ -219,7 +219,7 @@ void ACursorIndicator::RebuildPathMeshes()
 	// ─── 2. 세분화된 점 기준으로 이동력 분기점 삽입 ─────────
 	// 누적 거리로 예산 소진 지점을 찾아 densePoints에 삽입
 	int32 visualUnreachableStart = -1;
-	if (IsValid(activeUnit))
+	if (activeUnit.IsValid())
 	{
 		const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
 		float accumulated = 0.f;
@@ -286,7 +286,7 @@ void ACursorIndicator::UpdateSplitPoint()
 {
 	cachedSplitSegIndex = -1;
 
-	if (!IsValid(activeUnit) || cachedPathPoints.Num() < 2) return;
+	if (!activeUnit.IsValid() || cachedPathPoints.Num() < 2) return;
 
 	// 현재 이동력(m)을 cm으로 변환
 	const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;

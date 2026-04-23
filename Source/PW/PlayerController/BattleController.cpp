@@ -10,6 +10,7 @@
 #include "Actors/CursorIndicator.h"
 #include "Widget/TurnEndWidget.h"
 #include "Widget/SkillWidget.h"
+#include "Widget/MoveWidget.h"
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Characters/CharacterBase.h"
@@ -73,6 +74,16 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 	// 이동 완료 델리게이트 바인딩 (EndTurn에서 해제)
 	activeUnit->OnMovementCompleted.AddUObject(this, &ABattleController::OnUnitMovementCompleted);
 
+	// 이동 위젯 생성 및 뷰포트 추가
+	if (moveWidgetClass)
+	{
+		moveWidgetInstance = CreateWidget<UMoveWidget>(this, moveWidgetClass);
+		if (moveWidgetInstance)
+		{
+			moveWidgetInstance->AddToViewport();
+		}
+	}
+
 	// 턴 종료 위젯 생성 및 뷰포트 추가
 	if (turnEndWidgetClass)
 	{
@@ -109,6 +120,11 @@ void ABattleController::EndTurn()
 		ExitMoveMode();
 		DeactivateSkill();
 		activeUnit->EndTurn();
+	}
+	if (IsValid(moveWidgetInstance))
+	{
+		moveWidgetInstance->RemoveFromParent();
+		moveWidgetInstance = nullptr;
 	}
 	if (IsValid(turnEndWidgetInstance))
 	{
@@ -428,6 +444,11 @@ void ABattleController::OnUnitMovementCompleted()
 
 		for (ACharacterBase* Target : Targets)
 		{
+			if (!IsValid(Target)) continue;
+			if (AEnemyBase* Enemy = Cast<AEnemyBase>(Target))
+			{
+				Enemy->SetLastAttacker(activeUnit);
+			}
 			Target->ReflectDamage();
 		}
 
@@ -438,6 +459,12 @@ void ABattleController::OnUnitMovementCompleted()
 		UE_LOG(LogTemp, Log, TEXT("[BattleController] 자동이동 후 스킬 실행: %s → %d명 대상"),
 			*Skill->skillName.ToString(), Targets.Num());
 		return;
+	}
+
+	// 이동 완료 후 이동력 잔여 여부로 버튼 상태 갱신
+	if (IsValid(moveWidgetInstance))
+	{
+		moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
 	}
 
 	// 이동 모드 처리
@@ -502,19 +529,30 @@ void ABattleController::ExecuteSkill()
 			}
 		}
 
-		const TArray<ACharacterBase*>& AccTargets = SkillComp->GetAccumulatedTargets();
-		for (ACharacterBase* Target : AccTargets)
+		// 멀티픽 누적 대상 중 사망한 캐릭터 필터링
+		TArray<ACharacterBase*> ValidTargets;
+		for (ACharacterBase* Target : SkillComp->GetAccumulatedTargets())
 		{
+			if (IsValid(Target))
+			{
+				ValidTargets.Add(Target);
+			}
+		}
+		for (ACharacterBase* Target : ValidTargets)
+		{
+			if (!IsValid(Target)) continue;
+			if (AEnemyBase* Enemy = Cast<AEnemyBase>(Target))
+			{
+				Enemy->SetLastAttacker(activeUnit);
+			}
 			Target->ReflectDamage();
 		}
 
-		Skill->Execute(AccTargets);
+		Skill->Execute(ValidTargets);
 		remainingPicks = 0;
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
 
-		UE_LOG(LogTemp, Log, TEXT("[BattleController] 멀티픽 스킬 실행: %s → %d명 대상"),
-			*Skill->skillName.ToString(), AccTargets.Num());
 		return;
 	}
 
@@ -560,6 +598,11 @@ void ABattleController::ExecuteSkill()
 	// 전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨 → 바로 ReflectDamage
 	for (ACharacterBase* Target : Targets)
 	{
+		if (!IsValid(Target)) continue;
+		if (AEnemyBase* Enemy = Cast<AEnemyBase>(Target))
+		{
+			Enemy->SetLastAttacker(activeUnit);
+		}
 		Target->ReflectDamage();
 	}
 

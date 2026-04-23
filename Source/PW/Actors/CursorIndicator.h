@@ -98,9 +98,8 @@ public:
 	void ClearTargetOverride();
 
 private:
-	// 현재 이동 명령 대상 캐릭터 (GC 방지를 위해 UPROPERTY 필수)
-	UPROPERTY()
-	TObjectPtr<AAllyCharacterBase> activeUnit = nullptr;
+	// 현재 이동 명령 대상 캐릭터
+	TWeakObjectPtr<AAllyCharacterBase> activeUnit = nullptr;
 
 	// 경로 거리 계산 쓰로틀링 타이머
 	float pathUpdateTimer = 0.f;
