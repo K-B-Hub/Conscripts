@@ -8,6 +8,7 @@
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/MultiPick.h"
 #include "Object/skill/ActiveSkill/test/RangedMultiPick.h"
+#include "Object/Skill/ActiveSkill/test/SingleBuff.h"
 
 AAllyTest::AAllyTest()
 {
@@ -43,5 +44,10 @@ void AAllyTest::SetDefaultSkills()
 	if (TestSkill4)
 	{
 		skillComponent->AddSkill(TestSkill4);
+	}
+	USingleBuff* TestSkill5 = NewObject<USingleBuff>(this, USingleBuff::StaticClass(), TEXT("TestSkill5"));
+	if (TestSkill5)
+	{
+		skillComponent->AddSkill(TestSkill5);
 	}
 }

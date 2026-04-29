@@ -3,6 +3,8 @@
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Characters/CharacterBase.h"
 #include "Animation/AnimMontage.h"
+#include "ActorComponent/BuffComponent.h"
+#include "Object/Buff/BuffBase.h"
 
 bool UActiveSkillBase::CanExecute() const
 {
@@ -55,6 +57,21 @@ void UActiveSkillBase::Execute(const TArray<ACharacterBase*>& targets)
 
 	ownerPtr->ReduceActionPoint(actionPointCost);
 	ownerPtr->ReduceBattleResource(battleResourceCost);
+
+	// 버프 적용 — 스킬에 등록된 버프를 모든 적중 대상의 BuffComponent에 추가
+	if (buffs.Num() > 0)
+	{
+		for (ACharacterBase* target : targets)
+		{
+			if (!target) continue;
+			UBuffComponent* targetBuffComp = target->GetBuffComponent();
+			if (!targetBuffComp) continue;
+			for (const TSubclassOf<UBuffBase>& buffClass : buffs)
+			{
+				targetBuffComp->AddBuff(buffClass, ownerPtr);
+			}
+		}
+	}
 
 	// 스킬 몽타주 재생
 	if (skillMontage)
