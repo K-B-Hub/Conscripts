@@ -10,6 +10,8 @@ class UHealthWidget;
 class UStaticMeshComponent;
 class UWidgetComponent;
 class USkillComponent;
+class UBuffComponent;
+class UBuffBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 
@@ -41,6 +43,10 @@ protected:
 	//스킬 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Skill")
 	TObjectPtr<USkillComponent> skillComponent;
+
+	//버프 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Buff")
+	TObjectPtr<UBuffComponent> buffComponent;
 
 	//카메라 관련
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -179,4 +185,9 @@ public:
 
 	UStaticMeshComponent* GetWeaponMeshComponent() const;
 	USkillComponent* GetSkillComponent() const { return skillComponent; }
+	UBuffComponent* GetBuffComponent() const { return buffComponent; }
+
+	//버프 적용/해제 시 스탯 델타 일괄 가감 — sign: +1=적용, -1=해제
+	//파생 스탯(accuracy/evasion/critical)은 SetDefaultStats를 다시 부르지 않고 직접 가감
+	void ApplyBuffDelta(const UBuffBase* buff, int32 sign);
 };

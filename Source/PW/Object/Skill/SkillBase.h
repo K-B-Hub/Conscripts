@@ -7,6 +7,7 @@
 #include "SkillBase.generated.h"
 
 class ACharacterBase;
+class UBuffBase;
 
 // 모든 스킬(액티브, 패시브)의 공통 기반 데이터
 UCLASS(Abstract, BlueprintType)
@@ -30,6 +31,11 @@ public:
 	// 스킬 소유 캐릭터 (GC 등록을 위해 UPROPERTY 필요)
 	UPROPERTY()
 	TWeakObjectPtr<ACharacterBase> owner;
+
+	// 스킬 적중 시 대상에게 부여될 버프 클래스 목록
+	// 각 클래스는 CDO를 공유 템플릿으로 사용 — 대상의 BuffComponent에 페어로 등록
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Buff")
+	TArray<TSubclassOf<UBuffBase>> buffs;
 
 	// 소유자 설정 — SkillComponent에서 스킬 인스턴스 생성 후 호출
 	void SetOwner(ACharacterBase* InOwner);

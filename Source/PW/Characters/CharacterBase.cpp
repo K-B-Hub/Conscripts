@@ -11,6 +11,8 @@
 #include "Widget/HealthWidget.h"
 #include "Widget/SkillInfoWidget.h"
 #include "ActorComponent/SkillComponent.h"
+#include "ActorComponent/BuffComponent.h"
+#include "Object/Buff/BuffBase.h"
 
 // Sets default values
 ACharacterBase::ACharacterBase()
@@ -49,6 +51,8 @@ ACharacterBase::ACharacterBase()
 	{
 		skillComponent->SetOwner(this);
 	}
+
+	buffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
 
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
 
@@ -181,16 +185,65 @@ void ACharacterBase::ReflectDamage()
 	ReceiveDamage(finalDamage);
 }
 
-//추후 상태이상 컴포넌트에서 턴 시작시 영향주는 상태이상 적용 및 턴수 감소 필요
 void ACharacterBase::InitTurn()
 {
 	currentActionPoint = actionPoint;
 	currentMovingPoint = movingPoint;
+
+	if (buffComponent)
+	{
+		buffComponent->OnTurnStart();
+	}
 }
 
-//추후 상태이상, 버프, 디버프 적용 및 턴수 감소 필요
 void ACharacterBase::EndTurn()
 {
+	if (buffComponent)
+	{
+		buffComponent->OnTurnEnd();
+	}
+}
+
+void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
+{
+	if (!buff || (sign != 1 && sign != -1)) return;
+
+	//최대 체력 변경 — 현재 체력은 새 max에 클램프
+	maxHp += buff->hp * sign;
+	hp = FMath::Clamp(hp, 0, maxHp);
+	if (healthWidget)
+	{
+		healthWidget->InitHealth(maxHp, hp);
+	}
+
+	//기본 능력치
+	atk += buff->atk * sign;
+	speed += buff->speed * sign;
+	skill += buff->skill * sign;
+	def += buff->def * sign;
+	movingPoint += buff->movingPoint * sign;
+	mentality += buff->mentality * sign;
+
+	//행동력 — 최대치 변경, 현재치는 새 max에 클램프
+	actionPoint += buff->actionPoint * sign;
+	currentActionPoint = FMath::Clamp(currentActionPoint, 0, actionPoint);
+
+	//피해 보정
+	damageReduction += buff->damageReduction * sign;
+	damageAmplification += buff->damageAmplification * sign;
+	penetration += buff->penetration * sign;
+	sight += buff->sight * sign;
+
+	//전투 파생 스탯 — 직접 가감 (skill/speed에 의한 자동 재계산은 하지 않음)
+	accuracy += buff->accuracy * sign;
+	evasion += buff->evasion * sign;
+	critical += buff->critical * sign;
+
+	//스킬 측 계산값(damageRatio*atk 등) 재계산 알림
+	if (skillComponent)
+	{
+		skillComponent->CalcSkillStats();
+	}
 }
 
 void ACharacterBase::ReceiveDamage(int32 Amount)
