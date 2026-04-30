@@ -81,6 +81,8 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 		if (moveWidgetInstance)
 		{
 			moveWidgetInstance->AddToViewport();
+			// 턴 시작 시 이동력 상태로 버튼 즉시 동기화 (movingPoint 0인 경우 비활성)
+			moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
 		}
 	}
 
@@ -442,6 +444,8 @@ void ABattleController::OnUnitMovementCompleted()
 		const TArray<ACharacterBase*> Targets = SkillComp->GetCurrentTargets();
 		if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
+		Skill->BeginUse();
+
 		for (ACharacterBase* Target : Targets)
 		{
 			if (!IsValid(Target)) continue;
@@ -449,12 +453,18 @@ void ABattleController::OnUnitMovementCompleted()
 			{
 				Enemy->SetLastAttacker(activeUnit);
 			}
-			Target->ReflectDamage();
+			if (!Target->ReflectDamage()) continue;
+			if (!IsValid(Target)) continue;
+			Skill->Execute(Target);
 		}
-
-		Skill->Execute(Targets);
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
+
+		// 자동이동으로 소비된 이동력 반영 — Move 버튼 상태 갱신
+		if (IsValid(moveWidgetInstance))
+		{
+			moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
+		}
 
 		UE_LOG(LogTemp, Log, TEXT("[BattleController] 자동이동 후 스킬 실행: %s → %d명 대상"),
 			*Skill->skillName.ToString(), Targets.Num());
@@ -538,6 +548,9 @@ void ABattleController::ExecuteSkill()
 				ValidTargets.Add(Target);
 			}
 		}
+
+		Skill->BeginUse();
+
 		for (ACharacterBase* Target : ValidTargets)
 		{
 			if (!IsValid(Target)) continue;
@@ -545,10 +558,10 @@ void ABattleController::ExecuteSkill()
 			{
 				Enemy->SetLastAttacker(activeUnit);
 			}
-			Target->ReflectDamage();
+			if (!Target->ReflectDamage()) continue;
+			if (!IsValid(Target)) continue;
+			Skill->Execute(Target);
 		}
-
-		Skill->Execute(ValidTargets);
 		remainingPicks = 0;
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
@@ -595,6 +608,8 @@ void ABattleController::ExecuteSkill()
 	// SinglePick만 타겟 필수 — Self, GroundPoint는 타겟 없이도 실행 가능
 	if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
+	Skill->BeginUse();
+
 	// 전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨 → 바로 ReflectDamage
 	for (ACharacterBase* Target : Targets)
 	{
@@ -603,11 +618,10 @@ void ABattleController::ExecuteSkill()
 		{
 			Enemy->SetLastAttacker(activeUnit);
 		}
-		Target->ReflectDamage();
+		if (!Target->ReflectDamage()) continue;
+		if (!IsValid(Target)) continue;
+		Skill->Execute(Target);
 	}
-
-	// 스킬 고유 로직 실행 (파생 클래스에서 오버라이드)
-	Skill->Execute(Targets);
 
 	// 스킬 사용 완료 → 비활성화
 	SkillComp->DeactivateSkill();

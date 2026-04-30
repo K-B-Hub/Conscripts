@@ -161,7 +161,7 @@ public:
 	//AttackRangeIndicator 오버렙 시 데미지 미리 계산
 	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration);
 	//미리 계산해둔 값으로 치명타, 회피 여부 계산 후 데미지 적용
-	void ReflectDamage();
+	bool ReflectDamage();
 	
 	void InitTurn();
 	virtual void EndTurn();

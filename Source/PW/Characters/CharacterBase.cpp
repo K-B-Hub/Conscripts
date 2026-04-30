@@ -115,10 +115,13 @@ void ACharacterBase::GetEXP(bool bIsKill)
 	{
 		exp += 20;
 	}
-	if (exp >= 100)
+	if (exp >= maxHp)
 	{
-		exp -= 100;
-		LevelUp();
+		while (exp < maxHp)
+		{
+			LevelUp();
+			exp -= 100;
+		}
 	}
 }
 
@@ -126,7 +129,12 @@ void ACharacterBase::LevelUp()
 {
 	level++;
 
-	if (FMath::RandRange(1, 100) <= hpGrowth)        { maxHp++; hp++; healthWidget->InitHealth(maxHp, hp); }
+	if (FMath::RandRange(1, 100) <= hpGrowth)
+	{
+		maxHp++; hp++;
+		if (IsValid(healthWidget))
+			healthWidget->InitHealth(maxHp, hp);
+	}
 	if (FMath::RandRange(1, 100) <= atkGrowth)       { atk++; }
 	if (FMath::RandRange(1, 100) <= speedGrowth)     { speed++; }
 	if (FMath::RandRange(1, 100) <= skillGrowth)     { skill++; }
@@ -169,13 +177,13 @@ void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critica
 	pendingCritical = Critical;
 }
 
-void ACharacterBase::ReflectDamage()
+bool ACharacterBase::ReflectDamage()
 {
 	float hitRoll = FMath::FRandRange(0.f, 100.f);
 	if (hitRoll > pendingAccuracy)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 공격 회피"), *GetName());
-		return;
+		return false;
 	}
 	float critRoll = FMath::FRandRange(0.f, 100.f);
 	int32 finalDamage = (critRoll <= pendingCritical)
@@ -183,6 +191,7 @@ void ACharacterBase::ReflectDamage()
 		: FMath::RoundToInt(pendingDMG);
 
 	ReceiveDamage(finalDamage);
+	return true;
 }
 
 void ACharacterBase::InitTurn()
@@ -210,7 +219,7 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 
 	//최대 체력 변경 — 현재 체력은 새 max에 클램프
 	maxHp += buff->hp * sign;
-	hp = FMath::Clamp(hp, 0, maxHp);
+	hp = FMath::Clamp(hp, 1, maxHp);
 	if (healthWidget)
 	{
 		healthWidget->InitHealth(maxHp, hp);
@@ -222,10 +231,13 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	skill += buff->skill * sign;
 	def += buff->def * sign;
 	movingPoint += buff->movingPoint * sign;
+	currentMovingPoint += buff->movingPoint * sign;
+	currentMovingPoint = FMath::Clamp(currentMovingPoint, 0, movingPoint);
 	mentality += buff->mentality * sign;
 
 	//행동력 — 최대치 변경, 현재치는 새 max에 클램프
 	actionPoint += buff->actionPoint * sign;
+	currentActionPoint += buff->actionPoint * sign;
 	currentActionPoint = FMath::Clamp(currentActionPoint, 0, actionPoint);
 
 	//피해 보정

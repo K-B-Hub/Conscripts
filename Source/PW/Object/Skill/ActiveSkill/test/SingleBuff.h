@@ -17,5 +17,5 @@ class PW_API USingleBuff : public UActiveSkillBase
 public:
 	USingleBuff();
 
-	virtual void Execute(const TArray<ACharacterBase*>& targets) override;
+	virtual void Execute(const ACharacterBase* target) override;
 };

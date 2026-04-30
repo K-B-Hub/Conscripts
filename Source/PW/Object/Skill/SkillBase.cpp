@@ -13,7 +13,7 @@ ACharacterBase* USkillBase::GetOwner() const
 	return owner.Get();
 }
 
-void USkillBase::Execute(const TArray<ACharacterBase*>& targets)
+void USkillBase::Execute(const ACharacterBase* targets)
 {
 	// 파생 클래스에서 구현
 }

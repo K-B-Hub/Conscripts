@@ -112,14 +112,18 @@ public:
 
 	// 스킬 사용 가능 여부 검사 (AP, 전투 자원)
 	bool CanExecute() const;
-	
+
 	void SetCalcedStats();
-	
+
 	float calcDamage;
 	float calcAccuracy;
 	float calcCritical;
 	int32 calcDamageAmplfication;
 	int32 calcPenetration;
-	
-	void Execute(const TArray<ACharacterBase*>& targets) override;
+
+	// 스킬 사용 시 1회 호출 — 자원 차감 + 몽타주 재생 (적중 여부 무관)
+	virtual void BeginUse();
+
+	// 적중한 타겟마다 호출 — 버프 적용 등 hit-gated 효과
+	void Execute(const ACharacterBase* target) override;
 };

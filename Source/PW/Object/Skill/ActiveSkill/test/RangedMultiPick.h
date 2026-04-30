@@ -17,5 +17,5 @@ class PW_API URangedMultiPick : public UActiveSkillBase
 public:
 	URangedMultiPick();
 	
-	virtual void Execute(const TArray<ACharacterBase*>& targets) override;
+	virtual void Execute(const ACharacterBase* targets) override;
 };

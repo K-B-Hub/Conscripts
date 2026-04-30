@@ -37,7 +37,7 @@ URangedMultiPick::URangedMultiPick()
 	}
 }
 
-void URangedMultiPick::Execute(const TArray<ACharacterBase*>& targets)
+void URangedMultiPick::Execute(const ACharacterBase* targets)
 {
 	Super::Execute(targets);
 }

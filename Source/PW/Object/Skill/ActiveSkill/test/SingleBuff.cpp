@@ -40,7 +40,7 @@ USingleBuff::USingleBuff()
 	buffs.Add(UTestBuff::StaticClass());
 }
 
-void USingleBuff::Execute(const TArray<ACharacterBase*>& targets)
+void USingleBuff::Execute(const ACharacterBase* targets)
 {
 	Super::Execute(targets);
 }
