@@ -117,7 +117,7 @@ void ACharacterBase::GetEXP(bool bIsKill)
 	}
 	if (exp >= maxHp)
 	{
-		while (exp < maxHp)
+		while (exp >= maxHp)
 		{
 			LevelUp();
 			exp -= 100;
@@ -219,6 +219,7 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 
 	//최대 체력 변경 — 현재 체력은 새 max에 클램프
 	maxHp += buff->hp * sign;
+	if (maxHp <= 0) maxHp = 1;
 	hp = FMath::Clamp(hp, 1, maxHp);
 	if (healthWidget)
 	{
