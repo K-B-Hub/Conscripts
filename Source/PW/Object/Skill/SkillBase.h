@@ -43,5 +43,5 @@ public:
 	ACharacterBase* GetOwner() const;
 	
 	// 스킬 실행 — 파생 클래스에서 스킬 고유 로직 구현
-	virtual void Execute(const TArray<ACharacterBase*>& targets);
+	virtual void Execute(const ACharacterBase* target);
 };

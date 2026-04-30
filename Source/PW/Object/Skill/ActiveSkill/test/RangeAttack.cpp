@@ -37,7 +37,7 @@ URangeAttack::URangeAttack()
 	}
 }
 
-void URangeAttack::Execute(const TArray<ACharacterBase*>& targets)
+void URangeAttack::Execute(const ACharacterBase* targets)
 {
 	Super::Execute(targets);
 }

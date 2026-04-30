@@ -48,32 +48,14 @@ void UActiveSkillBase::SetCalcedStats()
 	calcPenetration = ownerPtr->GetPenetration() + bonusPenetration;
 }
 
-void UActiveSkillBase::Execute(const TArray<ACharacterBase*>& targets)
+void UActiveSkillBase::BeginUse()
 {
-	Super::Execute(targets);
-
 	ACharacterBase* ownerPtr = GetOwner();
 	if (!ownerPtr) return;
 
 	ownerPtr->ReduceActionPoint(actionPointCost);
 	ownerPtr->ReduceBattleResource(battleResourceCost);
 
-	// 버프 적용 — 스킬에 등록된 버프를 모든 적중 대상의 BuffComponent에 추가
-	if (buffs.Num() > 0)
-	{
-		for (ACharacterBase* target : targets)
-		{
-			if (!target) continue;
-			UBuffComponent* targetBuffComp = target->GetBuffComponent();
-			if (!targetBuffComp) continue;
-			for (const TSubclassOf<UBuffBase>& buffClass : buffs)
-			{
-				targetBuffComp->AddBuff(buffClass, ownerPtr);
-			}
-		}
-	}
-
-	// 스킬 몽타주 재생
 	if (skillMontage)
 	{
 		const float Duration = ownerPtr->PlayAnimMontage(skillMontage, montagePlayRate);
@@ -83,5 +65,26 @@ void UActiveSkillBase::Execute(const TArray<ACharacterBase*>& targets)
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[ActiveSkillBase] skillMontage가 nullptr — 에셋 경로 확인 필요"));
+	}
+}
+
+void UActiveSkillBase::Execute(const ACharacterBase* target)
+{
+	Super::Execute(target);
+
+	if (!target) return;
+
+	ACharacterBase* ownerPtr = GetOwner();
+
+	// 버프 적용 — 스킬에 등록된 버프를 적중 대상의 BuffComponent에 추가
+	if (buffs.Num() > 0)
+	{
+		if (UBuffComponent* targetBuffComp = target->GetBuffComponent())
+		{
+			for (const TSubclassOf<UBuffBase>& buffClass : buffs)
+			{
+				targetBuffComp->AddBuff(buffClass, ownerPtr);
+			}
+		}
 	}
 }

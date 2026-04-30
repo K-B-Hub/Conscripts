@@ -17,5 +17,5 @@ class PW_API USingleRangeAttack : public UActiveSkillBase
 public:
 	USingleRangeAttack();
 	
-	virtual void Execute(const TArray<ACharacterBase*>& targets) override;
+	virtual void Execute(const ACharacterBase* target) override;
 };

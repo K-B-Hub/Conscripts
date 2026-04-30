@@ -17,5 +17,5 @@ class PW_API URangeAttack : public UActiveSkillBase
 public:
 	URangeAttack();
 	
-	virtual void Execute(const TArray<ACharacterBase*>& targets) override;
+	virtual void Execute(const ACharacterBase* target) override;
 };

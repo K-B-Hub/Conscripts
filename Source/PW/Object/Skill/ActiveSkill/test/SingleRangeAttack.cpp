@@ -37,9 +37,9 @@ USingleRangeAttack::USingleRangeAttack()
 	}
 }
 
-void USingleRangeAttack::Execute(const TArray<ACharacterBase*>& targets)
+void USingleRangeAttack::Execute(const ACharacterBase* target)
 {
-	Super::Execute(targets);
+	Super::Execute(target);
 	
 	
 }

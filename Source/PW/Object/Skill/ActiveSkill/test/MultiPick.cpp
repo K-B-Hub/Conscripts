@@ -37,7 +37,7 @@ UMultiPick::UMultiPick()
 	}
 }
 
-void UMultiPick::Execute(const TArray<ACharacterBase*>& targets)
+void UMultiPick::Execute(const ACharacterBase* targets)
 {
 	Super::Execute(targets);
 }
