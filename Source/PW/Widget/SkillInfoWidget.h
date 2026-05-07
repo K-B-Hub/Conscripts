@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Enum/SkillTypes.h"
 #include "Blueprint/UserWidget.h"
 #include "SkillInfoWidget.generated.h"
 
@@ -17,7 +18,7 @@ class PW_API USkillInfoWidget : public UUserWidget
 
 public:
 	// 전투 예측 값 갱신
-	void UpdateInfo(float Damage, float Accuracy, float Critical);
+	void UpdateInfo(float Damage, float Accuracy, float Critical, ESkillType SkillType);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -31,4 +32,7 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> CriticalText;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> BuffText;
 };

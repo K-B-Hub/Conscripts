@@ -158,9 +158,27 @@ void ACharacterBase::ReduceBattleResource(int32 amount)
 }
 
 void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication,
-                                     int Penetration)
+                                     int Penetration, ESkillType SkillType, EPickTeam PickTeam)
 {
-	pendingDMG = (Damage * (1 + DamageAmplfication / 100) - def * (1 - Penetration / 100)) * (1 - damageReduction / 100);
+	pendingSkillType = SkillType;
+	if (SkillType == ESkillType::Buff)
+	{
+		pendingDMG = 0.f;
+		// 아군 전용 버프는 회피 차감 없이 스킬 명중을 그대로 사용
+		pendingAccuracy = (PickTeam == EPickTeam::AllyOnly) ? Accuracy : (Accuracy - evasion);
+		if (pendingAccuracy <= 0)
+		{
+			pendingAccuracy = 0;
+		}
+		else if (pendingAccuracy > 100.f)
+		{
+			pendingAccuracy = 100.f;
+		}
+		pendingCritical = 0.f;
+		return;
+	}
+
+	pendingDMG = (Damage * (1 + DamageAmplfication / 100.f) - def * (1 - Penetration / 100.f)) * (1 - damageReduction / 100.f);
 	if (pendingDMG <= 0)
 	{
 		pendingDMG = 0;
@@ -179,6 +197,17 @@ void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critica
 
 bool ACharacterBase::ReflectDamage()
 {
+	if (pendingSkillType == ESkillType::Buff)
+	{
+		float hitRoll = FMath::FRandRange(0.f, 100.f);
+		if (hitRoll > pendingAccuracy)
+		{
+			UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 버프 회피"), *GetName());
+			return false;
+		}
+		return true;
+	}
+
 	float hitRoll = FMath::FRandRange(0.f, 100.f);
 	if (hitRoll > pendingAccuracy)
 	{
@@ -297,7 +326,7 @@ void ACharacterBase::ShowSkillInfo()
 	skillInfoWidgetComponent->SetVisibility(true);
 	if (USkillInfoWidget* InfoWidget = Cast<USkillInfoWidget>(skillInfoWidgetComponent->GetWidget()))
 	{
-		InfoWidget->UpdateInfo(pendingDMG, pendingAccuracy, pendingCritical);
+		InfoWidget->UpdateInfo(pendingDMG, pendingAccuracy, pendingCritical, pendingSkillType);
 	}
 }
 
@@ -311,6 +340,7 @@ void ACharacterBase::ClearPendingDamage()
 	pendingDMG = 0.f;
 	pendingAccuracy = 0.f;
 	pendingCritical = 0.f;
+	pendingSkillType = ESkillType::Melee;
 }
 
 void ACharacterBase::SetNavObstacleEnabled(bool bEnabled)
