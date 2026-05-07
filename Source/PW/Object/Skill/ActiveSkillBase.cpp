@@ -28,7 +28,7 @@ void UActiveSkillBase::SetCalcedStats()
 		UE_LOG(LogTemp, Warning, TEXT("[ActiveSkillBase] SetCalcedStats: 스킬 소유자 없음"));
 		return;
 	}
-	
+
 	// (캐릭터 atk + 스킬 고정 피해) * 스킬 계수
 	calcDamage = ownerPtr->GetAtk() * damageRatio + baseDamage;
 	// 캐릭터 명중 + 스킬 보너스 명중

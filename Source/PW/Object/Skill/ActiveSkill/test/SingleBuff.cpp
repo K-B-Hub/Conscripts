@@ -9,7 +9,7 @@ USingleBuff::USingleBuff()
 	skillName = NSLOCTEXT("Skill", "SingleBuff_Name", "단일 버프");
 	skillDescription = NSLOCTEXT("Skill", "SingleBuff_Description", "단일 대상에게 버프 적용");
 
-	skillType = ESkillType::Ranged;
+	skillType = ESkillType::Buff;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::SinglePick;
 	pickTeam = EPickTeam::Any;
@@ -24,10 +24,10 @@ USingleBuff::USingleBuff()
 	battleResourceCost = 0;
 	actionPointCost = 2;
 	
-	damageRatio = 1.0f;
-	bonusAccuracy = 35.f;
+	damageRatio = 0.f;
+	bonusAccuracy = 20.f;
 	bonusCritical = 0.f;
-	baseDamage = 1;
+	baseDamage = 0;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 	

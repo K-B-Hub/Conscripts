@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Enum/SkillTypes.h"
 #include "GameFramework/Character.h"
 #include "CharacterBase.generated.h"
 
@@ -121,6 +122,8 @@ protected:
 	float pendingAccuracy;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	float pendingCritical;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
+	ESkillType pendingSkillType = ESkillType::Melee;
 
 	//레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
@@ -159,7 +162,8 @@ public:
 	int32 GetPenetration() const { return penetration; }
 	
 	//AttackRangeIndicator 오버렙 시 데미지 미리 계산
-	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration);
+	//PickTeam: Buff 스킬에서 AllyOnly면 아군 대상이라 회피를 차감하지 않음
+	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration, ESkillType SkillType, EPickTeam PickTeam);
 	//미리 계산해둔 값으로 치명타, 회피 여부 계산 후 데미지 적용
 	bool ReflectDamage();
 	

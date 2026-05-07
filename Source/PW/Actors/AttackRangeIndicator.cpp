@@ -428,7 +428,9 @@ void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedCompon
 			cachedSkill->calcAccuracy,
 			cachedSkill->calcCritical,
 			cachedSkill->calcDamageAmplfication,
-			cachedSkill->calcPenetration
+			cachedSkill->calcPenetration,
+			cachedSkill->skillType,
+			cachedSkill->pickTeam
 		);
 		Character->ShowSkillInfo();
 	}
