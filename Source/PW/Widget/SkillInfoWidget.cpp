@@ -31,6 +31,36 @@ void USkillInfoWidget::UpdateInfo(float Damage, float Accuracy, float Critical, 
 		{
 			BuffText->SetVisibility(ESlateVisibility::Visible);
 		}
+		if (AilmentText)
+		{
+			AilmentText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		return;
+	}
+
+	if (SkillType == ESkillType::Ailment)
+	{
+		if (DamageText)
+		{
+			DamageText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (AccuracyText)
+		{
+			AccuracyText->SetVisibility(ESlateVisibility::Visible);
+			AccuracyText->SetText(FText::FromString(FString::Printf(TEXT("Accuracy: %d%%"), FMath::RoundToInt(Accuracy))));
+		}
+		if (CriticalText)
+		{
+			CriticalText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (BuffText)
+		{
+			BuffText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (AilmentText)
+		{
+			AilmentText->SetVisibility(ESlateVisibility::Visible);
+		}
 		return;
 	}
 
@@ -52,5 +82,9 @@ void USkillInfoWidget::UpdateInfo(float Damage, float Accuracy, float Critical, 
 	if (BuffText)
 	{
 		BuffText->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if (AilmentText)
+	{
+		AilmentText->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }

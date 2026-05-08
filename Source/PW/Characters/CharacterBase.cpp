@@ -8,11 +8,13 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
 #include "NavigationSystem.h"
+#include "../ActorComponent/AilmentComponent.h"
 #include "Widget/HealthWidget.h"
 #include "Widget/SkillInfoWidget.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
+#include "Actorcomponent/AilmentComponent.h"
 
 // Sets default values
 ACharacterBase::ACharacterBase()
@@ -53,6 +55,7 @@ ACharacterBase::ACharacterBase()
 	}
 
 	buffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
+	ailmentComponent = CreateDefaultSubobject<UAilmentComponent>(TEXT("AilmentComponent"));
 
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
 
@@ -232,6 +235,10 @@ void ACharacterBase::InitTurn()
 	{
 		buffComponent->OnTurnStart();
 	}
+	if (ailmentComponent)
+	{
+		ailmentComponent->OnTurnStart();
+	}
 }
 
 void ACharacterBase::EndTurn()
@@ -239,6 +246,10 @@ void ACharacterBase::EndTurn()
 	if (buffComponent)
 	{
 		buffComponent->OnTurnEnd();
+	}
+	if (ailmentComponent)
+	{
+		ailmentComponent->OnTurnEnd();
 	}
 }
 
@@ -281,8 +292,8 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	evasion += buff->evasion * sign;
 	critical += buff->critical * sign;
 
-	//스킬 측 계산값(damageRatio*atk 등) 재계산 알림
-	if (skillComponent)
+	//스킬 측 계산값(damageRatio*atk 등) 재계산 알림 — 사망 상태에서는 스킬 owner가 stale weak ptr이라 의미 없음
+	if (skillComponent && !IsDead())
 	{
 		skillComponent->CalcSkillStats();
 	}

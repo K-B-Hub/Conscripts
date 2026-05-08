@@ -115,6 +115,7 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 {
 	// turnOrder에서 제거 — currentTurnIndex 보정
 	int32 DeadIndex = turnOrder.IndexOfByKey(DeadCharacter);
+	bool bActiveUnitDied = false;
 	if (DeadIndex != INDEX_NONE)
 	{
 		turnOrder.RemoveAt(DeadIndex);
@@ -122,6 +123,13 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 		if (DeadIndex < currentTurnIndex)
 		{
 			currentTurnIndex--;
+		}
+		else if (DeadIndex == currentTurnIndex)
+		{
+			// 활성 턴 보유자 사망 — RemoveAt이 다음 유닛을 같은 인덱스로 당겼으므로
+			// 후속 OnTurnEnd의 ++가 그 유닛을 건너뛰지 않도록 사전 감산
+			currentTurnIndex--;
+			bActiveUnitDied = true;
 		}
 	}
 
@@ -137,6 +145,20 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] %s 전장에서 제거 (잔여: 아군 %d, 적 %d)"),
 		*DeadCharacter->GetName(), allies.Num(), enemies.Num());
+
+	// 활성 턴 보유자가 InitTurn/EndTurn 도중 사망 — 콜 스택을 빠져나간 뒤 다음 턴으로 진행
+	// (BattleController가 dead pawn을 possess 중일 수 있어 정리/전환을 한 틱 미룸)
+	if (bActiveUnitDied)
+	{
+		GetWorldTimerManager().SetTimerForNextTick([this]()
+		{
+			if (ABattleController* BC = Cast<ABattleController>(GetWorld()->GetFirstPlayerController()))
+			{
+				BC->EndTurn();
+			}
+			OnTurnEnd();
+		});
+	}
 }
 
 void ABattleGameMode::OnEnemyDeath(AEnemyBase* DeadEnemy, AAllyCharacterBase* Killer)

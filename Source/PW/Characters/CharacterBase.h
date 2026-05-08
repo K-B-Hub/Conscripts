@@ -13,6 +13,7 @@ class UWidgetComponent;
 class USkillComponent;
 class UBuffComponent;
 class UBuffBase;
+class UAilmentComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 
@@ -48,6 +49,9 @@ protected:
 	//버프 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Buff")
 	TObjectPtr<UBuffComponent> buffComponent;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Ailment")
+	TObjectPtr<UAilmentComponent> ailmentComponent;
 
 	//카메라 관련
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -151,6 +155,7 @@ public:
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
+	bool IsDead() const { return hp <= 0; }
 	int32 GetCurrentActionPoint() const { return currentActionPoint; }
 	void ReduceActionPoint(int32 amount);
 	int32 GetBattleResource() const { return battleResource; }
@@ -190,6 +195,7 @@ public:
 	UStaticMeshComponent* GetWeaponMeshComponent() const;
 	USkillComponent* GetSkillComponent() const { return skillComponent; }
 	UBuffComponent* GetBuffComponent() const { return buffComponent; }
+	UAilmentComponent* GetAilmentComponent() const { return ailmentComponent; }
 
 	//버프 적용/해제 시 스탯 델타 일괄 가감 — sign: +1=적용, -1=해제
 	//파생 스탯(accuracy/evasion/critical)은 SetDefaultStats를 다시 부르지 않고 직접 가감
