@@ -5,6 +5,8 @@
 #include "Animation/AnimMontage.h"
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
+#include "ActorComponent/AilmentComponent.h"
+#include "Object/Ailment/AilmentBase.h"
 
 bool UActiveSkillBase::CanExecute() const
 {
@@ -84,6 +86,18 @@ void UActiveSkillBase::Execute(const ACharacterBase* target)
 			for (const TSubclassOf<UBuffBase>& buffClass : buffs)
 			{
 				targetBuffComp->AddBuff(buffClass, ownerPtr);
+			}
+		}
+	}
+
+	// 상태이상 적용 — 스킬에 등록된 상태이상을 적중 대상의 AilmentComponent에 추가
+	if (ailments.Num() > 0)
+	{
+		if (UAilmentComponent* targetAilmentComp = target->GetAilmentComponent())
+		{
+			for (const TSubclassOf<UAilmentBase>& ailmentClass : ailments)
+			{
+				targetAilmentComp->AddAilment(ailmentClass, ownerPtr);
 			}
 		}
 	}

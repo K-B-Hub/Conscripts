@@ -9,7 +9,7 @@ UTestBuff::UTestBuff()
 	critical = 50.f;
 }
 
-void UTestBuff::Execute(ACharacterBase* affected, ACharacterBase* caster)
+void UTestBuff::Execute(ACharacterBase* affected)
 {
-	Super::Execute(affected, caster);
+	Super::Execute(affected);
 }

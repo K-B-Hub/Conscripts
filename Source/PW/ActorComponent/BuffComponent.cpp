@@ -21,41 +21,46 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> buffClass, ACharacterBase* c
 {
 	if (!buffClass || !ownerCharacter) return;
 
-	// CDO를 공유 템플릿으로 사용 — 별도 NewObject 하지 않음
-	UBuffBase* buffTemplate = buffClass.GetDefaultObject();
-	if (!buffTemplate) return;
+	// CDO에서 isStackable 정책만 미리 확인 — 인스턴스 생성 비용 회피
+	const UBuffBase* buffCDO = buffClass.GetDefaultObject();
+	if (!buffCDO) return;
 
-	// 같은 버프가 이미 존재하면 갱신 — 남은 턴수에 buffTurn을 누적, 시전자도 최신으로 교체
+	// isStackable=false: 같은 클래스가 이미 걸려있으면 턴수만 누적 (단일 인스턴스 갱신)
 	// 스탯 델타는 이미 적용 중이므로 ApplyBuffDelta 재호출하지 않음 (중첩 가산 방지)
-	for (FActiveBuff& existing : activeBuffs)
+	if (!buffCDO->isStackable)
 	{
-		if (existing.buff == buffTemplate)
+		for (TObjectPtr<UBuffBase>& existing : activeBuffs)
 		{
-			existing.remainingTurn += buffTemplate->buffTurn;
-			existing.caster = caster;
-			return;
+			if (existing && existing->GetClass() == buffClass)
+			{
+				existing->remainingTurn += buffCDO->buffTurn;
+				return;
+			}
 		}
 	}
 
-	// 새 버프 페어 생성 — 스탯 델타는 이 시점에만 캐릭터에 가산
-	FActiveBuff active;
-	active.buff = buffTemplate;
-	active.remainingTurn = buffTemplate->buffTurn;
-	active.caster = caster;
-	activeBuffs.Add(active);
+	// 새 인스턴스 생성 — CDO의 UPROPERTY 기본값을 자동 복사받음
+	UBuffBase* buffInstance = NewObject<UBuffBase>(this, buffClass);
+	if (!buffInstance) return;
 
-	ownerCharacter->ApplyBuffDelta(buffTemplate, +1);
+	// caster 스냅샷 — 이 시점 이후 caster가 사라져도 안전
+	buffInstance->OnApply(ownerCharacter, caster);
+	buffInstance->remainingTurn = buffInstance->buffTurn;
+
+	activeBuffs.Add(buffInstance);
+
+	// 스탯 델타 가산 — OnApply가 인스턴스 스탯 필드를 변조했을 수 있으므로 그 다음 순서
+	ownerCharacter->ApplyBuffDelta(buffInstance, +1);
 }
 
 void UBuffComponent::RemoveBuffAt(int32 Index)
 {
 	if (!activeBuffs.IsValidIndex(Index) || !ownerCharacter) return;
 
-	UBuffBase* buffTemplate = activeBuffs[Index].buff;
-	if (buffTemplate)
+	if (UBuffBase* buffInstance = activeBuffs[Index])
 	{
 		// 스탯 델타 되돌림 — 사라질 때만 검사하는 요구사항 충족
-		ownerCharacter->ApplyBuffDelta(buffTemplate, -1);
+		ownerCharacter->ApplyBuffDelta(buffInstance, -1);
 	}
 	activeBuffs.RemoveAt(Index);
 }
@@ -65,11 +70,13 @@ void UBuffComponent::OnTurnStart()
 	if (!ownerCharacter) return;
 
 	// 턴 시작 효과 — 이 시점에는 만료 처리 X (요구사항: 시작/종료 모두 효과 검사)
-	for (const FActiveBuff& active : activeBuffs)
+	for (UBuffBase* buff : activeBuffs)
 	{
-		if (active.buff && active.buff->isStart)
+		// 직전 효과로 사망했다면 후속 효과 적용 중단 (사망자에게 회복/스탯 변동 적용 방지)
+		if (!IsValid(ownerCharacter) || ownerCharacter->IsDead()) return;
+		if (buff && buff->isStart)
 		{
-			active.buff->Execute(ownerCharacter, active.caster.Get());
+			buff->Execute(ownerCharacter);
 		}
 	}
 }
@@ -78,22 +85,26 @@ void UBuffComponent::OnTurnEnd()
 {
 	if (!ownerCharacter) return;
 
-	for (const FActiveBuff& active : activeBuffs)
+	for (UBuffBase* buff : activeBuffs)
 	{
-		if (active.buff && active.buff->isEnd)
+		if (!IsValid(ownerCharacter) || ownerCharacter->IsDead()) return;
+		if (buff && buff->isEnd)
 		{
-			active.buff->Execute(ownerCharacter, active.caster.Get());
+			buff->Execute(ownerCharacter);
 		}
 	}
 
-	for (FActiveBuff& active : activeBuffs)
+	for (UBuffBase* buff : activeBuffs)
 	{
-		active.remainingTurn--;
+		if (buff)
+		{
+			buff->remainingTurn--;
+		}
 	}
 
 	for (int32 i = activeBuffs.Num() - 1; i >= 0; --i)
 	{
-		if (activeBuffs[i].remainingTurn <= 0)
+		if (!activeBuffs[i] || activeBuffs[i]->remainingTurn <= 0)
 		{
 			RemoveBuffAt(i);
 		}

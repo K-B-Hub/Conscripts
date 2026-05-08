@@ -9,6 +9,7 @@
 #include "Object/Skill/ActiveSkill/test/MultiPick.h"
 #include "Object/Skill/ActiveSkill/test/RangedMultiPick.h"
 #include "Object/Skill/ActiveSkill/test/SingleBuff.h"
+#include "Object/Skill/ActiveSkill/test/SingleAilment.h"
 
 AAllyTest::AAllyTest()
 {
@@ -49,5 +50,10 @@ void AAllyTest::SetDefaultSkills()
 	if (TestSkill5)
 	{
 		skillComponent->AddSkill(TestSkill5);
+	}
+	USingleAilment* TestSkill6 = NewObject<USingleAilment>(this, USingleAilment::StaticClass(), TEXT("TestSkill6"));
+	if (TestSkill6)
+	{
+		skillComponent->AddSkill(TestSkill6);
 	}
 }

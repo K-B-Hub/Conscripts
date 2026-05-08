@@ -3,19 +3,19 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Object/Buff/BuffBase.h"
-#include "TestBuff.generated.h"
+#include "Object/Ailment/AilmentBase.h"
+#include "TestAilment.generated.h"
 
 /**
- *
+ * 매 턴 시작시 affected에게 방어력을 무시한 고정 5 피해
  */
 UCLASS()
-class PW_API UTestBuff : public UBuffBase
+class PW_API UTestAilment : public UAilmentBase
 {
 	GENERATED_BODY()
 
 public:
-	UTestBuff();
+	UTestAilment();
 
 	virtual void Execute(ACharacterBase* affected) override;
 };
