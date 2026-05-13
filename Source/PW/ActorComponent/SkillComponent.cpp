@@ -68,6 +68,7 @@ TArray<UActiveSkillBase*> USkillComponent::GetActiveSkills() const
 	}
 	return ActiveSkills;
 }
+
 void USkillComponent::ActivateSkill(UActiveSkillBase* Skill)
 {
 	if (!Skill || !Skill->CanExecute()) return;

@@ -20,6 +20,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	
-private:
 	virtual void SetDefaultSkills() override;
+	virtual void SetDefaultPassives() override;
 };

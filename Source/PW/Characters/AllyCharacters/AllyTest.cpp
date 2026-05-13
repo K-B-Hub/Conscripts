@@ -3,6 +3,8 @@
 
 #include "Characters/AllyCharacters/AllyTest.h"
 
+#include "ActorComponent/PassiveSkillComponent.h"
+#include "Object/Skill/PassiveSkill/test/TestStatPassive.h"
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkill/test/RangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
@@ -55,5 +57,15 @@ void AAllyTest::SetDefaultSkills()
 	if (TestSkill6)
 	{
 		skillComponent->AddSkill(TestSkill6);
+	}
+}
+
+void AAllyTest::SetDefaultPassives()
+{
+	Super::SetDefaultPassives();
+	
+	if (passiveSkillComponent)
+	{
+		passiveSkillComponent->AddPassive(UTestStatPassive::StaticClass());
 	}
 }
