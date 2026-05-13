@@ -34,12 +34,10 @@ public:
 	TWeakObjectPtr<ACharacterBase> owner;
 
 	// 스킬 적중 시 대상에게 부여될 버프 클래스 목록
-	// 각 클래스는 CDO를 공유 템플릿으로 사용 — 대상의 BuffComponent에 페어로 등록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Buff")
 	TArray<TSubclassOf<UBuffBase>> buffs;
 
 	// 스킬 적중 시 대상에게 부여될 상태이상 클래스 목록
-	// 각 클래스는 CDO를 공유 템플릿으로 사용 — 대상의 AilmentComponent에 페어로 등록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Ailment")
 	TArray<TSubclassOf<UAilmentBase>> ailments;
 

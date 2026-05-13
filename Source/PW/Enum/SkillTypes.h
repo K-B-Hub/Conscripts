@@ -41,8 +41,8 @@ enum class ESkillType : uint8		//액티브 스킬의 유형
 	Melee       UMETA(DisplayName = "Melee"),	//근접
 	Ranged      UMETA(DisplayName = "Ranged"),	//원거리
 	Throw       UMETA(DisplayName = "Throw"),	//투척
-	Buff        UMETA(DisplayName = "Buff"),	//버프 및 디버프 포함
-	Ailment		UMETA(DisplayName = "Ailment")	//상태이상
+	Buff        UMETA(DisplayName = "Buff"),	//버프 및 디버프 전용 스킬(피해량 없음)
+	Ailment		UMETA(DisplayName = "Ailment")	//상태이상 전용 스킬(피해량 없음)
 };
 
 UENUM(BlueprintType)
