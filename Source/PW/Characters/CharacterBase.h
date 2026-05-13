@@ -14,6 +14,8 @@ class USkillComponent;
 class UBuffComponent;
 class UBuffBase;
 class UAilmentComponent;
+class UPassiveSkillComponent;
+class UPassiveSkillBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 
@@ -52,6 +54,10 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, Category = "Ailment")
 	TObjectPtr<UAilmentComponent> ailmentComponent;
+
+	//패시브 스킬 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Skill")
+	TObjectPtr<UPassiveSkillComponent> passiveSkillComponent;
 
 	//카메라 관련
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -139,6 +145,8 @@ protected:
 
 	//캐릭터의 기본 스킬, 파생 클래스에서 구현
 	virtual void SetDefaultSkills();
+	//캐릭터의 기본 패시브 스킬, 파생 클래스에서 구현
+	virtual void SetDefaultPassives();
 	//스탯에 따른 캐릭터의 기본 명중, 치명, 회피 계산
 	void SetDefaultStats();
 	//레벨업
@@ -196,8 +204,13 @@ public:
 	USkillComponent* GetSkillComponent() const { return skillComponent; }
 	UBuffComponent* GetBuffComponent() const { return buffComponent; }
 	UAilmentComponent* GetAilmentComponent() const { return ailmentComponent; }
+	UPassiveSkillComponent* GetPassiveSkillComponent() const { return passiveSkillComponent; }
 
 	//버프 적용/해제 시 스탯 델타 일괄 가감 — sign: +1=적용, -1=해제
 	//파생 스탯(accuracy/evasion/critical)은 SetDefaultStats를 다시 부르지 않고 직접 가감
 	void ApplyBuffDelta(const UBuffBase* buff, int32 sign);
+
+	//패시브(Stat) 등록/해제 시 스탯 델타 일괄 가감 — sign: +1=등록, -1=해제
+	//ApplyBuffDelta와 동일한 가역성 원칙 (음수 sign 허용, 0 클램프 금지)
+	void ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int32 sign);
 };

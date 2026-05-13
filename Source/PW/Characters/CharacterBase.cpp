@@ -9,6 +9,8 @@
 #include "Components/WidgetComponent.h"
 #include "NavigationSystem.h"
 #include "ActorComponent/AilmentComponent.h"
+#include "ActorComponent/PassiveSkillComponent.h"
+#include "Object/Skill/PassiveSkillBase.h"
 #include "Widget/HealthWidget.h"
 #include "Widget/SkillInfoWidget.h"
 #include "ActorComponent/SkillComponent.h"
@@ -55,6 +57,7 @@ ACharacterBase::ACharacterBase()
 
 	buffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
 	ailmentComponent = CreateDefaultSubobject<UAilmentComponent>(TEXT("AilmentComponent"));
+	passiveSkillComponent = CreateDefaultSubobject<UPassiveSkillComponent>(TEXT("PassiveSkillComponent"));
 
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
 
@@ -78,9 +81,16 @@ void ACharacterBase::BeginPlay()
 	}
 	SetDefaultStats();
 	SetDefaultSkills();
+	//패시브는 SetDefaultStats 이후에 등록 — 파생 스탯(accuracy 등) 덮어쓰기 방지
+	SetDefaultPassives();
 }
 
 void ACharacterBase::SetDefaultSkills()
+{
+	//파생 클래스에서 구현
+}
+
+void ACharacterBase::SetDefaultPassives()
 {
 	//파생 클래스에서 구현
 }
@@ -311,6 +321,108 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	{
 		skillComponent->CalcSkillStats();
 	}
+}
+
+void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int32 sign)
+{
+	if (!passive || (sign != 1 && sign != -1)) return;
+
+	UE_LOG(LogTemp, Log, TEXT("[Passive] %s 패시브 '%s' 적용 시작 (sign=%d)"),
+		*GetName(),
+		*passive->GetClass()->GetName(),
+		sign);
+
+	//적용 전 스냅샷
+	const int32 beforeMaxHp = maxHp;
+	const int32 beforeHp = hp;
+	const int32 beforeAtk = atk;
+	const int32 beforeSpeed = speed;
+	const int32 beforeSkill = skill;
+	const int32 beforeDef = def;
+	const float beforeMovingPoint = movingPoint;
+	const int32 beforeMentality = mentality;
+	const int32 beforeActionPoint = actionPoint;
+	const int32 beforeDamageReduction = damageReduction;
+	const int32 beforeDamageAmplification = damageAmplification;
+	const int32 beforePenetration = penetration;
+	const float beforeSight = sight;
+	const float beforeAccuracy = accuracy;
+	const float beforeEvasion = evasion;
+	const float beforeCritical = critical;
+
+	//최대 HP 증가량만큼 현재 HP도 함께 증가 — 패시브는 영구이므로 등록 시점이 곧 성장
+	const int32 hpDelta = passive->hp * sign;
+	maxHp += hpDelta;
+	if (maxHp <= 0) maxHp = 1;
+	hp += hpDelta;
+	hp = FMath::Clamp(hp, 1, maxHp);
+	if (healthWidget)
+	{
+		healthWidget->InitHealth(maxHp, hp);
+	}
+
+	//기본 능력치
+	atk += passive->atk * sign;
+	speed += passive->speed * sign;
+	skill += passive->skill * sign;
+	def += passive->def * sign;
+	movingPoint += passive->movingPoint * sign;
+	currentMovingPoint += passive->movingPoint * sign;
+	currentMovingPoint = FMath::Clamp(currentMovingPoint, 0, movingPoint);
+	mentality += passive->mentality * sign;
+
+	//행동력 — 최대치 변경, 현재치도 같이 갱신 후 클램프
+	actionPoint += passive->actionPoint * sign;
+	currentActionPoint += passive->actionPoint * sign;
+	currentActionPoint = FMath::Clamp(currentActionPoint, 0, actionPoint);
+
+	//피해 보정
+	damageReduction += passive->damageReduction * sign;
+	damageAmplification += passive->damageAmplification * sign;
+	penetration += passive->penetration * sign;
+	sight += passive->sight * sign;
+
+	//전투 파생 스탯 — 직접 가감 (SetDefaultStats 재호출하지 않음)
+	accuracy += passive->accuracy * sign;
+	evasion += passive->evasion * sign;
+	critical += passive->critical * sign;
+
+	if (skillComponent && !IsDead())
+	{
+		skillComponent->CalcSkillStats();
+	}
+
+	//변경된 스탯만 로그 출력
+	if (beforeMaxHp != maxHp || beforeHp != hp)
+		UE_LOG(LogTemp, Log, TEXT("  HP: %d/%d -> %d/%d"), beforeHp, beforeMaxHp, hp, maxHp);
+	if (beforeAtk != atk)
+		UE_LOG(LogTemp, Log, TEXT("  atk: %d -> %d"), beforeAtk, atk);
+	if (beforeSpeed != speed)
+		UE_LOG(LogTemp, Log, TEXT("  speed: %d -> %d"), beforeSpeed, speed);
+	if (beforeSkill != skill)
+		UE_LOG(LogTemp, Log, TEXT("  skill: %d -> %d"), beforeSkill, skill);
+	if (beforeDef != def)
+		UE_LOG(LogTemp, Log, TEXT("  def: %d -> %d"), beforeDef, def);
+	if (!FMath::IsNearlyEqual(beforeMovingPoint, movingPoint))
+		UE_LOG(LogTemp, Log, TEXT("  movingPoint: %.2f -> %.2f"), beforeMovingPoint, movingPoint);
+	if (beforeMentality != mentality)
+		UE_LOG(LogTemp, Log, TEXT("  mentality: %d -> %d"), beforeMentality, mentality);
+	if (beforeActionPoint != actionPoint)
+		UE_LOG(LogTemp, Log, TEXT("  actionPoint: %d -> %d"), beforeActionPoint, actionPoint);
+	if (beforeDamageReduction != damageReduction)
+		UE_LOG(LogTemp, Log, TEXT("  damageReduction: %d -> %d"), beforeDamageReduction, damageReduction);
+	if (beforeDamageAmplification != damageAmplification)
+		UE_LOG(LogTemp, Log, TEXT("  damageAmplification: %d -> %d"), beforeDamageAmplification, damageAmplification);
+	if (beforePenetration != penetration)
+		UE_LOG(LogTemp, Log, TEXT("  penetration: %d -> %d"), beforePenetration, penetration);
+	if (!FMath::IsNearlyEqual(beforeSight, sight))
+		UE_LOG(LogTemp, Log, TEXT("  sight: %.2f -> %.2f"), beforeSight, sight);
+	if (!FMath::IsNearlyEqual(beforeAccuracy, accuracy))
+		UE_LOG(LogTemp, Log, TEXT("  accuracy: %.2f -> %.2f"), beforeAccuracy, accuracy);
+	if (!FMath::IsNearlyEqual(beforeEvasion, evasion))
+		UE_LOG(LogTemp, Log, TEXT("  evasion: %.2f -> %.2f"), beforeEvasion, evasion);
+	if (!FMath::IsNearlyEqual(beforeCritical, critical))
+		UE_LOG(LogTemp, Log, TEXT("  critical: %.2f -> %.2f"), beforeCritical, critical);
 }
 
 void ACharacterBase::ReceiveDamage(int32 Amount)

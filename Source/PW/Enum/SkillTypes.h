@@ -59,3 +59,26 @@ enum class EPassiveType : uint8		//패시브 스킬 유형
 	Conditional	UMETA(DisplayName = "Conditional"),	//턴 시작, 게임 내 캐릭터 이동 완료, 체력 감소 등의 이벤트 발생시 확인하며 적용
 	Reactive	UMETA(DisplayName = "Reactive")		//본인의 행동에 반응하는 패시브 (내가 데미지를 줄 때, 액티브 스킬 사용 중간에 호출해 스킬 강화 등)
 };
+
+UENUM(BlueprintType)
+enum class EReactiveType : uint8
+{
+	None				UMETA(DisplayName = "None"),			//반응형 패시브가 아님
+	AfterMove			UMETA(DisplpayName = "AfterMove"),		//소지자의 이동 완료 시
+	BeforeDamageCalc	UMETA(DisplayName = "Before Damage"),	//데미지 계산 이전
+	AfterDamage			UMETA(DisplayName = "After Damage"),	//데미지 적용 후
+	AfterSlay			UMETA(DisplayName = "After Slay")		//적 처치 후
+};
+
+UENUM(BlueprintType)
+enum class EConditionalType : uint8
+{
+	None				UMETA(DisplayName = "None"),		//조건부형 패시브가 아님
+	MoveComplete	UMETA(DisplayName = "Move Complete"),	//게임 내 캐릭터의 이동 완료 시(소지자 주변에 아군 혹은 적군이 몇명인지에 따라 달라지는 패시브 스킬 용도, 소지자의 움직임 아님)
+	TurnStart		UMETA(DisplayName = "Turn Start"),		//턴 시작
+	TurnEnd			UMETA(DisplayName = "Turn End"),		//턴 종료
+	Damaged			UMETA(DisplayName = "Damaged"),			//체력 감소시
+	AllyDeath		UMETA(DisplayName = "Ally Death"),		//아군 사망시
+	EnemyDeath		UMETA(DisplayName = "Enemy Death"),		//적 사망시
+	RoundStart		UMETA(DisplayName = "Round Start")		//라운드 시작시
+};
