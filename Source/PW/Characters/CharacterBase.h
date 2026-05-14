@@ -135,6 +135,13 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	ESkillType pendingSkillType = ESkillType::Melee;
 
+	// 가장 최근 본인을 공격한 캐릭터 — AfterDamage Reactive 디스패치 시 공격자 식별용
+	TWeakObjectPtr<ACharacterBase> lastAttacker = nullptr;
+
+	// 본인 이동 상태 — 이번 턴에 이동했는가 (실제 이동 + 인디케이터 가상 토글 통합)
+	// 턴 시작 시 false로 초기화, 첫 이동 시 true로 전이
+	bool isMoved = false;
+
 	//레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	int32 level = 1;
@@ -161,6 +168,8 @@ public:
 	
 	//각종 스탯의 Getter
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
+	float GetMovingPoint() const { return movingPoint; }
+	bool IsMoved() const { return isMoved; }
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
 	bool IsDead() const { return hp <= 0; }
@@ -179,12 +188,20 @@ public:
 	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration, ESkillType SkillType, EPickTeam PickTeam);
 	//미리 계산해둔 값으로 치명타, 회피 여부 계산 후 데미지 적용
 	bool ReflectDamage();
+
+	void SetLastAttacker(ACharacterBase* Attacker);
+	TWeakObjectPtr<ACharacterBase> GetLastAttacker() const { return lastAttacker; }
+
+	// 이동 상태 전이 — true/false 변경 시 BeforeMove 패시브 revert+apply 및 스킬 재계산
+	// 같은 상태로 호출 시 no-op (Tick 폭주 안전)
+	void OnMoveStateChanged(bool newIsMoved);
 	
 	void InitTurn();
 	virtual void EndTurn();
 
 	//데미지 적용 후 HealthWidget 갱신, 음수일시 회복
-	void ReceiveDamage(int32 Amount);
+	//bIsLethal=false 시 hp를 1까지만 깎고 사망 처리 안 함 (환경 데미지, 상태이상 등)
+	void ReceiveDamage(int32 Amount, bool bIsLethal);
 
 	// 사망 시 호출 — 파생 클래스에서 사전 처리 후 Super 호출
 	virtual void HandleDeath();

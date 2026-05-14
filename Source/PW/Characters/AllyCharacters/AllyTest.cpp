@@ -5,6 +5,9 @@
 
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/PassiveSkill/test/TestStatPassive.h"
+#include "Object/Skill/PassiveSkill/test/TestBeforeCalc.h"
+#include "Object/Skill/PassiveSkill/test/TestAfterSlay.h"
+
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkill/test/RangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
@@ -12,10 +15,12 @@
 #include "Object/Skill/ActiveSkill/test/RangedMultiPick.h"
 #include "Object/Skill/ActiveSkill/test/SingleBuff.h"
 #include "Object/Skill/ActiveSkill/test/SingleAilment.h"
+#include "Object/Skill/PassiveSkill/test/TestAfterDamage.h"
+#include "Object/Skill/PassiveSkill/test/TestBeforeMove.h"
 
 AAllyTest::AAllyTest()
 {
-	atk = 16;
+	atk = 10;
 	skill = 50; //테스트용
 }
 
@@ -28,35 +33,14 @@ void AAllyTest::SetDefaultSkills()
 {
 	Super::SetDefaultSkills();
 	
-	USingleRangeAttack* TestSkill1 = NewObject<USingleRangeAttack>(this, USingleRangeAttack::StaticClass(), TEXT("TestSkill1"));
-	if (TestSkill1)
+	if (passiveSkillComponent)
 	{
-		skillComponent->AddSkill(TestSkill1);
-	}
-	URangeAttack* TestSkill2 = NewObject<URangeAttack>(this, URangeAttack::StaticClass(), TEXT("TestSkill2"));
-	if (TestSkill2)
-	{
-		skillComponent->AddSkill(TestSkill2);
-	}
-	UMultiPick* TestSkill3 = NewObject<UMultiPick>(this, UMultiPick::StaticClass(), TEXT("TestSkill3"));
-	if (TestSkill3)
-	{
-		skillComponent->AddSkill(TestSkill3);
-	}
-	URangedMultiPick* TestSkill4 = NewObject<URangedMultiPick>(this, URangedMultiPick::StaticClass(), TEXT("TestSkill4"));
-	if (TestSkill4)
-	{
-		skillComponent->AddSkill(TestSkill4);
-	}
-	USingleBuff* TestSkill5 = NewObject<USingleBuff>(this, USingleBuff::StaticClass(), TEXT("TestSkill5"));
-	if (TestSkill5)
-	{
-		skillComponent->AddSkill(TestSkill5);
-	}
-	USingleAilment* TestSkill6 = NewObject<USingleAilment>(this, USingleAilment::StaticClass(), TEXT("TestSkill6"));
-	if (TestSkill6)
-	{
-		skillComponent->AddSkill(TestSkill6);
+		skillComponent->AddSkill(USingleRangeAttack::StaticClass());
+		skillComponent->AddSkill(URangeAttack::StaticClass());
+		skillComponent->AddSkill(UMultiPick::StaticClass());
+		skillComponent->AddSkill(URangedMultiPick::StaticClass());
+		skillComponent->AddSkill(USingleBuff::StaticClass());
+		skillComponent->AddSkill(USingleAilment::StaticClass());
 	}
 }
 
@@ -67,5 +51,9 @@ void AAllyTest::SetDefaultPassives()
 	if (passiveSkillComponent)
 	{
 		passiveSkillComponent->AddPassive(UTestStatPassive::StaticClass());
+		passiveSkillComponent->AddPassive(UTestBeforeCalc::StaticClass());
+		passiveSkillComponent->AddPassive(UTestAfterDamage::StaticClass());
+		passiveSkillComponent->AddPassive(UTestAfterSlay::StaticClass());
+		passiveSkillComponent->AddPassive(UTestBeforeMove::StaticClass());
 	}
 }

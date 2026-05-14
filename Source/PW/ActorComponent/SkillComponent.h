@@ -23,8 +23,8 @@ public:
 	void SetOwner(ACharacterBase* owner);
 	ACharacterBase* GetOwner();
 
-	//스킬 오브젝트를 등록
-	void AddSkill(USkillBase* Skill);
+	//스킬 클래스로 인스턴스 생성 후 등록 — AddPassive와 동일 패턴
+	void AddSkill(TSubclassOf<USkillBase> skillClass);
 
 	//스킬 제거
 	void RemoveSkill(USkillBase* Skill);

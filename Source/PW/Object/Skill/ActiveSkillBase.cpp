@@ -24,17 +24,16 @@ bool UActiveSkillBase::CanExecute() const
 
 void UActiveSkillBase::SetCalcedStats()
 {
-	ACharacterBase* ownerPtr = GetOwner();
-	if (!ownerPtr)
+	if (owner == nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[ActiveSkillBase] SetCalcedStats: 스킬 소유자 없음"));
 		return;
 	}
 
 	// (캐릭터 atk + 스킬 고정 피해) * 스킬 계수
-	calcDamage = ownerPtr->GetAtk() * damageRatio + baseDamage;
+	calcDamage = owner->GetAtk() * damageRatio + baseDamage;
 	// 캐릭터 명중 + 스킬 보너스 명중
-	calcAccuracy = ownerPtr->GetAccuracy() + bonusAccuracy;
+	calcAccuracy = owner->GetAccuracy() + bonusAccuracy;
 	// 캐릭터 치명타 + 스킬 보너스 치명타
 	if (damageType == EDamageType::Area)
 	{
@@ -42,12 +41,12 @@ void UActiveSkillBase::SetCalcedStats()
 	}
 	else
 	{
-		calcCritical = ownerPtr->GetCritical() + bonusCritical;
+		calcCritical = owner->GetCritical() + bonusCritical;
 	}
 	// 캐릭터 피해 증폭 + 스킬 보너스 피해 증폭
-	calcDamageAmplfication = ownerPtr->GetDamageAmplification() + bonusDamageAmplication;
+	calcDamageAmplfication = owner->GetDamageAmplification() + bonusDamageAmplication;
 	// 캐릭터 관통력 + 스킬 보너스 관통력
-	calcPenetration = ownerPtr->GetPenetration() + bonusPenetration;
+	calcPenetration = owner->GetPenetration() + bonusPenetration;
 }
 
 void UActiveSkillBase::BeginUse()
@@ -72,8 +71,6 @@ void UActiveSkillBase::BeginUse()
 
 void UActiveSkillBase::Execute(const ACharacterBase* target)
 {
-	Super::Execute(target);
-
 	if (!target) return;
 
 	ACharacterBase* ownerPtr = GetOwner();

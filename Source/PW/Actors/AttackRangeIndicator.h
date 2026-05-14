@@ -116,6 +116,9 @@ private:
 	bool bIsOutOfRange = false;
 	FVector moveToPoint = FVector::ZeroVector;
 
+	// 직전 프레임의 자동이동 필요 여부 — 전이 감지용 (Tick마다 토글 폭주 방지)
+	bool bPrevAutoMoveNeeded = false;
+
 	// 자동이동 중 위치 잠금
 	bool bIsLocked = false;
 

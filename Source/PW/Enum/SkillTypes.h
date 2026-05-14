@@ -49,7 +49,7 @@ UENUM(BlueprintType)
 enum class EDamageType : uint8		//액티브 스킬 중 피해를 주는 스킬의 피해 유형
 {
 	Normal      UMETA(DisplayName = "Normal"),		//명중 기반 계산, 관통력, 피해 증가 등 모든 스탯 적용
-	Area        UMETA(DisplayName = "Area")			//피할 수 없음, 관통력 및 피해증가 등은 적용되지만 치명타가 적용될 수 없음
+	Area        UMETA(DisplayName = "Area")			//치명타가 적용될 수 없음
 };
 
 UENUM(BlueprintType)
@@ -64,7 +64,7 @@ UENUM(BlueprintType)
 enum class EReactiveType : uint8
 {
 	None				UMETA(DisplayName = "None"),			//반응형 패시브가 아님
-	AfterMove			UMETA(DisplpayName = "AfterMove"),		//소지자의 이동 완료 시
+	BeforeMove			UMETA(DisplayName = "BeforeMove"),		//소지자의 이동 시작 시 (실제 이동 + 인디케이터 자동이동 가상 토글)
 	BeforeDamageCalc	UMETA(DisplayName = "Before Damage"),	//데미지 계산 이전
 	AfterDamage			UMETA(DisplayName = "After Damage"),	//데미지 적용 후
 	AfterSlay			UMETA(DisplayName = "After Slay")		//적 처치 후

@@ -125,5 +125,5 @@ public:
 	virtual void BeginUse();
 
 	// 적중한 타겟마다 호출 — 버프 적용 등 hit-gated 효과
-	void Execute(const ACharacterBase* target) override;
+	virtual void Execute(const ACharacterBase* target);
 };
