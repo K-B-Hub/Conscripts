@@ -78,6 +78,9 @@ void AAllyCharacterBase::MoveAlongPath(const TArray<FVector>& Points)
 	StopMovement();
 	if (Points.Num() == 0) return;
 
+	// 실제 이동 시작 — BeforeMove 전이 (이미 true면 no-op)
+	OnMoveStateChanged(true);
+
 	pathPoints = Points;
 	pathPointIndex = 0;
 	moveDestination = Points.Last();

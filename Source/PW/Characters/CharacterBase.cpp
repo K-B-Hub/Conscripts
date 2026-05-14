@@ -246,14 +246,56 @@ bool ACharacterBase::ReflectDamage()
 		? FMath::RoundToInt(pendingDMG * 2.f)
 		: FMath::RoundToInt(pendingDMG);
 
-	ReceiveDamage(finalDamage);
+	ReceiveDamage(finalDamage, true);
+
+	// 공격자 측 AfterDamage Reactive 패시브 디스패치
+	if (ACharacterBase* attacker = lastAttacker.Get())
+	{
+		if (UPassiveSkillComponent* passivecomponent = attacker->GetPassiveSkillComponent())
+		{
+			passivecomponent->DispatchAfterDamage(this);
+		}
+	}
+
 	return true;
+}
+
+void ACharacterBase::SetLastAttacker(ACharacterBase* Attacker)
+{
+	if (IsValid(Attacker))
+	{
+		lastAttacker = Attacker;
+	}
+}
+
+void ACharacterBase::OnMoveStateChanged(bool newIsMoved)
+{
+	if (isMoved == newIsMoved) return;
+
+	// 이전 상태에 매칭된 보너스 revert → isMoved 갱신 → 새 상태 매칭 보너스 apply
+	if (passiveSkillComponent)
+	{
+		passiveSkillComponent->DispatchBeforeMove(isMoved, -1);
+	}
+	isMoved = newIsMoved;
+	if (passiveSkillComponent)
+	{
+		passiveSkillComponent->DispatchBeforeMove(isMoved, +1);
+	}
+	if (skillComponent)
+	{
+		skillComponent->CalcSkillStats();
+	}
 }
 
 void ACharacterBase::InitTurn()
 {
 	currentActionPoint = actionPoint;
 	currentMovingPoint = movingPoint;
+
+	// 이전 턴에 이동했으면 false로 전이 (이동 보너스 revert + 미이동 보너스 apply)
+	// 이전 턴 미이동이면 no-op — 미이동 보너스는 이미 적용 중
+	OnMoveStateChanged(false);
 
 	if (buffComponent)
 	{
@@ -425,9 +467,12 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 		UE_LOG(LogTemp, Log, TEXT("  critical: %.2f -> %.2f"), beforeCritical, critical);
 }
 
-void ACharacterBase::ReceiveDamage(int32 Amount)
+void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 {
-	hp = FMath::Clamp(hp - Amount, 0, maxHp);
+	if (IsDead()) return;
+
+	const int32 minHp = bIsLethal ? 0 : 1;
+	hp = FMath::Clamp(hp - Amount, minHp, maxHp);
 
 	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
@@ -445,6 +490,15 @@ void ACharacterBase::ReceiveDamage(int32 Amount)
 void ACharacterBase::HandleDeath()
 {
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 사망"), *GetName());
+
+	// 공격자 측 AfterSlay Reactive 패시브 디스패치 — 처치 지점 위치 전달
+	if (ACharacterBase* attacker = lastAttacker.Get())
+	{
+		if (UPassiveSkillComponent* passivecomponent = attacker->GetPassiveSkillComponent())
+		{
+			passivecomponent->DispatchAfterSlay(GetActorLocation());
+		}
+	}
 
 	OnCharacterDeath.Broadcast(this);
 

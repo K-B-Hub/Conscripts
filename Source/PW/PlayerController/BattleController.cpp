@@ -12,6 +12,7 @@
 #include "Widget/SkillWidget.h"
 #include "Widget/MoveWidget.h"
 #include "ActorComponent/SkillComponent.h"
+#include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/EnemyBase.h"
@@ -449,10 +450,7 @@ void ABattleController::OnUnitMovementCompleted()
 		for (ACharacterBase* Target : Targets)
 		{
 			if (!IsValid(Target)) continue;
-			if (AEnemyBase* Enemy = Cast<AEnemyBase>(Target))
-			{
-				Enemy->SetLastAttacker(activeUnit);
-			}
+			Target->SetLastAttacker(activeUnit);
 			if (!Target->ReflectDamage()) continue;
 			if (!IsValid(Target)) continue;
 			Skill->Execute(Target);
@@ -554,10 +552,7 @@ void ABattleController::ExecuteSkill()
 		for (ACharacterBase* Target : ValidTargets)
 		{
 			if (!IsValid(Target)) continue;
-			if (AEnemyBase* Enemy = Cast<AEnemyBase>(Target))
-			{
-				Enemy->SetLastAttacker(activeUnit);
-			}
+			Target->SetLastAttacker(activeUnit);
 			if (!Target->ReflectDamage()) continue;
 			if (!IsValid(Target)) continue;
 			Skill->Execute(Target);
@@ -614,10 +609,7 @@ void ABattleController::ExecuteSkill()
 	for (ACharacterBase* Target : Targets)
 	{
 		if (!IsValid(Target)) continue;
-		if (AEnemyBase* Enemy = Cast<AEnemyBase>(Target))
-		{
-			Enemy->SetLastAttacker(activeUnit);
-		}
+		Target->SetLastAttacker(activeUnit);
 		if (!Target->ReflectDamage()) continue;
 		if (!IsValid(Target)) continue;
 		Skill->Execute(Target);
@@ -630,8 +622,6 @@ void ABattleController::ExecuteSkill()
 	UE_LOG(LogTemp, Log, TEXT("[BattleController] 스킬 실행: %s → %d명 대상"),
 		*Skill->skillName.ToString(), Targets.Num());
 }
-
-
 
 // ─── 스킬 버튼 상태 갱신 ─────────────────────────────────────────────────────
 void ABattleController::RefreshSkillButtons()

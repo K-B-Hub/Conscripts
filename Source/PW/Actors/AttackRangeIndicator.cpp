@@ -8,6 +8,7 @@
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "ActorComponent/SkillComponent.h"
+#include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
 #include "DrawDebugHelpers.h"
 #include "NavigationSystem.h"
@@ -173,6 +174,16 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 	}
 
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
+
+	// 자동이동 필요 여부 전이 감지 — 캐스터의 isMoved 가상 토글
+	if (bNeedsAutoMove != bPrevAutoMoveNeeded)
+	{
+		if (caster.IsValid())
+		{
+			caster->OnMoveStateChanged(bNeedsAutoMove);
+		}
+		bPrevAutoMoveNeeded = bNeedsAutoMove;
+	}
 
 	const bool bIsMultiPick = cachedSkill && cachedSkill->pickCount > 1;
 	if (bNeedsAutoMove && !bIsMultiPick)
@@ -423,12 +434,28 @@ void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedCompon
 
 	if (cachedSkill)
 	{
+		// 스킬 인스턴스 멤버를 직접 수정하면 매 오버랩마다 누적되므로 로컬 카피 후 보정
+		int32 dmg  = cachedSkill->calcDamage;
+		int32 amp  = cachedSkill->calcDamageAmplfication;
+		int32 pen  = cachedSkill->calcPenetration;
+		float acc  = cachedSkill->calcAccuracy;
+		float crit = cachedSkill->calcCritical;
+
+		// 캐스터 측 BeforeDamageCalc Reactive 패시브 일괄 디스패치 — 조건 충족분만큼 보너스 합산
+		if (caster.IsValid())
+		{
+			if (UPassiveSkillComponent* PassiveComp = caster->FindComponentByClass<UPassiveSkillComponent>())
+			{
+				PassiveComp->DispatchBeforeDamageCalc(Character, dmg, amp, pen, acc, crit);
+			}
+		}
+
 		Character->CalculateDamage(
-			cachedSkill->calcDamage,
-			cachedSkill->calcAccuracy,
-			cachedSkill->calcCritical,
-			cachedSkill->calcDamageAmplfication,
-			cachedSkill->calcPenetration,
+			dmg,
+			acc,
+			crit,
+			amp,
+			pen,
 			cachedSkill->skillType,
 			cachedSkill->pickTeam
 		);

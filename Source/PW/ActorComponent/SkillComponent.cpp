@@ -33,13 +33,17 @@ void USkillComponent::BeginPlay()
 	ownerCharacter = Cast<ACharacterBase>(UActorComponent::GetOwner());
 }
 
-void USkillComponent::AddSkill(USkillBase* Skill)
+void USkillComponent::AddSkill(TSubclassOf<USkillBase> skillClass)
 {
-	if (!Skill || skills.Contains(Skill)) return;
-	skills.Add(Skill);
-	Skill->SetOwner(ownerCharacter);
-	UActiveSkillBase* ActiveSkill = Cast<UActiveSkillBase>(Skill);
-	if (ActiveSkill)
+	if (!skillClass || !ownerCharacter) return;
+
+	USkillBase* instance = NewObject<USkillBase>(this, skillClass);
+	if (!instance) return;
+
+	instance->SetOwner(ownerCharacter);
+	skills.Add(instance);
+
+	if (UActiveSkillBase* ActiveSkill = Cast<UActiveSkillBase>(instance))
 	{
 		ActiveSkill->SetCalcedStats();
 	}
@@ -94,6 +98,14 @@ void USkillComponent::DeactivateSkill()
 	ClearCurrentTargets();
 	ClearAccumulatedTargets();
 	currentSkill = nullptr;
+
+	// 인디케이터 가상 토글이 활성 중이었을 수 있음 — 실제 이동력 차감 여부로 isMoved 원복
+	// 이동력이 줄어들었으면 진짜 이동했음(=true), 그대로면 미이동(=false)
+	if (ownerCharacter)
+	{
+		const bool actuallyMoved = ownerCharacter->GetCurrentMovingPoint() < ownerCharacter->GetMovingPoint();
+		ownerCharacter->OnMoveStateChanged(actuallyMoved);
+	}
 }
 
 void USkillComponent::AddTarget(ACharacterBase* Target)
