@@ -127,9 +127,9 @@ void ACharacterBase::GetEXP(bool bIsKill)
 	{
 		exp += 20;
 	}
-	if (exp >= maxHp)
+	if (exp >= maxExp)
 	{
-		while (exp >= maxHp)
+		while (exp >= maxExp)
 		{
 			LevelUp();
 			exp -= 100;
@@ -248,15 +248,6 @@ bool ACharacterBase::ReflectDamage()
 
 	ReceiveDamage(finalDamage, true);
 
-	// 공격자 측 AfterDamage Reactive 패시브 디스패치
-	if (ACharacterBase* attacker = lastAttacker.Get())
-	{
-		if (UPassiveSkillComponent* passivecomponent = attacker->GetPassiveSkillComponent())
-		{
-			passivecomponent->DispatchAfterDamage(this);
-		}
-	}
-
 	return true;
 }
 
@@ -305,10 +296,23 @@ void ACharacterBase::InitTurn()
 	{
 		ailmentComponent->OnTurnStart();
 	}
+
+	// 턴 시작 Conditional 패시브 — AP/이동력 리셋과 이동상태 전이가 끝난 "확정 상태" 기준으로 평가
+	if (passiveSkillComponent)
+	{
+		passiveSkillComponent->DispatchConditional(EConditionalType::TurnStart);
+	}
 }
 
 void ACharacterBase::EndTurn()
 {
+	// 턴 종료 Conditional 패시브 — 버프/상태이상 차감 전 상태에서 평가
+	// (만료 직전 턴에 발동하는 조건이 있을 수 있어 OnTurnEnd 이전에 호출)
+	if (passiveSkillComponent)
+	{
+		passiveSkillComponent->DispatchConditional(EConditionalType::TurnEnd);
+	}
+
 	if (buffComponent)
 	{
 		buffComponent->OnTurnEnd();
@@ -471,6 +475,7 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 {
 	if (IsDead()) return;
 
+	const int32 hpBefore = hp;
 	const int32 minHp = bIsLethal ? 0 : 1;
 	hp = FMath::Clamp(hp - Amount, minHp, maxHp);
 
@@ -480,6 +485,22 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 데미지 %d 수신 → 잔여 체력 %d / %d"), *GetName(), Amount, hp, maxHp);
+
+	// Damaged Conditional — hp 변화가 있었을 때 발동 (회복 포함), 사망/AfterSlay 처리 전
+	if (hp != hpBefore && passiveSkillComponent)
+	{
+		passiveSkillComponent->DispatchConditional(EConditionalType::Damaged);
+	}
+
+	// 공격자 측 AfterDamage Reactive 패시브 — 사망 처리 전에 발동시켜 AfterSlay와의 순서 보장
+	// (이름상 흐름: 피해 적용 → AfterDamage → 사망 확정 → AfterSlay)
+	if (ACharacterBase* attacker = lastAttacker.Get())
+	{
+		if (UPassiveSkillComponent* attackerPSC = attacker->GetPassiveSkillComponent())
+		{
+			attackerPSC->DispatchAfterDamage(this);
+		}
+	}
 
 	if (hp <= 0)
 	{

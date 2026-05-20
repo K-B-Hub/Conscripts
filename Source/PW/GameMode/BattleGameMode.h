@@ -22,6 +22,15 @@ public:
 	// 현재 턴의 유닛이 행동을 마쳤을 때 BattleController에서 호출
 	void OnTurnEnd();
 
+	// 전역 Conditional 디스패치 — 모든 생존 캐릭터의 conditionType 매칭 패시브 발동
+	// RoundStart: 새 라운드 진입 시 (BuildTurnOrder 후, StartCurrentTurn 전)
+	// MoveComplete: 캐릭터 이동 완료 시 (이동한 본인 포함 전체 재평가)
+	// UnitDeath: 캐릭터 사망 시 (OnCharacterDeath 캐시 정리 후 호출 — 생존자 = allies+enemies)
+	//   죽은 자가 Ally면 AllyDeath, Enemy면 EnemyDeath conditionType만 발동
+	void BroadcastRoundStart();
+	void BroadcastMoveComplete();
+	void BroadcastUnitDeath(ACharacterBase* DeadCharacter);
+
 protected:
 	virtual void BeginPlay() override;
 

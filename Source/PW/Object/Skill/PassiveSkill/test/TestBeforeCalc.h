@@ -18,5 +18,5 @@ class PW_API UTestBeforeCalc : public UPassiveSkillBase
 public:
 	UTestBeforeCalc();
 
-	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target) override;
+	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType) override;
 };
