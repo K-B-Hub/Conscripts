@@ -2,6 +2,7 @@
 
 #include "Characters/AllyCharacterBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameMode/BattleGameMode.h"
 
 void AAllyCharacterBase::Tick(float DeltaTime)
 {
@@ -20,6 +21,11 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 	if (currentMovingPoint <= 0.f)
 	{
 		StopMovement();
+		// MoveComplete 패시브가 후속 자동공격에 영향을 줄 수 있도록 OnMovementCompleted 브로드캐스트 전에 발동
+		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+		{
+			GM->BroadcastMoveComplete();
+		}
 		OnMovementCompleted.Broadcast();
 		return;
 	}
@@ -39,6 +45,11 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 			SetActorLocation(FVector(moveDestination.X, moveDestination.Y, CurrentLoc.Z));
 			GetCharacterMovement()->StopMovementImmediately();
 			bIsMovingToTarget = false;
+			// MoveComplete 패시브가 후속 자동공격에 영향을 줄 수 있도록 OnMovementCompleted 브로드캐스트 전에 발동
+			if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+			{
+				GM->BroadcastMoveComplete();
+			}
 			OnMovementCompleted.Broadcast();
 			return;
 		}

@@ -102,6 +102,10 @@ private:
 	void OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
+	// 단일 타겟에 대한 데미지 미리 계산 — calcDamage 스냅샷 + BeforeDamageCalc 디스패치 + CalculateDamage + ShowSkillInfo
+	// OnOverlapBegin과 OnMoveStateChanged 후 재계산에서 공용
+	void RecalculatePendingForTarget(ACharacterBase* Target);
+
 	// ─── 사거리 밖 자동이동 ─────────────────────────────────────
 
 	// CursorIndicator 클래스 (BP에서 지정 — 이동 모드와 동일 클래스)
