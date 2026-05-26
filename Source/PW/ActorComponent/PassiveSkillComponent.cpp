@@ -41,6 +41,16 @@ void UPassiveSkillComponent::AddPassive(TSubclassOf<UPassiveSkillBase> passiveCl
 		// (게임 시작 시 미이동 보너스 자동 적용, 전투 중 영입 시에도 현재 상태에 맞춰 적용)
 		if (instance->reactiveType == EReactiveType::BeforeMove)
 		{
+			// BeforeMove는 인디케이터 hover로도 토글되므로 hp/movingPoint/actionPoint 변동은 부수효과가 큼
+			// 데이터 실수 방지 — 0이 아니면 경고 + 강제 0
+			if (instance->hp != 0 || instance->movingPoint != 0.f || instance->actionPoint != 0)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[PassiveSkillComponent] BeforeMove 패시브 '%s'에 hp/movingPoint/actionPoint가 설정됨 (hp=%d, mp=%.1f, ap=%d) — hover 토글 부작용 차단 위해 0으로 강제"),
+					*instance->GetClass()->GetName(), instance->hp, instance->movingPoint, instance->actionPoint);
+				instance->hp = 0;
+				instance->movingPoint = 0.f;
+				instance->actionPoint = 0;
+			}
 			instance->Execute_BeforeMove(ownerCharacter->IsMoved(), +1);
 		}
 		break;
@@ -78,14 +88,14 @@ void UPassiveSkillComponent::RemovePassiveAt(int32 Index)
 	activePassives.RemoveAt(Index);
 }
 
-void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target,
-	int32& dmg, int32& amp, int32& pen, float& acc, float& crit)
+void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType,
+	float& dmg, int32& amp, int32& pen, float& acc, float& crit)
 {
 	for (UPassiveSkillBase* p : reactivePassives)
 	{
 		if (!p || p->reactiveType != EReactiveType::BeforeDamageCalc) continue;
 
-		if (p->Execute_BeforeDamageCalc(target))
+		if (p->Execute_BeforeDamageCalc(target, skillType, damageType))
 		{
 			// 고정 데미지 보너스는 atk 필드를 재사용 (Reactive 컨텍스트에서는 "이 공격에 더할 고정값")
 			dmg  += p->atk;
@@ -94,6 +104,12 @@ void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target,
 			acc  += p->accuracy;
 			crit += p->critical;
 		}
+	}
+
+	// Area는 치명타 불가 — SetCalcedStats에서 0으로 강제하지만, 패시브 보너스 합산이 다시 살릴 수 있어 후처리로 차단
+	if (damageType == EDamageType::Area)
+	{
+		crit = 0.f;
 	}
 }
 
@@ -121,6 +137,17 @@ void UPassiveSkillComponent::DispatchBeforeMove(bool bIsMoved, int32 sign)
 	{
 		if (!p || p->reactiveType != EReactiveType::BeforeMove) continue;
 		p->Execute_BeforeMove(bIsMoved, sign);
+	}
+}
+
+void UPassiveSkillComponent::DispatchConditional(EConditionalType type)
+{
+	if (type == EConditionalType::None) return;
+
+	for (UPassiveSkillBase* p : conditionalPassives)
+	{
+		if (!p || p->conditionType != type) continue;
+		p->Execute_Conditional();
 	}
 }
 

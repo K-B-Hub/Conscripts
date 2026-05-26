@@ -6,6 +6,7 @@
 #include "Actors/SkillRangeIndicator.h"
 #include "Actors/AttackRangeIndicator.h"
 #include "Characters/CharacterBase.h"
+#include "ActorComponent/PassiveSkillComponent.h"
 
 USkillComponent::USkillComponent()
 {
@@ -148,6 +149,36 @@ void USkillComponent::CalcSkillStats()
 			Active->SetCalcedStats();
 		}
 	}
+}
+
+void USkillComponent::RecalculatePending(ACharacterBase* Target)
+{
+	if (!Target || !currentSkill || !ownerCharacter) return;
+
+	// 스킬 인스턴스 멤버를 직접 수정하면 매 호출마다 누적되므로 로컬 카피 후 보정
+	// dmg는 damageRatio 소수 절삭 방지 위해 float 유지 — 최종 적용 시 ReceiveDamage가 RoundToInt 수행
+	float dmg  = currentSkill->calcDamage;
+	int32 amp  = currentSkill->calcDamageAmplfication;
+	int32 pen  = currentSkill->calcPenetration;
+	float acc  = currentSkill->calcAccuracy;
+	float crit = currentSkill->calcCritical;
+
+	// 캐스터 측 BeforeDamageCalc Reactive 패시브 일괄 디스패치 — 조건 충족분만큼 보너스 합산
+	if (UPassiveSkillComponent* PSC = ownerCharacter->GetPassiveSkillComponent())
+	{
+		PSC->DispatchBeforeDamageCalc(Target, currentSkill->skillType, currentSkill->damageType,
+			dmg, amp, pen, acc, crit);
+	}
+
+	Target->CalculateDamage(
+		dmg,
+		acc,
+		crit,
+		amp,
+		pen,
+		currentSkill->skillType,
+		currentSkill->pickTeam
+	);
 }
 
 void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)

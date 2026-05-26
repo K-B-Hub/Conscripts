@@ -59,8 +59,9 @@ public:
 	EConditionalType conditionType = EConditionalType::None;
 
 	// Reactive — 데미지 계산 직전, 공격 자체의 강화 조건 평가
+	// skillType/damageType으로 공격의 정체를 판별 (예: Melee 한정 보너스, Area 제외 등)
 	// 반환: true면 호출자(AttackRangeIndicator)가 본 패시브의 보너스 필드들을 캐싱값에 합산
-	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target) { return false; }
+	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType) { return false; }
 
 	// Reactive — 소지자 이동 상태 전이 시 (실제 이동 + 인디케이터 자동이동 가상 토글)
 	// 작성자 패턴: 조건 매칭 시 ApplyPassiveStatDelta(sign) 호출
@@ -73,4 +74,9 @@ public:
 
 	// Reactive — 적 처치 후, 죽은 캐릭터의 위치 전달 (해당 지점 중심 효과 / 본인 보너스 부여 등)
 	virtual void Execute_AfterSlay(FVector slainLocation) {}
+
+	// Conditional — 외부 자극 이벤트(턴시작/턴종료/피격/이동완료/사망/라운드시작)에 의해 호출
+	// 컴포넌트가 conditionType 매칭으로 필터링 후 호출하므로 본 메서드는 어느 이벤트인지 알 필요 없음
+	// owner는 GetOwner()로 접근, 효과는 자유 (버프/ApplyPassiveStatDelta/단발성 로직)
+	virtual void Execute_Conditional() {}
 };

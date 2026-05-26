@@ -18,7 +18,7 @@ UTestBeforeCalc::UTestBeforeCalc()
 	critical = 0.0f;
 }
 
-bool UTestBeforeCalc::Execute_BeforeDamageCalc(ACharacterBase* target)
+bool UTestBeforeCalc::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType)
 {
 	if (!target) return false;
 	

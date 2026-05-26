@@ -57,6 +57,11 @@ public:
 	//캐릭터의 스탯 변경 시 호출해 스킬들의 계산된 값 변경
 	void CalcSkillStats();
 
+	// 단일 타겟의 데미지 미리 계산 — currentSkill의 calc 스냅샷에 BeforeDamageCalc 패시브 보너스 합산 후
+	// Target->CalculateDamage 호출. UI 표시(ShowSkillInfo)는 호출자가 별도 처리.
+	// 호출자: AttackRangeIndicator(오버랩/이동상태 전이 후 재계산), 적 AI BT 공격 노드 등
+	void RecalculatePending(ACharacterBase* Target);
+
 protected:
 	virtual void BeginPlay() override;
 

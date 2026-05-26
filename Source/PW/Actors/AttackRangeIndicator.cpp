@@ -181,6 +181,15 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 		if (caster.IsValid())
 		{
 			caster->OnMoveStateChanged(bNeedsAutoMove);
+			// BeforeMove 적용으로 caster.calcDamage가 변동됨 → 이미 오버랩 중인 타겟의 pending도 갱신
+			// (위젯 표시값과 실제 ReflectDamage 적용값 일관 유지)
+			for (ACharacterBase* OverlapTarget : overlappingTargets)
+			{
+				if (IsValid(OverlapTarget))
+				{
+					RecalculatePendingForTarget(OverlapTarget);
+				}
+			}
 		}
 		bPrevAutoMoveNeeded = bNeedsAutoMove;
 	}
@@ -378,14 +387,18 @@ void AAttackRangeIndicator::DestroyMovePathIndicator()
 
 bool AAttackRangeIndicator::IsAreaTarget(ACharacterBase* Character) const
 {
-	if (!cachedSkill) return false;
+	if (!cachedSkill || !Character || !caster.IsValid()) return false;
+
+	// caster 팀 기준 판단 — 같은 팀 = 아군, 다른 팀 = 적군
+	const bool bSameTeam = (Cast<AAllyCharacterBase>(caster.Get()) != nullptr)
+		== (Cast<AAllyCharacterBase>(Character) != nullptr);
 
 	switch (cachedSkill->areaTarget)
 	{
 	case EAreaTarget::EnemyOnly:
-		return Cast<AEnemyBase>(Character) != nullptr;
+		return !bSameTeam;
 	case EAreaTarget::AllyOnly:
-		return Cast<AAllyCharacterBase>(Character) != nullptr;
+		return bSameTeam;
 	case EAreaTarget::All:
 		return true;
 	case EAreaTarget::None:
@@ -396,14 +409,18 @@ bool AAttackRangeIndicator::IsAreaTarget(ACharacterBase* Character) const
 
 bool AAttackRangeIndicator::IsPickTarget(ACharacterBase* Character) const
 {
-	if (!cachedSkill || !Character) return false;
+	if (!cachedSkill || !Character || !caster.IsValid()) return false;
+
+	// caster 팀 기준 판단 — 같은 팀 = 아군, 다른 팀 = 적군
+	const bool bSameTeam = (Cast<AAllyCharacterBase>(caster.Get()) != nullptr)
+		== (Cast<AAllyCharacterBase>(Character) != nullptr);
 
 	switch (cachedSkill->pickTeam)
 	{
 	case EPickTeam::EnemyOnly:
-		return Cast<AEnemyBase>(Character) != nullptr;
+		return !bSameTeam;
 	case EPickTeam::AllyOnly:
-		return Cast<AAllyCharacterBase>(Character) != nullptr;
+		return bSameTeam;
 	case EPickTeam::Any:
 		return true;
 	}
@@ -432,35 +449,20 @@ void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedCompon
 		}
 	}
 
-	if (cachedSkill)
+	RecalculatePendingForTarget(Character);
+}
+
+void AAttackRangeIndicator::RecalculatePendingForTarget(ACharacterBase* Target)
+{
+	if (!Target || !caster.IsValid()) return;
+
+	// 데미지 계산은 SkillComponent의 공용 헬퍼에 위임 (BeforeDamageCalc + CalculateDamage)
+	// 인디케이터 경로 한정으로 UI 표시(ShowSkillInfo)만 추가
+	if (USkillComponent* SkillComp = caster->GetSkillComponent())
 	{
-		// 스킬 인스턴스 멤버를 직접 수정하면 매 오버랩마다 누적되므로 로컬 카피 후 보정
-		int32 dmg  = cachedSkill->calcDamage;
-		int32 amp  = cachedSkill->calcDamageAmplfication;
-		int32 pen  = cachedSkill->calcPenetration;
-		float acc  = cachedSkill->calcAccuracy;
-		float crit = cachedSkill->calcCritical;
-
-		// 캐스터 측 BeforeDamageCalc Reactive 패시브 일괄 디스패치 — 조건 충족분만큼 보너스 합산
-		if (caster.IsValid())
-		{
-			if (UPassiveSkillComponent* PassiveComp = caster->FindComponentByClass<UPassiveSkillComponent>())
-			{
-				PassiveComp->DispatchBeforeDamageCalc(Character, dmg, amp, pen, acc, crit);
-			}
-		}
-
-		Character->CalculateDamage(
-			dmg,
-			acc,
-			crit,
-			amp,
-			pen,
-			cachedSkill->skillType,
-			cachedSkill->pickTeam
-		);
-		Character->ShowSkillInfo();
+		SkillComp->RecalculatePending(Target);
 	}
+	Target->ShowSkillInfo();
 }
 
 void AAttackRangeIndicator::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent,

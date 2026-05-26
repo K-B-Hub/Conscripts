@@ -6,6 +6,8 @@
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "PlayerController/BattleController.h"
+#include "ActorComponent/PassiveSkillComponent.h"
+#include "Enum/SkillTypes.h"
 
 ABattleGameMode::ABattleGameMode()
 {
@@ -41,6 +43,8 @@ void ABattleGameMode::BeginPlay()
 
 		if (turnOrder.Num() > 0)
 		{
+			// 첫 라운드 RoundStart Conditional 패시브 — 첫 턴 시작 전 발동
+			BroadcastRoundStart();
 			StartCurrentTurn();
 		}
 	});
@@ -146,6 +150,10 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] %s 전장에서 제거 (잔여: 아군 %d, 적 %d)"),
 		*DeadCharacter->GetName(), allies.Num(), enemies.Num());
 
+	// AllyDeath/EnemyDeath Conditional 패시브 — 캐시 정리 후 생존자에게만 통지
+	// (DeadCharacter는 아직 Destroy 전이라 Cast<AAllyCharacterBase> 가능)
+	BroadcastUnitDeath(DeadCharacter);
+
 	// 활성 턴 보유자가 InitTurn/EndTurn 도중 사망 — 콜 스택을 빠져나간 뒤 다음 턴으로 진행
 	// (BattleController가 dead pawn을 possess 중일 수 있어 정리/전환을 한 틱 미룸)
 	if (bActiveUnitDied)
@@ -191,7 +199,61 @@ void ABattleGameMode::OnTurnEnd()
 
 		// 라운드마다 속도 재산정이 필요하면 BuildTurnOrder() 재호출
 		BuildTurnOrder();
+
+		// 라운드 시작 Conditional 패시브 — 첫 턴 시작 전에 발동
+		BroadcastRoundStart();
 	}
 
 	StartCurrentTurn();
+}
+
+void ABattleGameMode::BroadcastRoundStart()
+{
+	for (ACharacterBase* Character : turnOrder)
+	{
+		if (!IsValid(Character) || Character->IsDead()) continue;
+		if (UPassiveSkillComponent* PSC = Character->GetPassiveSkillComponent())
+		{
+			PSC->DispatchConditional(EConditionalType::RoundStart);
+		}
+	}
+}
+
+void ABattleGameMode::BroadcastMoveComplete()
+{
+	for (ACharacterBase* Character : turnOrder)
+	{
+		if (!IsValid(Character) || Character->IsDead()) continue;
+		if (UPassiveSkillComponent* PSC = Character->GetPassiveSkillComponent())
+		{
+			PSC->DispatchConditional(EConditionalType::MoveComplete);
+		}
+	}
+}
+
+void ABattleGameMode::BroadcastUnitDeath(ACharacterBase* DeadCharacter)
+{
+	if (!DeadCharacter) return;
+
+	// 각 수신자 기준으로 죽은 대상이 아군/적군인지 판단
+	// 같은 팀 배열에 속한 생존자 → AllyDeath, 반대 팀 배열 → EnemyDeath
+	const bool bDeadIsAlly = Cast<AAllyCharacterBase>(DeadCharacter) != nullptr;
+
+	for (AAllyCharacterBase* Ally : allies)
+	{
+		if (!IsValid(Ally) || Ally == DeadCharacter || Ally->IsDead()) continue;
+		if (UPassiveSkillComponent* PSC = Ally->GetPassiveSkillComponent())
+		{
+			PSC->DispatchConditional(bDeadIsAlly ? EConditionalType::AllyDeath : EConditionalType::EnemyDeath);
+		}
+	}
+
+	for (AEnemyBase* Enemy : enemies)
+	{
+		if (!IsValid(Enemy) || Enemy == DeadCharacter || Enemy->IsDead()) continue;
+		if (UPassiveSkillComponent* PSC = Enemy->GetPassiveSkillComponent())
+		{
+			PSC->DispatchConditional(bDeadIsAlly ? EConditionalType::EnemyDeath : EConditionalType::AllyDeath);
+		}
+	}
 }
