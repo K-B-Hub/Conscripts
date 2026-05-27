@@ -26,10 +26,14 @@ public:
 	// RoundStart: 새 라운드 진입 시 (BuildTurnOrder 후, StartCurrentTurn 전)
 	// MoveComplete: 캐릭터 이동 완료 시 (이동한 본인 포함 전체 재평가)
 	// UnitDeath: 캐릭터 사망 시 (OnCharacterDeath 캐시 정리 후 호출 — 생존자 = allies+enemies)
-	//   죽은 자가 Ally면 AllyDeath, Enemy면 EnemyDeath conditionType만 발동
+	//   각 생존 수신자 기준으로 죽은 대상이 같은 팀이면 AllyDeath, 반대 팀이면 EnemyDeath conditionType 발동
+	//   (아군 생존자와 적군 생존자에 서로 반대 타입이 디스패치됨)
 	void BroadcastRoundStart();
 	void BroadcastMoveComplete();
 	void BroadcastUnitDeath(ACharacterBase* DeadCharacter);
+
+	// AIController가 감지 평가 시 사용 — 살아있는 아군 목록 조회
+	const TArray<TObjectPtr<AAllyCharacterBase>>& GetAllies() const { return allies; }
 
 protected:
 	virtual void BeginPlay() override;

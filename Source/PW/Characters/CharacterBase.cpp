@@ -494,11 +494,16 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 
 	// 공격자 측 AfterDamage Reactive 패시브 — 사망 처리 전에 발동시켜 AfterSlay와의 순서 보장
 	// (이름상 흐름: 피해 적용 → AfterDamage → 사망 확정 → AfterSlay)
-	if (ACharacterBase* attacker = lastAttacker.Get())
+	// 스킬 적중에 의한 치명 피해(Amount>0, bIsLethal=true)일 때만 발동
+	// 회복(Amount<=0), 환경/상태이상 비치명 데미지(bIsLethal=false)는 lastAttacker가 남아있어도 제외
+	if (bIsLethal && Amount > 0)
 	{
-		if (UPassiveSkillComponent* attackerPSC = attacker->GetPassiveSkillComponent())
+		if (ACharacterBase* attacker = lastAttacker.Get())
 		{
-			attackerPSC->DispatchAfterDamage(this);
+			if (UPassiveSkillComponent* attackerPSC = attacker->GetPassiveSkillComponent())
+			{
+				attackerPSC->DispatchAfterDamage(this);
+			}
 		}
 	}
 

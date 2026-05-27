@@ -196,7 +196,7 @@ public:
 	// 같은 상태로 호출 시 no-op (Tick 폭주 안전)
 	void OnMoveStateChanged(bool newIsMoved);
 	
-	void InitTurn();
+	virtual void InitTurn();
 	virtual void EndTurn();
 
 	//데미지 적용 후 HealthWidget 갱신, 음수일시 회복

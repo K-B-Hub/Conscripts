@@ -28,7 +28,6 @@
 AAllyTest::AAllyTest()
 {
 	atk = 10;
-	skill = 50; //테스트용
 }
 
 void AAllyTest::BeginPlay()
@@ -40,7 +39,7 @@ void AAllyTest::SetDefaultSkills()
 {
 	Super::SetDefaultSkills();
 	
-	if (passiveSkillComponent)
+	if (skillComponent)
 	{
 		skillComponent->AddSkill(USingleRangeAttack::StaticClass());
 		skillComponent->AddSkill(URangeAttack::StaticClass());

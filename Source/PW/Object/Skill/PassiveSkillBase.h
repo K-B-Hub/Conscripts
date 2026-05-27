@@ -60,7 +60,8 @@ public:
 
 	// Reactive — 데미지 계산 직전, 공격 자체의 강화 조건 평가
 	// skillType/damageType으로 공격의 정체를 판별 (예: Melee 한정 보너스, Area 제외 등)
-	// 반환: true면 호출자(AttackRangeIndicator)가 본 패시브의 보너스 필드들을 캐싱값에 합산
+	// 반환: true면 PassiveSkillComponent::DispatchBeforeDamageCalc가 본 패시브의 보너스 필드를 합산해
+	//       SkillComponent의 데미지 계산 캐시(dmg/amp/pen/acc/crit)에 반영
 	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType) { return false; }
 
 	// Reactive — 소지자 이동 상태 전이 시 (실제 이동 + 인디케이터 자동이동 가상 토글)

@@ -72,3 +72,5 @@ DerivedDataCache/*
 /.claude
 /Content/Fab
 /AGENTS.md
+/Content/SkeletalMesh/Medic1.uasset
+/Content/SkeletalMesh/Soldier1.uasset

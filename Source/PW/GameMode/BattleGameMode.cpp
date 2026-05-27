@@ -100,8 +100,8 @@ void ABattleGameMode::StartCurrentTurn()
 
 	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
 	{
-		// 적군 AI 미구현 — 턴 스킵
-		OnTurnEnd();
+		// 적 턴 시작 — InitTurn 내부에서 AIController에 통지되어 BT 실행, 턴 종료는 BTTask_TurnEnd에서 OnTurnEnd 콜백
+		Enemy->InitTurn();
 		return;
 	}
 	else if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(TurnUnit))
