@@ -16,8 +16,44 @@ class UBuffBase;
 class UAilmentComponent;
 class UPassiveSkillComponent;
 class UPassiveSkillBase;
+class UActiveSkillBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
+
+// 데미지 사전 계산 결과 — PreviewDamage가 반환. RNG 적용 전 결정론적 값.
+// AI 평가·인디케이터 표시·실제 데미지 적용 세 경로가 같은 산식을 통과하도록 설계의 단일 출처.
+USTRUCT(BlueprintType)
+struct FDamageResult
+{
+	GENERATED_BODY()
+
+	// 명중 확률 (0~100). 실제 적용 시 RNG로 hit 판정.
+	UPROPERTY(BlueprintReadOnly)
+	float HitChance = 0.f;
+
+	// 치명 확률 (0~100). 명중 성공 후 별도 롤.
+	UPROPERTY(BlueprintReadOnly)
+	float CritChance = 0.f;
+
+	// 명중·비치명 시 피해
+	UPROPERTY(BlueprintReadOnly)
+	int32 NormalDamage = 0;
+
+	// 명중·치명 시 피해 (= NormalDamage * 2, ReflectDamage 산식 기준)
+	UPROPERTY(BlueprintReadOnly)
+	int32 CritDamage = 0;
+
+	// 일반 명중(비치명)으로 대상을 처치할 수 있는가 — 확정 처치 가능 여부
+	UPROPERTY(BlueprintReadOnly)
+	bool bCanKill = false;
+
+	// 치명타 발동 시에만 처치 가능한가 — 운에 의존한 처치 가능 여부 (NormalDamage < hp <= CritDamage)
+	UPROPERTY(BlueprintReadOnly)
+	bool bCanCritKill = false;
+
+	UPROPERTY(BlueprintReadOnly)
+	ESkillType SkillType = ESkillType::Melee;
+};
 
 UCLASS()
 class PW_API ACharacterBase : public ACharacter
@@ -170,6 +206,9 @@ public:
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
 	float GetMovingPoint() const { return movingPoint; }
 	bool IsMoved() const { return isMoved; }
+	// AI 이동(MoveTo 비동기) 시 이동 시작 시점에 PathLength 기반으로 사전 차감.
+	// AllyCharacterBase는 Tick에서 실제 이동거리를 측정해 차감하나, AI는 콜백 기반이라 사전 차감으로 단순화.
+	void ConsumeMovingPoint(float meters);
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
 	bool IsDead() const { return hp <= 0; }
@@ -182,10 +221,21 @@ public:
 	float GetCritical() const { return critical; }
 	int32 GetDamageAmplification() const { return damageAmplification; }
 	int32 GetPenetration() const { return penetration; }
+	int32 GetDef() const { return def; }
+	float GetEvasion() const { return evasion; }
+	int32 GetDamageReduction() const { return damageReduction; }
 	
 	//AttackRangeIndicator 오버렙 시 데미지 미리 계산
 	//PickTeam: Buff 스킬에서 AllyOnly면 아군 대상이라 회피를 차감하지 않음
 	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration, ESkillType SkillType, EPickTeam PickTeam);
+
+	// 순수 데미지 예측 — 상태 미변경(const). AI 후보 평가에서 (스킬 × 대상 × 위치) 다회 호출 안전.
+	// 내부에서 Attacker의 BeforeDamageCalc 패시브 디스패치를 포함하나 모두 로컬 카피로 처리.
+	// AttackerLocation은 위치 의존 보너스 확장 여지를 위해 인자로 유지 (현재 본문 미사용).
+	FDamageResult PreviewDamage(const UActiveSkillBase* Skill,
+	                            const ACharacterBase* Attacker,
+	                            const FVector& AttackerLocation) const;
+
 	//미리 계산해둔 값으로 치명타, 회피 여부 계산 후 데미지 적용
 	bool ReflectDamage();
 
@@ -216,6 +266,14 @@ public:
 	void ShowSkillInfo();
 	void HideSkillInfo();
 	void ClearPendingDamage();
+	//AI 행동 평가용: 현재 스킬 흐름에서 대상에게 계산해둔 예측값 조회
+	void GetPendingSkillValues(float& OutDamage, float& OutAccuracy, float& OutCritical, ESkillType& OutSkillType) const
+	{
+		OutDamage = pendingDMG;
+		OutAccuracy = pendingAccuracy;
+		OutCritical = pendingCritical;
+		OutSkillType = pendingSkillType;
+	}
 
 	UStaticMeshComponent* GetWeaponMeshComponent() const;
 	USkillComponent* GetSkillComponent() const { return skillComponent; }

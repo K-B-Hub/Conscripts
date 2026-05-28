@@ -8,6 +8,7 @@
 
 class AAllyCharacterBase;
 class AEnemyAIController;
+class UUtilityAIComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEnemyDeath, AEnemyBase*, DeadEnemy, AAllyCharacterBase*, Killer);
 
@@ -47,4 +48,8 @@ protected:
 	// 에디터에서 부채꼴 디버그 표시
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
 	bool bShowDetectionDebug = false;
+
+	// 전투 행동 결정 — 전투 진입 후 자기 턴에 ExecuteTurn 호출
+	UPROPERTY(VisibleAnywhere, Category = "AI")
+	TObjectPtr<UUtilityAIComponent> utilityAI;
 };

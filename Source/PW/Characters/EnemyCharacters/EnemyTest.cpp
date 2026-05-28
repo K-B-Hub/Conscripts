@@ -8,7 +8,8 @@
 
 AEnemyTest::AEnemyTest()
 {
-	
+	atk = 12;
+	skill = 50;
 }
 
 void AEnemyTest::SetDefaultSkills()

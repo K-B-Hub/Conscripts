@@ -7,6 +7,7 @@
 #include "Characters/EnemyBase.h"
 #include "Characters/AllyCharacterBase.h"
 #include "GameMode/BattleGameMode.h"
+#include "AI/UtilityAIComponent.h"
 
 const FName AEnemyAIController::BBKey_TargetActor(TEXT("TargetActor"));
 const FName AEnemyAIController::BBKey_InCombat(TEXT("InCombat"));
@@ -40,17 +41,56 @@ void AEnemyAIController::OnUnPossess()
 
 void AEnemyAIController::OnEnemyTurnStart()
 {
+	// 자기 자신이 NavMesh 장애물로 등록되어 있으면 MoveTo가 경로를 못 잡거나 짧게 잡아 진동.
+	// BattleController.cpp:72의 플레이어 측 패턴과 동일. OnEnemyTurnEnd에서 복원.
+	if (ACharacterBase* pawnAsChar = Cast<ACharacterBase>(GetPawn()))
+	{
+		pawnAsChar->SetNavObstacleEnabled(false);
+	}
+
 	// 비전투 상태에서만 감지 평가 — 한 번 전투로 들어가면 단방향
 	if (!bIsInCombat)
 	{
 		EvaluateDetectionAndMaybeSwitch();
 	}
 
+	// 전투 진입 시 — UtilityAI가 행동 결정. BT는 사용 안 함.
+	if (bIsInCombat)
+	{
+		if (APawn* pawn = GetPawn())
+		{
+			if (UUtilityAIComponent* ai = pawn->FindComponentByClass<UUtilityAIComponent>())
+			{
+				ai->OnTurnComplete.Clear();
+				ai->OnTurnComplete.AddUObject(this, &AEnemyAIController::OnUtilityAITurnComplete);
+				ai->ExecuteTurn();
+				return;
+			}
+		}
+		// 컴포넌트 미부착 시 안전망 — 턴 즉시 종료
+		UE_LOG(LogTemp, Warning, TEXT("[EnemyAIController] %s UtilityAIComponent 미부착 — 턴 즉시 종료"),
+			*GetNameSafe(GetPawn()));
+		OnEnemyTurnEnd();
+		return;
+	}
+
+	// 비전투 — nonCombatBT만 실행
 	RunCurrentBT();
+}
+
+void AEnemyAIController::OnUtilityAITurnComplete()
+{
+	OnEnemyTurnEnd();
 }
 
 void AEnemyAIController::OnEnemyTurnEnd()
 {
+	// 턴 종료 — NavMesh 장애물로 다시 등록 (다른 캐릭터 경로 계산 시 본인을 우회하게)
+	if (ACharacterBase* pawnAsChar = Cast<ACharacterBase>(GetPawn()))
+	{
+		pawnAsChar->SetNavObstacleEnabled(true);
+	}
+
 	// BT 즉시 정지 — 다음 턴 시작 시 RunBehaviorTree가 루트부터 새로 실행되도록
 	if (UBehaviorTreeComponent* btComp = Cast<UBehaviorTreeComponent>(BrainComponent))
 	{
@@ -105,16 +145,33 @@ void AEnemyAIController::EvaluateDetectionAndMaybeSwitch()
 		const bool bHit = world->LineTraceSingleByChannel(hit, eyeFrom, eyeTo, ECC_Visibility, params);
 		if (bHit && hit.GetActor() != ally) continue;
 
-		// 감지 성공 — 단방향 전환 (이후 비전투로 돌아오지 않음)
-		bIsInCombat = true;
-		if (UBlackboardComponent* bb = GetBlackboardComponent())
-		{
-			bb->SetValueAsBool(BBKey_InCombat, true);
-		}
+		// 감지 성공 — 단일 진입점으로 위임 (단방향 전환)
 		UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 감지 → 전투 전환 (트리거 아군: %s)"),
 			*enemy->GetName(), *ally->GetName());
+		JoinCombat(EJoinCombatReason::Detection);
 		return;
 	}
+}
+
+void AEnemyAIController::JoinCombat(EJoinCombatReason Reason)
+{
+	// 단방향 — 이미 전투면 no-op
+	if (bIsInCombat) return;
+
+	bIsInCombat = true;
+	if (UBlackboardComponent* bb = GetBlackboardComponent())
+	{
+		bb->SetValueAsBool(BBKey_InCombat, true);
+	}
+
+	// 추후 GameMode 전투 그룹 등록·이니셔티브 삽입 진입점 — 현재는 비워둠
+	// if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	// {
+	//     gm->RegisterCombatant(GetPawn(), Reason);
+	// }
+
+	UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s JoinCombat (Reason=%d)"),
+		*GetNameSafe(GetPawn()), static_cast<int32>(Reason));
 }
 
 void AEnemyAIController::RunCurrentBT()

@@ -10,6 +10,15 @@ class UBehaviorTree;
 class UBlackboardData;
 class AEnemyBase;
 
+// 전투 합류 사유 — 모든 합류는 JoinCombat 한 함수를 통과한다 (설계 §2 단일 진입점)
+UENUM(BlueprintType)
+enum class EJoinCombatReason : uint8
+{
+	Detection	UMETA(DisplayName = "감지"),
+	Alarm		UMETA(DisplayName = "알람"),
+	Proximity	UMETA(DisplayName = "근접 합류"),
+};
+
 UCLASS()
 class PW_API AEnemyAIController : public AAIController
 {
@@ -25,6 +34,10 @@ public:
 	void OnEnemyTurnEnd();
 
 	bool IsInCombat() const { return bIsInCombat; }
+
+	// 전투 합류 단일 진입점 — 감지/알람/근접 모두 이 함수를 호출. 이미 전투면 no-op.
+	// 첫 구현: 플래그 토글 + 블랙보드 갱신 + 로그. 추후 GameMode 전투 그룹 등록·이니셔티브 삽입이 여기로 들어옴.
+	void JoinCombat(EJoinCombatReason Reason);
 
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
@@ -53,6 +66,9 @@ private:
 	// 비전투 상태일 때 시야 내 아군 탐색 — 발견 시 전투 상태로 전환하고 BT 스왑
 	void EvaluateDetectionAndMaybeSwitch();
 
-	// 현재 상태(bIsInCombat)에 맞는 BT 실행
+	// 비전투 BT 실행 (전투는 UtilityAI가 담당)
 	void RunCurrentBT();
+
+	// UtilityAI 턴 완료 콜백 — OnEnemyTurnEnd 위임
+	void OnUtilityAITurnComplete();
 };

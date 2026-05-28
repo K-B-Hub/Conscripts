@@ -62,6 +62,11 @@ public:
 	// 호출자: AttackRangeIndicator(오버랩/이동상태 전이 후 재계산), 적 AI BT 공격 노드 등
 	void RecalculatePending(ACharacterBase* Target);
 
+	// 인디케이터 없이 단일 타겟에 즉시 시전 — AI 전용 경로.
+	// 내부: currentSkill 임시 토글(RecalculatePending이 의존) → BeginUse → ReflectDamage → Execute.
+	// 회전·이동 등 시전 전 처리는 호출자(UUtilityAIComponent::ExecuteAttackImmediate) 책임.
+	void DirectExecute(UActiveSkillBase* Skill, ACharacterBase* Target);
+
 protected:
 	virtual void BeginPlay() override;
 
