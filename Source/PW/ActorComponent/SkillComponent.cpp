@@ -181,6 +181,27 @@ void USkillComponent::RecalculatePending(ACharacterBase* Target)
 	);
 }
 
+void USkillComponent::DirectExecute(UActiveSkillBase* Skill, ACharacterBase* Target)
+{
+	if (!Skill || !Target || !ownerCharacter) return;
+	if (!Skill->CanExecute()) return;
+
+	// RecalculatePending이 currentSkill을 참조 — 임시 토글로 우회 (인디케이터 스폰 없이)
+	UActiveSkillBase* saved = currentSkill;
+	currentSkill = Skill;
+
+	RecalculatePending(Target);   // BeforeDamageCalc 디스패치 + Target->CalculateDamage (pending* 기입)
+
+	Skill->BeginUse();             // AP/배틀자원 차감 + 몽타주
+	Target->SetLastAttacker(ownerCharacter);
+	if (Target->ReflectDamage() && IsValid(Target))
+	{
+		Skill->Execute(Target);    // hit-gated 후속 효과 (버프 적용 등)
+	}
+
+	currentSkill = saved;
+}
+
 void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 {
 	if (!ownerCharacter) return;

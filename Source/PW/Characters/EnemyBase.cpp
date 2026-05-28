@@ -3,6 +3,7 @@
 #include "Characters/EnemyBase.h"
 #include "Characters/AllyCharacterBase.h"
 #include "AI/AIController/EnemyAIController.h"
+#include "AI/UtilityAIComponent.h"
 #include "DrawDebugHelpers.h"
 
 AEnemyBase::AEnemyBase()
@@ -10,6 +11,8 @@ AEnemyBase::AEnemyBase()
 	PrimaryActorTick.bCanEverTick = true;
 	AIControllerClass = AEnemyAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+
+	utilityAI = CreateDefaultSubobject<UUtilityAIComponent>(TEXT("UtilityAI"));
 }
 
 void AEnemyBase::InitTurn()

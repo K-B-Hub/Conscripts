@@ -11,11 +11,49 @@
 #include "ActorComponent/AilmentComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/PassiveSkillBase.h"
+#include "Object/Skill/ActiveSkillBase.h"
 #include "Widget/HealthWidget.h"
 #include "Widget/SkillInfoWidget.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
+
+// 데미지 산식의 단일 출처 — CalculateDamage(기입형)와 PreviewDamage(stateless)가 공유.
+// static: 이 .cpp 파일에 internal linkage 보장.
+static void ComputeDamageNumbers(const ACharacterBase* Target,
+	float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int32 Penetration,
+	ESkillType SkillType, EPickTeam PickTeam,
+	float& OutDmg, float& OutAccuracy, float& OutCritical)
+{
+	if (!Target)
+	{
+		OutDmg = 0.f; OutAccuracy = 0.f; OutCritical = 0.f;
+		return;
+	}
+
+	if (SkillType == ESkillType::Buff)
+	{
+		OutDmg = 0.f;
+		// 아군 전용 버프는 회피 차감 없이 스킬 명중 그대로
+		OutAccuracy = (PickTeam == EPickTeam::AllyOnly) ? Accuracy : (Accuracy - Target->GetEvasion());
+		OutAccuracy = FMath::Clamp(OutAccuracy, 0.f, 100.f);
+		OutCritical = 0.f;
+		return;
+	}
+	if (SkillType == ESkillType::Ailment)
+	{
+		OutDmg = 0.f;
+		OutAccuracy = FMath::Clamp(Accuracy - Target->GetEvasion(), 0.f, 100.f);
+		OutCritical = 0.f;
+		return;
+	}
+
+	OutDmg = (Damage * (1 + DamageAmplfication / 100.f) - Target->GetDef() * (1 - Penetration / 100.f))
+	         * (1 - Target->GetDamageReduction() / 100.f);
+	if (OutDmg <= 0.f) OutDmg = 0.f;
+	OutAccuracy = FMath::Clamp(Accuracy - Target->GetEvasion(), 0.f, 100.f);
+	OutCritical = Critical;
+}
 
 // Sets default values
 ACharacterBase::ACharacterBase()
@@ -169,57 +207,56 @@ void ACharacterBase::ReduceBattleResource(int32 amount)
 	battleResource = FMath::Clamp(battleResource - amount, 0, battleResource);
 }
 
+void ACharacterBase::ConsumeMovingPoint(float meters)
+{
+	currentMovingPoint = FMath::Max(0.f, currentMovingPoint - meters);
+}
+
 void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication,
                                      int Penetration, ESkillType SkillType, EPickTeam PickTeam)
 {
+	//공용 헬퍼 호출, 결과를 pending* 멤버에 기입 (인디케이터 위젯·ReflectDamage 경로)
 	pendingSkillType = SkillType;
-	if (pendingSkillType == ESkillType::Buff)
+	ComputeDamageNumbers(this, Damage, Accuracy, Critical, DamageAmplfication, Penetration,
+		SkillType, PickTeam, pendingDMG, pendingAccuracy, pendingCritical);
+}
+
+FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
+                                            const ACharacterBase* Attacker,
+                                            const FVector& AttackerLocation) const
+{
+	FDamageResult result;
+	if (!Skill || !Attacker) return result;
+
+	result.SkillType = Skill->skillType;
+
+	// 스킬 calc 값 로컬 카피 — 외부 상태 미변경 보장 (RecalculatePending 패턴 동일)
+	float dmg  = Skill->calcDamage;
+	int32 amp  = Skill->calcDamageAmplfication;
+	int32 pen  = Skill->calcPenetration;
+	float acc  = Skill->calcAccuracy;
+	float crit = Skill->calcCritical;
+
+	// 캐스터 측 BeforeDamageCalc Reactive 패시브 보너스 합산 (in/out 인자도 로컬 카피라 안전)
+	if (UPassiveSkillComponent* PSC = Attacker->GetPassiveSkillComponent())
 	{
-		pendingDMG = 0.f;
-		// 아군 전용 버프는 회피 차감 없이 스킬 명중을 그대로 사용
-		pendingAccuracy = (PickTeam == EPickTeam::AllyOnly) ? Accuracy : (Accuracy - evasion);
-		if (pendingAccuracy <= 0)
-		{
-			pendingAccuracy = 0;
-		}
-		else if (pendingAccuracy > 100.f)
-		{
-			pendingAccuracy = 100.f;
-		}
-		pendingCritical = 0.f;
-		return;
-	}
-	if (pendingSkillType == ESkillType::Ailment)
-	{
-		pendingDMG = 0.f;
-		pendingAccuracy = Accuracy - evasion;
-		if (pendingAccuracy <= 0)
-		{
-			pendingAccuracy = 0;
-		}
-		else if (pendingAccuracy > 100.f)
-		{
-			pendingAccuracy = 100.f;
-		}
-		pendingCritical = 0.f;
-		return;
+		PSC->DispatchBeforeDamageCalc(const_cast<ACharacterBase*>(this),
+			Skill->skillType, Skill->damageType, dmg, amp, pen, acc, crit);
 	}
 
-	pendingDMG = (Damage * (1 + DamageAmplfication / 100.f) - def * (1 - Penetration / 100.f)) * (1 - damageReduction / 100.f);
-	if (pendingDMG <= 0)
-	{
-		pendingDMG = 0;
-	}
-	pendingAccuracy = Accuracy - evasion;
-	if (pendingAccuracy <= 0)
-	{
-		pendingAccuracy = 0;
-	}
-	else if (pendingAccuracy > 100.f)
-	{
-		pendingAccuracy = 100.f;
-	}
-	pendingCritical = Critical;
+	float outDmg = 0.f, outAcc = 0.f, outCrit = 0.f;
+	ComputeDamageNumbers(this, dmg, acc, crit, amp, pen, Skill->skillType, Skill->pickTeam,
+		outDmg, outAcc, outCrit);
+
+	result.HitChance   = outAcc;
+	result.CritChance  = outCrit;
+	result.NormalDamage = FMath::RoundToInt(outDmg);
+	result.CritDamage   = FMath::RoundToInt(outDmg * 2.f);   // ReflectDamage 산식과 일치
+	// 두 단계 처치 가능성 — AI는 둘을 다르게 가중 (확정 처치 >> 운빨 처치)
+	result.bCanKill     = (result.NormalDamage >= hp);
+	result.bCanCritKill = !result.bCanKill && (result.CritDamage >= hp);
+
+	return result;
 }
 
 bool ACharacterBase::ReflectDamage()
