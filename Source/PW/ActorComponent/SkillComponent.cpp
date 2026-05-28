@@ -156,7 +156,7 @@ void USkillComponent::RecalculatePending(ACharacterBase* Target)
 	if (!Target || !currentSkill || !ownerCharacter) return;
 
 	// 스킬 인스턴스 멤버를 직접 수정하면 매 호출마다 누적되므로 로컬 카피 후 보정
-	// dmg는 damageRatio 소수 절삭 방지 위해 float 유지 — 최종 적용 시 ReceiveDamage가 RoundToInt 수행
+	// dmg는 damageRatio 소수 절삭 방지 위해 float 유지 — 치명/일반 분기 시 ReflectDamage가 RoundToInt 수행
 	float dmg  = currentSkill->calcDamage;
 	int32 amp  = currentSkill->calcDamageAmplfication;
 	int32 pen  = currentSkill->calcPenetration;
