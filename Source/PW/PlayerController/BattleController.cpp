@@ -14,6 +14,7 @@
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "GameMode/BattleGameMode.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "Enum/SkillTypes.h"
@@ -60,6 +61,7 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 	if (!IsValid(TurnUnit)) return;
 
 	activeUnit = TurnUnit;
+	aiFollowTarget = nullptr; // 아군 턴 진입 — 적 추적 해제
 	cachedSpringArm = activeUnit
 		? activeUnit->FindComponentByClass<USpringArmComponent>()
 		: nullptr;
@@ -182,10 +184,14 @@ void ABattleController::Tick(float DeltaTime)
 	
 	if (cachedSpringArm)
 	{
+		// 추적 대상: 아군 턴이면 activeUnit, 적 턴이면 aiFollowTarget
+		AActor* followUnit = activeUnit;
+		if (!followUnit) followUnit = aiFollowTarget;
+
 		// 카메라 추적 모드: 스프링암 위치를 캐릭터 위치로 고정
-		if (bIsFollowingCharacter && activeUnit)
+		if (bIsFollowingCharacter && followUnit)
 		{
-			cachedSpringArm->SetWorldLocation(activeUnit->GetActorLocation());
+			cachedSpringArm->SetWorldLocation(followUnit->GetActorLocation());
 			SnapSpringArmToGround(cachedSpringArm);
 		}
 		// 자유 이동 모드: 입력이 없으면 관성으로 감속
@@ -333,6 +339,27 @@ void ABattleController::OnCameraReset(const FInputActionValue& Value)
 	cachedSpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
+// ─── 적 턴 카메라 추적 ───────────────────────────────────────────────────────
+void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
+{
+	if (!IsValid(AIUnit)) return;
+
+	aiFollowTarget = AIUnit;
+
+	// 적 턴엔 빙의 전환이 없으므로 현재 빙의 폰(직전 아군)의 스프링암을 카메라 피벗으로 사용
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		cachedSpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
+	}
+	if (!cachedSpringArm) return;
+
+	// 즉시 AI 위치로 스냅 후 추적 모드 활성화 — 이후 플레이어가 카메라를 움직이면 OnCameraMove가 추적 해제
+	cachedSpringArm->SetWorldLocation(AIUnit->GetActorLocation());
+	SnapSpringArmToGround(cachedSpringArm);
+	cameraVelocity = FVector::ZeroVector;
+	bIsFollowingCharacter = true;
+}
+
 // ─── 스킬 모드 ──────────────────────────────────────────────────────────────
 void ABattleController::ActivateSkill(UActiveSkillBase* Skill)
 {
@@ -446,6 +473,10 @@ void ABattleController::OnUnitMovementCompleted()
 		if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
 		Skill->BeginUse();
+		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+		{
+			GM->RecordPlayerSkillUse(activeUnit, Skill);
+		}
 
 		for (ACharacterBase* Target : Targets)
 		{
@@ -548,6 +579,10 @@ void ABattleController::ExecuteSkill()
 		}
 
 		Skill->BeginUse();
+		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+		{
+			GM->RecordPlayerSkillUse(activeUnit, Skill);
+		}
 
 		for (ACharacterBase* Target : ValidTargets)
 		{
@@ -604,6 +639,10 @@ void ABattleController::ExecuteSkill()
 	if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
 	Skill->BeginUse();
+	if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		GM->RecordPlayerSkillUse(activeUnit, Skill);
+	}
 
 	// 전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨 → 바로 ReflectDamage
 	for (ACharacterBase* Target : Targets)

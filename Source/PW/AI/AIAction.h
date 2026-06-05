@@ -43,6 +43,11 @@ struct FAIAction
 	UPROPERTY(BlueprintReadOnly)
 	FDamageResult Preview;
 
+	// CastFrom 위치로 갔을 때 플레이어 측이 가할 수 있는 총 기대 피해 (전체 합산).
+	// EnumerateActions 단계에서 1회 계산해 캐싱. 양수일수록 위험. ScoreAction에서 음수 가중치와 곱해 페널티화.
+	UPROPERTY(BlueprintReadOnly)
+	float IncomingDangerExpected = 0.f;
+
 	UPROPERTY(BlueprintReadOnly)
 	EAIActionType Type = EAIActionType::Wait;
 

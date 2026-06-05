@@ -33,9 +33,10 @@ protected:
 	                                     bool bAssumeMoved,
 	                                     TArray<FAIAction>& OutCandidates) const;
 
-	// 순수 이동 후보 — 대상 없음. 가장 가까운 적 방향으로 잔여 이동력만큼 전진한 위치 (단순 첫 구현).
-	void EnumerateMoveActions(const TArray<ACharacterBase*>& Targets,
-	                          TArray<FAIAction>& OutCandidates) const;
+	// 순수 이동 후보 — 캐스터 중심 동심원 링 다중 샘플.
+	// 5개 반지름 비율(잔여 이동력의 10/30/50/70/100%) × 각 링당 moveDirections 방향 = N 후보.
+	// 각 후보에 대해 NavMesh 도달성 검사 + IncomingDanger 계산 → ScoreAction이 최선 선택.
+	void EnumerateMoveActions(TArray<FAIAction>& OutCandidates) const;
 
 	// 대기 후보 한 개. 명시적 후보로 두며(점수 0 fallback 아님), 좋은 위치 유지 시 능동적 최선이 될 수 있음.
 	void EnumerateWaitAction(TArray<FAIAction>& OutCandidates) const;
@@ -49,9 +50,19 @@ protected:
 	static void FibonacciDiskSample(const FVector& Center, float RadiusCm, int32 N,
 	                                TArray<FVector>& OutSamples);
 
+	// 위험도 — AtLocation에 ownerCharacter가 위치할 때 플레이어 측 전체로부터 받을 기대 피해 합.
+	// 각 플레이어의 BattleGameMode에 기록된 FPlayerThreatProfile(관측된 최대 위협) × 거리/사선 게이팅.
+	// 비용 = (살아있는 플레이어 수) × LOS/거리 검사 1회씩. 스킬 순회 없음.
+	// 호출자(Enumerate*)가 후보 위치마다 1회만 호출해 FAIAction.IncomingDangerExpected에 캐싱해야 함.
+	float ComputeIncomingDangerAt(const FVector& AtLocation) const;
+
 	// 한 (스킬, 대상) 당 위치 샘플 개수. 첫 구현은 작게 두고 §5 검증 시 조정.
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Sampling")
 	int32 attackPositionSamples = 10;
+
+	// 순수 이동 후보 — 한 링당 방향 수. 5링 × 이 값 = 총 후보 수.
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Sampling")
+	int32 moveDirectionsPerRing = 10;
 
 	// 캐싱 — BeginPlay에서 owner 캐스팅 1회
 	UPROPERTY(Transient)
@@ -71,8 +82,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Loop")
 	int32 maxActionsPerTurn = 8;
 
+	// 행동과 행동 사이 텀 (초). 연속 행동이 한 번에 처리되지 않고 시각적으로 끊겨 보이도록.
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Loop")
+	float actionDelay = 0.4f;
+
 	// 후보 전체를 평가해 최고점 반환. 동점 시 먼저 등록된 후보.
-	const FAIAction* ScoreAndPickBest(const TArray<FAIAction>& Candidates) const;
+	// OutScores 비-null이면 후보별 점수를 동일 인덱스로 채움 — 디버그 시각화가 ScoreAction을 재호출하지 않도록 (noise 일관성).
+	const FAIAction* ScoreAndPickBest(const TArray<FAIAction>& Candidates, TArray<float>* OutScores = nullptr) const;
+
+	// 디버그 시각화 — ai.UtilityDebug 1 토글 시 후보 위치·점수·선택지를 월드에 표시.
+	void DrawDebugCandidates(const TArray<FAIAction>& Candidates,
+	                         const TArray<float>& Scores,
+	                         const FAIAction* Best) const;
 
 	// 한 후보의 점수 — personalityData 가중치를 산식에 합산. 인라인 산식(첫 구현).
 	// IncomingDanger(위험도 축)·이니셔티브 기반 정밀화는 설계 §3 후속 정교화 영역.
@@ -108,4 +129,7 @@ protected:
 	float moveBefore = 0.f;
 	bool bHasPendingAfterMove = false;
 	FAIAction pendingActionAfterMove;
+
+	// 행동 사이 텀 타이머 핸들
+	FTimerHandle stepTimerHandle;
 };
