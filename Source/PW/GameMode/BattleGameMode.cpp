@@ -8,6 +8,7 @@
 #include "PlayerController/BattleController.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Enum/SkillTypes.h"
+#include "Object/Skill/ActiveSkillBase.h"
 
 ABattleGameMode::ABattleGameMode()
 {
@@ -100,6 +101,12 @@ void ABattleGameMode::StartCurrentTurn()
 
 	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
 	{
+		// 별도 입력이 없으면 카메라가 행동 중인 AI를 추적하도록 컨트롤러에 통지
+		if (ABattleController* BattleController = Cast<ABattleController>(GetWorld()->GetFirstPlayerController()))
+		{
+			BattleController->BeginAITurnFollow(Enemy);
+		}
+
 		// 적 턴 시작 — InitTurn 내부에서 AIController에 통지되어 BT 실행, 턴 종료는 BTTask_TurnEnd에서 OnTurnEnd 콜백
 		Enemy->InitTurn();
 		return;
@@ -255,5 +262,55 @@ void ABattleGameMode::BroadcastUnitDeath(ACharacterBase* DeadCharacter)
 		{
 			PSC->DispatchConditional(bDeadIsAlly ? EConditionalType::EnemyDeath : EConditionalType::AllyDeath);
 		}
+	}
+}
+
+const FPlayerThreatProfile& ABattleGameMode::GetPlayerThreatProfile(const AAllyCharacterBase* Ally) const
+{
+	// 미관측 캐릭터는 디폴트 프로파일 반환 — 초기 보수적 추정으로 동작.
+	// CDO를 통해 USTRUCT 디폴트 값(NormalDamage=10, Accuracy=50, ...)에 접근.
+	static const FPlayerThreatProfile defaultProfile;
+	if (!Ally) return defaultProfile;
+	const FPlayerThreatProfile* found = playerThreatProfiles.Find(Ally);
+	return found ? *found : defaultProfile;
+}
+
+void ABattleGameMode::RecordPlayerSkillUse(AAllyCharacterBase* Ally, const UActiveSkillBase* Skill)
+{
+	if (!Ally || !Skill) return;
+
+	// 위협 모델은 피해 기반 — 비-피해 스킬은 일단 스킵.
+	// (Buff/Ailment에 대한 별도 처리 로직은 추후 추가 여지)
+	if (Skill->skillType == ESkillType::Buff
+		|| Skill->skillType == ESkillType::Ailment)
+	{
+		return;
+	}
+
+	// 캐스터 스탯이 이미 반영된 cached 값 사용 (SetCalcedStats 결과).
+	// CritDamage는 ReflectDamage/PreviewDamage 규약과 동일하게 NormalDamage × 2.
+	const float newDamage    = Skill->calcDamage;
+	const float newAccuracy  = Skill->calcAccuracy;
+	const float newCritChance= Skill->calcCritical;
+	const float newCritDamage= newDamage * 2.f;
+
+	const float newHitP  = newAccuracy / 100.f;
+	const float newCritP = newCritChance / 100.f;
+	const float newExpected = newHitP * ((1.f - newCritP) * newDamage + newCritP * newCritDamage);
+
+	FPlayerThreatProfile& prof = playerThreatProfiles.FindOrAdd(Ally);
+
+	const float oldHitP  = prof.Accuracy / 100.f;
+	const float oldCritP = prof.CritChance / 100.f;
+	const float oldExpected = oldHitP * ((1.f - oldCritP) * prof.NormalDamage + oldCritP * prof.CritDamage);
+
+	// 기대 피해가 더 크면 가장 강한 스킬로 인정 — 사거리 포함 전체 교체.
+	if (newExpected > oldExpected)
+	{
+		prof.NormalDamage = newDamage;
+		prof.Accuracy     = newAccuracy;
+		prof.CritDamage   = newCritDamage;
+		prof.CritChance   = newCritChance;
+		prof.RangeCm      = Skill->pickRange;
 	}
 }

@@ -32,6 +32,10 @@ public:
 	void InitTurn(AAllyCharacterBase* TurnUnit);
 	void EndTurn();
 
+	// 적 턴 시작 시 GameMode에서 호출 — 별도 입력이 없으면 카메라가 행동 중인 AI를 추적.
+	// 컨트롤러는 적을 빙의하지 않으므로 현재 빙의 폰(직전 아군)의 스프링암을 피벗으로 사용한다.
+	void BeginAITurnFollow(ACharacterBase* AIUnit);
+
 	// MoveWidget 버튼에서 호출 - 이동 모드 토글
 	void ToggleMoveMode();
 
@@ -203,4 +207,8 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<AAllyCharacterBase> activeUnit = nullptr;
+
+	// 적 턴에 카메라가 추적할 AI 유닛 (activeUnit이 null인 동안만 유효)
+	UPROPERTY()
+	TObjectPtr<ACharacterBase> aiFollowTarget = nullptr;
 };
