@@ -64,7 +64,7 @@ EBTNodeResult::Type UBTTask_Patrol::AbortTask(UBehaviorTreeComponent& OwnerComp,
 
 void UBTTask_Patrol::CleanupLatentState()
 {
-	if (!cachedOwnerComp) return;
+	if (!IsValid(cachedOwnerComp)) return;
 
 	//대기 타이머 정리
 	if (UWorld* world = cachedOwnerComp->GetWorld())
@@ -83,7 +83,7 @@ void UBTTask_Patrol::CleanupLatentState()
 
 void UBTTask_Patrol::OnPatrolMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
 {
-	if (!cachedOwnerComp) return;
+	if (!IsValid(cachedOwnerComp)) return;
 
 	//도달 성공일 때만 다음 지점으로 진행 — 실패 시 인덱스 유지해 같은 지점 재시도
 	if (AAIController* aic = cachedOwnerComp->GetAIOwner())
@@ -115,7 +115,7 @@ void UBTTask_Patrol::OnPatrolMoveCompleted(FAIRequestID RequestID, EPathFollowin
 
 void UBTTask_Patrol::OnWaitFinished()
 {
-	if (!cachedOwnerComp) return;
+	if (!IsValid(cachedOwnerComp)) return;
 
 	UBehaviorTreeComponent* owner = cachedOwnerComp;
 	CleanupLatentState();
