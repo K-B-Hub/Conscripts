@@ -31,7 +31,7 @@ EBTNodeResult::Type UBTTask_Patrol::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 		if (!world) return EBTNodeResult::Succeeded;
 
 		cachedOwnerComp = &OwnerComp;
-		world->GetTimerManager().SetTimer(idleTimerHandle, this, &UBTTask_Patrol::OnIdleWaitFinished, idleWaitTime, false);
+		world->GetTimerManager().SetTimer(waitTimerHandle, this, &UBTTask_Patrol::OnWaitFinished, idleWaitTime, false);
 		return EBTNodeResult::InProgress;
 	}
 
@@ -56,32 +56,68 @@ EBTNodeResult::Type UBTTask_Patrol::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 	return EBTNodeResult::Succeeded;
 }
 
+EBTNodeResult::Type UBTTask_Patrol::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	CleanupLatentState();
+	return EBTNodeResult::Aborted;
+}
+
+void UBTTask_Patrol::CleanupLatentState()
+{
+	if (!cachedOwnerComp) return;
+
+	//대기 타이머 정리
+	if (UWorld* world = cachedOwnerComp->GetWorld())
+	{
+		world->GetTimerManager().ClearTimer(waitTimerHandle);
+	}
+
+	//완료 콜백 해제 — 다음 실행/다른 노드에서의 콜백 누수 방지
+	if (AAIController* aic = cachedOwnerComp->GetAIOwner())
+	{
+		aic->ReceiveMoveCompleted.RemoveDynamic(this, &UBTTask_Patrol::OnPatrolMoveCompleted);
+	}
+
+	cachedOwnerComp = nullptr;
+}
+
 void UBTTask_Patrol::OnPatrolMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
 {
 	if (!cachedOwnerComp) return;
 
-	//콜백 해제 — 다음 실행/다른 적의 콜백 누수 방지
+	//도달 성공일 때만 다음 지점으로 진행 — 실패 시 인덱스 유지해 같은 지점 재시도
 	if (AAIController* aic = cachedOwnerComp->GetAIOwner())
 	{
+		//완료 콜백만 해제 — 타이머는 종료 텀에 재사용
 		aic->ReceiveMoveCompleted.RemoveDynamic(this, &UBTTask_Patrol::OnPatrolMoveCompleted);
 
-		//도달했으니 다음 순찰 지점으로 진행
-		if (AEnemyBase* enemy = Cast<AEnemyBase>(aic->GetPawn()))
+		if (Result == EPathFollowingResult::Success)
 		{
-			enemy->AdvancePatrolIndex();
+			if (AEnemyBase* enemy = Cast<AEnemyBase>(aic->GetPawn()))
+			{
+				enemy->AdvancePatrolIndex();
+			}
 		}
 	}
 
+	//즉시 종료하지 않고 텀을 둬 카메라가 도착 지점에 잠시 머물게 함
+	if (UWorld* world = cachedOwnerComp->GetWorld())
+	{
+		world->GetTimerManager().SetTimer(waitTimerHandle, this, &UBTTask_Patrol::OnWaitFinished, arriveWaitTime, false);
+		return;
+	}
+
+	//월드가 없으면 즉시 종료
 	UBehaviorTreeComponent* owner = cachedOwnerComp;
-	cachedOwnerComp = nullptr;
+	CleanupLatentState();
 	FinishLatentTask(*owner, EBTNodeResult::Succeeded);
 }
 
-void UBTTask_Patrol::OnIdleWaitFinished()
+void UBTTask_Patrol::OnWaitFinished()
 {
 	if (!cachedOwnerComp) return;
 
 	UBehaviorTreeComponent* owner = cachedOwnerComp;
-	cachedOwnerComp = nullptr;
+	CleanupLatentState();
 	FinishLatentTask(*owner, EBTNodeResult::Succeeded);
 }
