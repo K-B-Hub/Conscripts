@@ -27,7 +27,7 @@ class PW_API AEnemyAIController : public AAIController
 public:
 	AEnemyAIController();
 
-	// EnemyBase::InitTurn에서 호출 — 비전투면 감지 평가 후 필요 시 전투 BT로 스왑, 그 다음 현재 BT 진행
+	//EnemyBase::InitTurn에서 호출
 	void OnEnemyTurnStart();
 
 	// 턴 종료 — BT 측 FinishTurn Task에서 호출하여 GameMode에 다음 턴 진행을 위임
@@ -47,11 +47,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "AI|BehaviorTree")
 	TObjectPtr<UBehaviorTree> nonCombatBT;
 
-	// 전투 BT — 교전 행동
-	UPROPERTY(EditDefaultsOnly, Category = "AI|BehaviorTree")
-	TObjectPtr<UBehaviorTree> combatBT;
-
-	// 두 BT가 공유하는 블랙보드 데이터 (TargetActor 키 등을 정의)
+	//비전투 BT 블랙보드 데이터
 	UPROPERTY(EditDefaultsOnly, Category = "AI|BehaviorTree")
 	TObjectPtr<UBlackboardData> blackboardData;
 
@@ -63,10 +59,10 @@ protected:
 	static const FName BBKey_InCombat;
 
 private:
-	// 비전투 상태일 때 시야 내 아군 탐색 — 발견 시 전투 상태로 전환하고 BT 스왑
-	void EvaluateDetectionAndMaybeSwitch();
+	//비전투 상태에서 아군 감지 시 전투로 전환
+	void EvaluateDetectionAndMaybeJoinCombat();
 
-	// 비전투 BT 실행 (전투는 UtilityAI가 담당)
+	//비전투 BT 실행
 	void RunCurrentBT();
 
 	// UtilityAI 턴 완료 콜백 — OnEnemyTurnEnd 위임
