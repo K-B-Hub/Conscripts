@@ -326,8 +326,8 @@ void ABattleController::OnCancelMove(const FInputActionValue& Value)
 // ─── 카메라 초기화 ───────────────────────────────────────────────────────────
 void ABattleController::OnCameraReset(const FInputActionValue& Value)
 {
-	AActor* followUnit = activeUnit;
-	if (!followUnit) followUnit = aiFollowTarget;
+	AActor* followUnit = IsValid(activeUnit) ? activeUnit : nullptr;
+	if (!followUnit) followUnit = IsValid(aiFollowTarget) ? aiFollowTarget : nullptr;
 	if (!cachedSpringArm || !followUnit) return;
 
 	// 스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화

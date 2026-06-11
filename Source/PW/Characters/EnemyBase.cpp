@@ -21,12 +21,12 @@ void AEnemyBase::BeginPlay()
 	//상대좌표의 기준점 — 배치 위치 캡처
 	spawnLocation = GetActorLocation();
 	//원위치(상대좌표 0)를 순찰 지점에 추가 — 1개만 입력해도 원위치와 왕복
-	patrolPoints.Add(FVector::ZeroVector);
+	patrolPoints.AddUnique(FVector::ZeroVector);
 }
 
 FVector AEnemyBase::GetCurrentPatrolWorldLocation() const
 {
-	//호출 측에서 HasPatrolPoints로 가드하는 전제 — 방어적으로 한 번 더 체크
+	//호출 측에서 CanPatrol로 가드하는 전제 — 방어적으로 한 번 더 체크
 	if (!patrolPoints.IsValidIndex(patrolIndex)) return spawnLocation;
 	return spawnLocation + patrolPoints[patrolIndex];
 }
