@@ -46,5 +46,7 @@ private:
 	FTimerHandle waitTimerHandle;
 
 	//latent 종료를 위해 캐시 — bCreateNodeInstance=true라 인스턴스마다 독립
+	//UPROPERTY로 GC 추적/자동 null 보장 (dangling 역참조 방지)
+	UPROPERTY()
 	TObjectPtr<UBehaviorTreeComponent> cachedOwnerComp;
 };
