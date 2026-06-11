@@ -4,8 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "Navigation/PathFollowingComponent.h"   // EPathFollowingResult, FAIRequestID
+#include "Navigation/PathFollowingComponent.h"
 #include "AI/AIAction.h"
+#include "TimerManager.h"
 #include "UtilityAIComponent.generated.h"
 
 class UActiveSkillBase;

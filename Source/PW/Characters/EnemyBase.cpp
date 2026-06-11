@@ -15,6 +15,41 @@ AEnemyBase::AEnemyBase()
 	utilityAI = CreateDefaultSubobject<UUtilityAIComponent>(TEXT("UtilityAI"));
 }
 
+void AEnemyBase::BeginPlay()
+{
+	Super::BeginPlay();
+	//상대좌표의 기준점 — 배치 위치 캡처
+	spawnLocation = GetActorLocation();
+	//원위치(상대좌표 0)를 순찰 지점에 추가 — 1개만 입력해도 원위치와 왕복
+	patrolPoints.Add(FVector::ZeroVector);
+}
+
+FVector AEnemyBase::GetCurrentPatrolWorldLocation() const
+{
+	//호출 측에서 HasPatrolPoints로 가드하는 전제 — 방어적으로 한 번 더 체크
+	if (!patrolPoints.IsValidIndex(patrolIndex)) return spawnLocation;
+	return spawnLocation + patrolPoints[patrolIndex];
+}
+
+void AEnemyBase::AdvancePatrolIndex()
+{
+	const int32 step = bPatrolReverse ? -1 : 1;
+	int32 next = patrolIndex + step;
+
+	//끝점 도달 — 방향 뒤집어 되돌아감
+	if (!patrolPoints.IsValidIndex(next))
+	{
+		bPatrolReverse = !bPatrolReverse;
+		next = patrolIndex - step;
+	}
+
+	//지점이 1개뿐이면 뒤집어도 범위 밖 → 인덱스 유지(그 한 점을 계속 순회)
+	if (patrolPoints.IsValidIndex(next))
+	{
+		patrolIndex = next;
+	}
+}
+
 void AEnemyBase::InitTurn()
 {
 	Super::InitTurn();

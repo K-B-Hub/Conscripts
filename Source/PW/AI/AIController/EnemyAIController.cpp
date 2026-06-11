@@ -51,7 +51,7 @@ void AEnemyAIController::OnEnemyTurnStart()
 	// 비전투 상태에서만 감지 평가 — 한 번 전투로 들어가면 단방향
 	if (!bIsInCombat)
 	{
-		EvaluateDetectionAndMaybeSwitch();
+		EvaluateDetectionAndMaybeJoinCombat();
 	}
 
 	// 전투 진입 시 — UtilityAI가 행동 결정. BT는 사용 안 함.
@@ -117,7 +117,7 @@ void AEnemyAIController::OnEnemyTurnEnd()
 	});
 }
 
-void AEnemyAIController::EvaluateDetectionAndMaybeSwitch()
+void AEnemyAIController::EvaluateDetectionAndMaybeJoinCombat()
 {
 	AEnemyBase* enemy = Cast<AEnemyBase>(GetPawn());
 	if (!enemy) return;
@@ -130,7 +130,7 @@ void AEnemyAIController::EvaluateDetectionAndMaybeSwitch()
 	const FVector eyeFrom = enemy->GetPawnViewLocation();
 	FCollisionQueryParams params(SCENE_QUERY_STAT(EnemyDetection), false, enemy);
 
-	// 타깃 선정은 BT Task가 수행 — 본 함수는 "한 명이라도 감지되면 전투 전환" 트리거 역할만
+	//한 명이라도 감지되면 전투로 전환
 	for (AAllyCharacterBase* ally : gm->GetAllies())
 	{
 		if (!IsValid(ally) || ally->IsDead()) continue;
@@ -176,18 +176,16 @@ void AEnemyAIController::JoinCombat(EJoinCombatReason Reason)
 
 void AEnemyAIController::RunCurrentBT()
 {
-	UBehaviorTree* btToRun = bIsInCombat ? combatBT : nonCombatBT;
-	if (!btToRun) return;
+	if (!nonCombatBT) return;
 
-	// 이미 같은 BT가 돌고 있으면 RunBehaviorTree는 재시작하지 않고 false 반환 — 정상
-	// 전투 전환 직후라면 이전 BT를 멈추고 새 BT 시작
+	//같은 BT가 실행 중이면 재시작하지 않음
 	if (UBehaviorTreeComponent* btComp = Cast<UBehaviorTreeComponent>(BrainComponent))
 	{
-		if (btComp->GetCurrentTree() != btToRun)
+		if (btComp->GetCurrentTree() != nonCombatBT)
 		{
 			btComp->StopTree();
 		}
 	}
 
-	RunBehaviorTree(btToRun);
+	RunBehaviorTree(nonCombatBT);
 }

@@ -78,8 +78,10 @@ ACharacterBase::ACharacterBase()
 
 	skillInfoWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("SkillInfoWidget"));
 	skillInfoWidgetComponent->SetupAttachment(RootComponent);
-	skillInfoWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 150.f));
+	skillInfoWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 90.f)); //캐릭터 중앙 부근을 앵커로
 	skillInfoWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
+	//TODO: Pivot을 조정해 앵커 기준 오른편 아래로 위젯이 펼쳐지게 한다 (기본 0.5,0.5 = 중앙)
+	skillInfoWidgetComponent->SetPivot(FVector2D(1, -1));
 	skillInfoWidgetComponent->SetDrawSize(FVector2D(200.f, 60.f));
 	skillInfoWidgetComponent->SetVisibility(false);
 

@@ -148,6 +148,7 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 	if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(DeadCharacter))
 	{
 		allies.Remove(Ally);
+		playerThreatProfiles.Remove(Ally);
 	}
 	else if (AEnemyBase* Enemy = Cast<AEnemyBase>(DeadCharacter))
 	{
@@ -267,8 +268,6 @@ void ABattleGameMode::BroadcastUnitDeath(ACharacterBase* DeadCharacter)
 
 const FPlayerThreatProfile& ABattleGameMode::GetPlayerThreatProfile(const AAllyCharacterBase* Ally) const
 {
-	// 미관측 캐릭터는 디폴트 프로파일 반환 — 초기 보수적 추정으로 동작.
-	// CDO를 통해 USTRUCT 디폴트 값(NormalDamage=10, Accuracy=50, ...)에 접근.
 	static const FPlayerThreatProfile defaultProfile;
 	if (!Ally) return defaultProfile;
 	const FPlayerThreatProfile* found = playerThreatProfiles.Find(Ally);
