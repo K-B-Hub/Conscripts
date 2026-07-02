@@ -18,8 +18,7 @@
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
 
-// 데미지 산식의 단일 출처 — CalculateDamage(기입형)와 PreviewDamage(stateless)가 공유.
-// static: 이 .cpp 파일에 internal linkage 보장.
+//데미지 산식의 단일 출처, CalculateDamage와 PreviewDamage가 공유
 static void ComputeDamageNumbers(const ACharacterBase* Target,
 	float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int32 Penetration,
 	ESkillType SkillType, EPickTeam PickTeam,
@@ -34,7 +33,7 @@ static void ComputeDamageNumbers(const ACharacterBase* Target,
 	if (SkillType == ESkillType::Buff)
 	{
 		OutDmg = 0.f;
-		// 아군 전용 버프는 회피 차감 없이 스킬 명중 그대로
+		//아군 전용 버프는 회피 차감 없이 스킬 명중 그대로
 		OutAccuracy = (PickTeam == EPickTeam::AllyOnly) ? Accuracy : (Accuracy - Target->GetEvasion());
 		OutAccuracy = FMath::Clamp(OutAccuracy, 0.f, 100.f);
 		OutCritical = 0.f;
@@ -55,7 +54,6 @@ static void ComputeDamageNumbers(const ACharacterBase* Target,
 	OutCritical = Critical;
 }
 
-// Sets default values
 ACharacterBase::ACharacterBase()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -72,7 +70,7 @@ ACharacterBase::ACharacterBase()
 
 	healthWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("HealthWidget"));
 	healthWidgetComponent->SetupAttachment(RootComponent);
-	healthWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 120.f)); // 캡슐 상단 위
+	healthWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 120.f)); //캡슐 상단 위
 	healthWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
 	healthWidgetComponent->SetDrawSize(FVector2D(150.f, 20.f));
 
@@ -109,7 +107,6 @@ ACharacterBase::ACharacterBase()
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 540.f, 0.f);
 }
 
-// Called when the game starts or when spawned
 void ACharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
@@ -121,7 +118,7 @@ void ACharacterBase::BeginPlay()
 	}
 	SetDefaultStats();
 	SetDefaultSkills();
-	//패시브는 SetDefaultStats 이후에 등록 — 파생 스탯(accuracy 등) 덮어쓰기 방지
+	//패시브는 SetDefaultStats 이후에 등록, 파생 스탯 덮어쓰기 방지
 	SetDefaultPassives();
 }
 
@@ -146,7 +143,6 @@ void ACharacterBase::SetDefaultStats()
 	}
 }
 
-// Called every frame
 void ACharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -193,7 +189,7 @@ void ACharacterBase::LevelUp()
 	if (FMath::RandRange(1, 100) <= defGrowth)       { def++; }
 	if (FMath::RandRange(1, 100) <= mentalityGrowth) { mentality++; }
 
-	// 파생 스탯(명중, 회피, 치명) 재계산
+	//파생 스탯 재계산
 	SetDefaultStats();
 
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 레벨업 → Lv.%d"), *GetName(), level);
@@ -232,14 +228,14 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 
 	result.SkillType = Skill->skillType;
 
-	// 스킬 calc 값 로컬 카피 — 외부 상태 미변경 보장 (RecalculatePending 패턴 동일)
+	//스킬 calc 값 로컬 카피, 외부 상태 미변경 보장
 	float dmg  = Skill->calcDamage;
 	int32 amp  = Skill->calcDamageAmplfication;
 	int32 pen  = Skill->calcPenetration;
 	float acc  = Skill->calcAccuracy;
 	float crit = Skill->calcCritical;
 
-	// 캐스터 측 BeforeDamageCalc Reactive 패시브 보너스 합산 (in/out 인자도 로컬 카피라 안전)
+	//캐스터 측 BeforeDamageCalc 패시브 보너스 합산
 	if (UPassiveSkillComponent* PSC = Attacker->GetPassiveSkillComponent())
 	{
 		PSC->DispatchBeforeDamageCalc(const_cast<ACharacterBase*>(this),
@@ -253,8 +249,8 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 	result.HitChance   = outAcc;
 	result.CritChance  = outCrit;
 	result.NormalDamage = FMath::RoundToInt(outDmg);
-	result.CritDamage   = FMath::RoundToInt(outDmg * 2.f);   // ReflectDamage 산식과 일치
-	// 두 단계 처치 가능성 — AI는 둘을 다르게 가중 (확정 처치 >> 운빨 처치)
+	result.CritDamage   = FMath::RoundToInt(outDmg * 2.f);   //ReflectDamage 산식과 일치
+	//두 단계 처치 가능성, AI는 확정 처치와 운빨 처치를 다르게 가중
 	result.bCanKill     = (result.NormalDamage >= hp);
 	result.bCanCritKill = !result.bCanKill && (result.CritDamage >= hp);
 
@@ -302,7 +298,7 @@ void ACharacterBase::OnMoveStateChanged(bool newIsMoved)
 {
 	if (isMoved == newIsMoved) return;
 
-	// 이전 상태에 매칭된 보너스 revert → isMoved 갱신 → 새 상태 매칭 보너스 apply
+	//이전 상태 보너스 revert, isMoved 갱신, 새 상태 보너스 apply 순서로 처리
 	if (passiveSkillComponent)
 	{
 		passiveSkillComponent->DispatchBeforeMove(isMoved, -1);
@@ -323,8 +319,7 @@ void ACharacterBase::InitTurn()
 	currentActionPoint = actionPoint;
 	currentMovingPoint = movingPoint;
 
-	// 이전 턴에 이동했으면 false로 전이 (이동 보너스 revert + 미이동 보너스 apply)
-	// 이전 턴 미이동이면 no-op — 미이동 보너스는 이미 적용 중
+	//이전 턴 이동 상태를 false로 전이
 	OnMoveStateChanged(false);
 
 	if (buffComponent)
@@ -336,7 +331,7 @@ void ACharacterBase::InitTurn()
 		ailmentComponent->OnTurnStart();
 	}
 
-	// 턴 시작 Conditional 패시브 — AP/이동력 리셋과 이동상태 전이가 끝난 "확정 상태" 기준으로 평가
+	//턴 시작 Conditional 패시브, AP/이동력 리셋 이후 확정 상태 기준으로 평가
 	if (passiveSkillComponent)
 	{
 		passiveSkillComponent->DispatchConditional(EConditionalType::TurnStart);
@@ -345,8 +340,7 @@ void ACharacterBase::InitTurn()
 
 void ACharacterBase::EndTurn()
 {
-	// 턴 종료 Conditional 패시브 — 버프/상태이상 차감 전 상태에서 평가
-	// (만료 직전 턴에 발동하는 조건이 있을 수 있어 OnTurnEnd 이전에 호출)
+	//턴 종료 Conditional 패시브, 버프/상태이상 차감 전 상태에서 평가
 	if (passiveSkillComponent)
 	{
 		passiveSkillComponent->DispatchConditional(EConditionalType::TurnEnd);
@@ -366,7 +360,7 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 {
 	if (!buff || (sign != 1 && sign != -1)) return;
 
-	//최대 체력 변경 — 현재 체력은 새 max에 클램프
+	//최대 체력 변경, 현재 체력은 새 max에 클램프
 	maxHp += buff->hp * sign;
 	if (maxHp <= 0) maxHp = 1;
 	hp = FMath::Clamp(hp, 1, maxHp);
@@ -385,7 +379,7 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	currentMovingPoint = FMath::Clamp(currentMovingPoint, 0, movingPoint);
 	mentality += buff->mentality * sign;
 
-	//행동력 — 최대치 변경, 현재치는 새 max에 클램프
+	//행동력 최대치 변경, 현재치는 새 max에 클램프
 	actionPoint += buff->actionPoint * sign;
 	currentActionPoint += buff->actionPoint * sign;
 	currentActionPoint = FMath::Clamp(currentActionPoint, 0, actionPoint);
@@ -396,12 +390,12 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	penetration += buff->penetration * sign;
 	sight += buff->sight * sign;
 
-	//전투 파생 스탯 — 직접 가감 (skill/speed에 의한 자동 재계산은 하지 않음)
+	//전투 파생 스탯은 직접 가감, 자동 재계산은 하지 않음
 	accuracy += buff->accuracy * sign;
 	evasion += buff->evasion * sign;
 	critical += buff->critical * sign;
 
-	//스킬 측 계산값(damageRatio*atk 등) 재계산 알림 — 사망 상태에서는 스킬 owner가 stale weak ptr이라 의미 없음
+	//스킬 측 계산값 재계산 알림, 사망 상태에서는 owner가 stale weak ptr이라 스킵
 	if (skillComponent && !IsDead())
 	{
 		skillComponent->CalcSkillStats();
@@ -435,7 +429,7 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 	const float beforeEvasion = evasion;
 	const float beforeCritical = critical;
 
-	//최대 HP 증가량만큼 현재 HP도 함께 증가 — 패시브는 영구이므로 등록 시점이 곧 성장
+	//최대 HP 증가량만큼 현재 HP도 함께 증가, 패시브는 영구이므로 등록 시점이 곧 성장
 	const int32 hpDelta = passive->hp * sign;
 	maxHp += hpDelta;
 	if (maxHp <= 0) maxHp = 1;
@@ -456,7 +450,7 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 	currentMovingPoint = FMath::Clamp(currentMovingPoint, 0, movingPoint);
 	mentality += passive->mentality * sign;
 
-	//행동력 — 최대치 변경, 현재치도 같이 갱신 후 클램프
+	//행동력 최대치 변경, 현재치도 같이 갱신 후 클램프
 	actionPoint += passive->actionPoint * sign;
 	currentActionPoint += passive->actionPoint * sign;
 	currentActionPoint = FMath::Clamp(currentActionPoint, 0, actionPoint);
@@ -467,7 +461,7 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 	penetration += passive->penetration * sign;
 	sight += passive->sight * sign;
 
-	//전투 파생 스탯 — 직접 가감 (SetDefaultStats 재호출하지 않음)
+	//전투 파생 스탯은 직접 가감, SetDefaultStats 재호출하지 않음
 	accuracy += passive->accuracy * sign;
 	evasion += passive->evasion * sign;
 	critical += passive->critical * sign;
@@ -525,16 +519,14 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 데미지 %d 수신 → 잔여 체력 %d / %d"), *GetName(), Amount, hp, maxHp);
 
-	// Damaged Conditional — hp 변화가 있었을 때 발동 (회복 포함), 사망/AfterSlay 처리 전
+	//Damaged Conditional, hp 변화가 있었을 때 발동(회복 포함), 사망 처리 전
 	if (hp != hpBefore && passiveSkillComponent)
 	{
 		passiveSkillComponent->DispatchConditional(EConditionalType::Damaged);
 	}
 
-	// 공격자 측 AfterDamage Reactive 패시브 — 사망 처리 전에 발동시켜 AfterSlay와의 순서 보장
-	// (이름상 흐름: 피해 적용 → AfterDamage → 사망 확정 → AfterSlay)
-	// 스킬 적중에 의한 치명 피해(Amount>0, bIsLethal=true)일 때만 발동
-	// 회복(Amount<=0), 환경/상태이상 비치명 데미지(bIsLethal=false)는 lastAttacker가 남아있어도 제외
+	//공격자 측 AfterDamage 패시브, 사망 처리 전에 발동시켜 AfterSlay와 순서 보장
+	//스킬 적중에 의한 치명 피해일 때만 발동, 회복이나 비치명 데미지는 제외
 	if (bIsLethal && Amount > 0)
 	{
 		if (ACharacterBase* attacker = lastAttacker.Get())
@@ -556,7 +548,7 @@ void ACharacterBase::HandleDeath()
 {
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 사망"), *GetName());
 
-	// 공격자 측 AfterSlay Reactive 패시브 디스패치 — 처치 지점 위치 전달
+	//공격자 측 AfterSlay 패시브 디스패치, 처치 지점 위치 전달
 	if (ACharacterBase* attacker = lastAttacker.Get())
 	{
 		if (UPassiveSkillComponent* passivecomponent = attacker->GetPassiveSkillComponent())
@@ -567,10 +559,10 @@ void ACharacterBase::HandleDeath()
 
 	OnCharacterDeath.Broadcast(this);
 
-	// NavMesh 장애물 해제
+	//NavMesh 장애물 해제
 	SetNavObstacleEnabled(false);
 
-	// 충돌 비활성화 — Destroy 전 오버랩 정리 유도
+	//충돌 비활성화, Destroy 전 오버랩 정리 유도
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 

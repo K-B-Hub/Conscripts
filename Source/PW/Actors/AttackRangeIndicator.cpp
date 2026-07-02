@@ -159,7 +159,7 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 		}
 		else
 		{
-			// 사거리 내지만 시야선 차단 시에도 자동이동 필요
+			//사거리 내지만 시야선 차단 시에도 자동이동 필요
 			FCollisionQueryParams LOSParams;
 			LOSParams.AddIgnoredActor(caster.Get());
 			const FVector EyeHeight(0.f, 0.f, 80.f);
@@ -175,14 +175,13 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
-	// 자동이동 필요 여부 전이 감지 — 캐스터의 isMoved 가상 토글
+	//자동이동 필요 여부 전이 감지
 	if (bNeedsAutoMove != bPrevAutoMoveNeeded)
 	{
 		if (caster.IsValid())
 		{
 			caster->OnMoveStateChanged(bNeedsAutoMove);
-			// BeforeMove 적용으로 caster.calcDamage가 변동됨 → 이미 오버랩 중인 타겟의 pending도 갱신
-			// (위젯 표시값과 실제 ReflectDamage 적용값 일관 유지)
+			//이동 상태 변경으로 데미지 계산이 달라지므로 오버랩 중인 타겟도 재계산
 			for (ACharacterBase* OverlapTarget : overlappingTargets)
 			{
 				if (IsValid(OverlapTarget))
@@ -197,7 +196,7 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 	const bool bIsMultiPick = cachedSkill && cachedSkill->pickCount > 1;
 	if (bNeedsAutoMove && !bIsMultiPick)
 	{
-		// 쓰로틀링된 최적 이동 지점 계산
+		//쓰로틀링된 최적 이동 지점 계산
 		optimalPointUpdateTimer += DeltaTime;
 		if (optimalPointUpdateTimer >= optimalPointUpdateInterval)
 		{
@@ -226,12 +225,12 @@ bool AAttackRangeIndicator::ComputeOutOfRange() const
 	const FVector CasterLoc = caster->GetActorLocation();
 	const FVector TargetLoc = GetActorLocation();
 
-	// 사거리 체크
+	//사거리 체크
 	FVector Offset = TargetLoc - CasterLoc;
 	Offset.Z = 0.f;
 	if (Offset.SizeSquared() > pickRange * pickRange) return true;
 
-	// 시야선 체크
+	//시야선 체크
 	FCollisionQueryParams LOSParams;
 	LOSParams.AddIgnoredActor(caster.Get());
 	const FVector EyeHeight(0.f, 0.f, 80.f);
@@ -279,7 +278,7 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 	const FVector CasterLocation = caster->GetActorLocation();
 	const FVector TargetLocation = GetActorLocation();
 
-	// 시전자 → 인디케이터 위치까지 NavMesh 경로 계산
+	//시전자 → 인디케이터 위치까지 NavMesh 경로 계산
 	UNavigationPath* Path = NavSys->FindPathToLocationSynchronously(
 		GetWorld(), CasterLocation, TargetLocation);
 	if (!Path || !Path->IsValid()) return;
@@ -287,9 +286,7 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 	const TArray<FNavPathPoint>& PathPoints = Path->GetPath()->GetPathPoints();
 	if (PathPoints.Num() < 2) return;
 
-	// 경로를 시전자→타겟 방향으로 순회하며
-	// 거리 < 사거리 && 시야선 확보인 첫 지점을 자동이동 지점으로 선택
-	// 경로 포인트 사이를 보간해 사거리 경계 지점을 정확히 계산
+	//경로를 순회하며 사거리 내 + 시야선 확보된 첫 지점을 자동이동 지점으로 선택
 	FCollisionQueryParams TraceParams;
 	TraceParams.AddIgnoredActor(caster.Get());
 	const FVector EyeHeight(0.f, 0.f, 80.f);
@@ -308,17 +305,16 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 		const float DistA = Dist2DToTarget(A);
 		const float DistB = Dist2DToTarget(B);
 
-		// 이 세그먼트에서 사거리 안으로 진입하는 경우 → 경계 지점 보간
+		//사거리 안으로 진입하는 세그먼트면 경계 지점 보간
 		FVector Candidate;
 		if (DistA >= pickRange && DistB < pickRange)
 		{
-			// A(밖)→B(안) 구간에서 정확한 경계 지점 보간
 			const float t = (DistA - pickRange) / (DistA - DistB);
 			Candidate = FMath::Lerp(A, B, t);
 		}
 		else if (DistA < pickRange)
 		{
-			// 이미 사거리 안 — 이 지점 사용
+			//이미 사거리 안이면 이 지점 사용
 			Candidate = A;
 		}
 		else
@@ -326,7 +322,7 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 			continue;
 		}
 
-		// 시야선 체크
+		//시야선 체크
 		FHitResult LOSHit;
 		bool bBlocked = GetWorld()->LineTraceSingleByChannel(
 			LOSHit,
@@ -342,7 +338,7 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 		}
 	}
 
-	// 마지막 포인트(타겟 위치) 체크
+	//마지막 포인트(타겟 위치) 체크
 	const FVector& LastPoint = PathPoints.Last().Location;
 	if (Dist2DToTarget(LastPoint) < pickRange)
 	{
@@ -389,7 +385,7 @@ bool AAttackRangeIndicator::IsAreaTarget(ACharacterBase* Character) const
 {
 	if (!cachedSkill || !Character || !caster.IsValid()) return false;
 
-	// caster 팀 기준 판단 — 같은 팀 = 아군, 다른 팀 = 적군
+	//caster 팀 기준 판단
 	const bool bSameTeam = (Cast<AAllyCharacterBase>(caster.Get()) != nullptr)
 		== (Cast<AAllyCharacterBase>(Character) != nullptr);
 
@@ -411,7 +407,7 @@ bool AAttackRangeIndicator::IsPickTarget(ACharacterBase* Character) const
 {
 	if (!cachedSkill || !Character || !caster.IsValid()) return false;
 
-	// caster 팀 기준 판단 — 같은 팀 = 아군, 다른 팀 = 적군
+	//caster 팀 기준 판단
 	const bool bSameTeam = (Cast<AAllyCharacterBase>(caster.Get()) != nullptr)
 		== (Cast<AAllyCharacterBase>(Character) != nullptr);
 
@@ -436,7 +432,7 @@ void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedCompon
 
 	if (caster.IsValid() && Character == caster.Get()) return;
 
-	//SkillType에 맞는 대상이 아닐시 return
+	//스킬 타입에 맞는 대상이 아닐시 return
 	if (!IsAreaTarget(Character)) return;
 
 	overlappingTargets.AddUnique(Character);
@@ -456,8 +452,7 @@ void AAttackRangeIndicator::RecalculatePendingForTarget(ACharacterBase* Target)
 {
 	if (!Target || !caster.IsValid()) return;
 
-	// 데미지 계산은 SkillComponent의 공용 헬퍼에 위임 (BeforeDamageCalc + CalculateDamage)
-	// 인디케이터 경로 한정으로 UI 표시(ShowSkillInfo)만 추가
+	//데미지 계산은 SkillComponent에 위임하고 UI 표시만 추가
 	if (USkillComponent* SkillComp = caster->GetSkillComponent())
 	{
 		SkillComp->RecalculatePending(Target);

@@ -21,11 +21,11 @@ void UAilmentComponent::AddAilment(TSubclassOf<UAilmentBase> ailmentClass, AChar
 {
 	if (!ailmentClass || !ownerCharacter) return;
 
-	// CDO에서 isStackable 정책만 미리 확인
+	//CDO에서 isStackable만 먼저  확인
 	const UAilmentBase* ailmentCDO = ailmentClass.GetDefaultObject();
 	if (!ailmentCDO) return;
 
-	// isStackable=false: 같은 클래스가 이미 걸려있으면 턴수만 누적 (단일 인스턴스 갱신)
+	//중첩 불가능 시 턴수만 갱신
 	if (!ailmentCDO->isStackable)
 	{
 		for (TObjectPtr<UAilmentBase>& existing : activeAilments)
@@ -38,11 +38,11 @@ void UAilmentComponent::AddAilment(TSubclassOf<UAilmentBase> ailmentClass, AChar
 		}
 	}
 
-	// 새 인스턴스 생성 — CDO의 UPROPERTY 기본값을 자동 복사받음
+	//중첩 가능 시 새 객체 생성
 	UAilmentBase* ailmentInstance = NewObject<UAilmentBase>(this, ailmentClass);
 	if (!ailmentInstance) return;
 
-	// caster 스냅샷 — 이 시점 이후 caster가 사라져도 안전
+	//시전자가 죽어 포인터가 사라질 수 있으니 값 스냅해놓음
 	ailmentInstance->OnApply(ownerCharacter, caster);
 	ailmentInstance->remainingTurn = ailmentInstance->ailmentTurn;
 
@@ -52,8 +52,7 @@ void UAilmentComponent::AddAilment(TSubclassOf<UAilmentBase> ailmentClass, AChar
 void UAilmentComponent::RemoveAilmentAt(int32 Index)
 {
 	if (!activeAilments.IsValidIndex(Index)) return;
-
-	// AilmentBase는 stat delta가 없으므로 ApplyBuffDelta 같은 되돌림 호출 불필요
+	
 	activeAilments.RemoveAt(Index);
 }
 
@@ -63,7 +62,7 @@ void UAilmentComponent::OnTurnStart()
 
 	for (UAilmentBase* ailment : activeAilments)
 	{
-		// 직전 효과로 사망했다면 후속 효과 적용 중단
+		//직전 효과로 사망했다면 중단
 		if (!IsValid(ownerCharacter) || ownerCharacter->IsDead()) return;
 		if (ailment && ailment->isStart)
 		{
@@ -78,21 +77,21 @@ void UAilmentComponent::OnTurnEnd()
 
 	for (UAilmentBase* ailment : activeAilments)
 	{
+		//직전 효과로 사망했다면 중단
 		if (!IsValid(ownerCharacter) || ownerCharacter->IsDead()) return;
-		if (ailment && ailment->isEnd)
-		{
-			ailment->Execute(ownerCharacter);
-		}
-	}
-
-	for (UAilmentBase* ailment : activeAilments)
-	{
 		if (ailment)
 		{
+			if (ailment->isEnd)
+			{
+				//턴 종료시 효과 발동
+				ailment->Execute(ownerCharacter);
+			}
+			//턴 수 차감
 			ailment->remainingTurn--;
 		}
 	}
 
+	//잔여 턴수 없을시 삭제
 	for (int32 i = activeAilments.Num() - 1; i >= 0; --i)
 	{
 		if (!activeAilments[i] || activeAilments[i]->remainingTurn <= 0)

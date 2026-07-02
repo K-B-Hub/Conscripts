@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -6,8 +6,7 @@
 #include "Object/Skill/PassiveSkillBase.h"
 #include "TestStatPassive.generated.h"
 
-// 테스트용 Stat 패시브 — 단순 스탯 증가만 수행
-// passiveType=Stat이므로 등록 즉시 ApplyPassiveStatDelta(+1)로 영구 적용됨
+//테스트용 스탯 패시브
 UCLASS()
 class PW_API UTestStatPassive : public UPassiveSkillBase
 {

@@ -20,34 +20,33 @@ class UActiveSkillBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 
-// 데미지 사전 계산 결과 — PreviewDamage가 반환. RNG 적용 전 결정론적 값.
-// AI 평가·인디케이터 표시·실제 데미지 적용 세 경로가 같은 산식을 통과하도록 설계의 단일 출처.
+//데미지 사전 계산 결과, PreviewDamage가 반환하는 RNG 적용 전 결정론적 값
 USTRUCT(BlueprintType)
 struct FDamageResult
 {
 	GENERATED_BODY()
 
-	// 명중 확률 (0~100). 실제 적용 시 RNG로 hit 판정.
+	//명중 확률
 	UPROPERTY(BlueprintReadOnly)
 	float HitChance = 0.f;
 
-	// 치명 확률 (0~100). 명중 성공 후 별도 롤.
+	//치명 확률
 	UPROPERTY(BlueprintReadOnly)
 	float CritChance = 0.f;
 
-	// 명중·비치명 시 피해
+	//명중·비치명 시 피해
 	UPROPERTY(BlueprintReadOnly)
 	int32 NormalDamage = 0;
 
-	// 명중·치명 시 피해 (= NormalDamage * 2, ReflectDamage 산식 기준)
+	//명중·치명 시 피해
 	UPROPERTY(BlueprintReadOnly)
 	int32 CritDamage = 0;
 
-	// 일반 명중(비치명)으로 대상을 처치할 수 있는가 — 확정 처치 가능 여부
+	//일반 명중으로 확정 처치 가능한가
 	UPROPERTY(BlueprintReadOnly)
 	bool bCanKill = false;
 
-	// 치명타 발동 시에만 처치 가능한가 — 운에 의존한 처치 가능 여부 (NormalDamage < hp <= CritDamage)
+	//치명타 발동 시에만 처치 가능한가
 	UPROPERTY(BlueprintReadOnly)
 	bool bCanCritKill = false;
 
@@ -105,7 +104,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraPitchAngle = -55.f;
 
-	// 캐릭터 스탯
+	//캐릭터 스탯
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
 	int32 maxHp = 10;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
@@ -171,11 +170,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	ESkillType pendingSkillType = ESkillType::Melee;
 
-	// 가장 최근 본인을 공격한 캐릭터 — AfterDamage Reactive 디스패치 시 공격자 식별용
+	//가장 최근 본인을 공격한 캐릭터, AfterDamage Reactive 디스패치 시 공격자 식별용
 	TWeakObjectPtr<ACharacterBase> lastAttacker = nullptr;
 
-	// 본인 이동 상태 — 이번 턴에 이동했는가 (실제 이동 + 인디케이터 가상 토글 통합)
-	// 턴 시작 시 false로 초기화, 첫 이동 시 true로 전이
+	//본인 이동 상태, 턴 시작 시 false로 초기화, 첫 이동 시 true로 전이
 	bool isMoved = false;
 
 	//레벨 관련
@@ -206,8 +204,7 @@ public:
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
 	float GetMovingPoint() const { return movingPoint; }
 	bool IsMoved() const { return isMoved; }
-	// AI 이동(MoveTo 비동기) 시 이동 시작 시점에 PathLength 기반으로 사전 차감.
-	// AllyCharacterBase는 Tick에서 실제 이동거리를 측정해 차감하나, AI는 콜백 기반이라 사전 차감으로 단순화.
+	//AI 이동 시 PathLength 기반으로 이동력 사전 차감
 	void ConsumeMovingPoint(float meters);
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
@@ -229,9 +226,7 @@ public:
 	//PickTeam: Buff 스킬에서 AllyOnly면 아군 대상이라 회피를 차감하지 않음
 	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration, ESkillType SkillType, EPickTeam PickTeam);
 
-	// 순수 데미지 예측 — 상태 미변경(const). AI 후보 평가에서 (스킬 × 대상 × 위치) 다회 호출 안전.
-	// 내부에서 Attacker의 BeforeDamageCalc 패시브 디스패치를 포함하나 모두 로컬 카피로 처리.
-	// AttackerLocation은 위치 의존 보너스 확장 여지를 위해 인자로 유지 (현재 본문 미사용).
+	//순수 데미지 예측, 상태 미변경(const)이라 AI 후보 평가에서 다회 호출 안전
 	FDamageResult PreviewDamage(const UActiveSkillBase* Skill,
 	                            const ACharacterBase* Attacker,
 	                            const FVector& AttackerLocation) const;
@@ -242,8 +237,7 @@ public:
 	void SetLastAttacker(ACharacterBase* Attacker);
 	TWeakObjectPtr<ACharacterBase> GetLastAttacker() const { return lastAttacker; }
 
-	// 이동 상태 전이 — true/false 변경 시 BeforeMove 패시브 revert+apply 및 스킬 재계산
-	// 같은 상태로 호출 시 no-op (Tick 폭주 안전)
+	//이동 상태 전이, 변경 시 BeforeMove 패시브 revert+apply 및 스킬 재계산
 	void OnMoveStateChanged(bool newIsMoved);
 	
 	virtual void InitTurn();
@@ -253,10 +247,10 @@ public:
 	//bIsLethal=false 시 hp를 1까지만 깎고 사망 처리 안 함 (환경 데미지, 상태이상 등)
 	void ReceiveDamage(int32 Amount, bool bIsLethal);
 
-	// 사망 시 호출 — 파생 클래스에서 사전 처리 후 Super 호출
+	//사망 시 호출, 파생 클래스에서 사전 처리 후 Super 호출
 	virtual void HandleDeath();
 
-	// 사망 시 GameMode 등 외부 시스템에 통보
+	//사망 시 GameMode 등 외부 시스템에 통보
 	FOnCharacterDeath OnCharacterDeath;
 
 	//캡슐의 NavMesh 등록 여부 토글

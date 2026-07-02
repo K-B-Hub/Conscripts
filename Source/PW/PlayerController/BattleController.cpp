@@ -43,7 +43,7 @@ void ABattleController::BeginPlay()
 		}
 	}
 
-	// 초기 카메라 Yaw / Pitch를 스프링암 기준으로 동기화
+	//초기 카메라 Yaw/Pitch를 스프링암 기준으로 동기화
 	if (APawn* ControlledPawn = GetPawn())
 	{
 		if (USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>())
@@ -61,7 +61,7 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 	if (!IsValid(TurnUnit)) return;
 
 	activeUnit = TurnUnit;
-	aiFollowTarget = nullptr; // 아군 턴 진입 — 적 추적 해제
+	aiFollowTarget = nullptr; //아군 턴 진입, 적 추적 해제
 	cachedSpringArm = activeUnit
 		? activeUnit->FindComponentByClass<USpringArmComponent>()
 		: nullptr;
@@ -71,25 +71,25 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 		return;
 	}
 	activeUnit->InitTurn();
-	activeUnit->SetNavObstacleEnabled(false); // 본인 경로 계산 시 자신이 장애물이 되지 않도록
-	OnCameraReset(FInputActionValue()); // 카메라 초기화 및 추적 모드 활성화
+	activeUnit->SetNavObstacleEnabled(false); //본인 경로 계산 시 자신이 장애물이 되지 않도록
+	OnCameraReset(FInputActionValue()); //카메라 초기화 및 추적 모드 활성화
 
-	// 이동 완료 델리게이트 바인딩 (EndTurn에서 해제)
+	//이동 완료 델리게이트 바인딩, EndTurn에서 해제
 	activeUnit->OnMovementCompleted.AddUObject(this, &ABattleController::OnUnitMovementCompleted);
 
-	// 이동 위젯 생성 및 뷰포트 추가
+	//이동 위젯 생성 및 뷰포트 추가
 	if (moveWidgetClass)
 	{
 		moveWidgetInstance = CreateWidget<UMoveWidget>(this, moveWidgetClass);
 		if (moveWidgetInstance)
 		{
 			moveWidgetInstance->AddToViewport();
-			// 턴 시작 시 이동력 상태로 버튼 즉시 동기화 (movingPoint 0인 경우 비활성)
+			//턴 시작 시 이동력 상태로 버튼 즉시 동기화
 			moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
 		}
 	}
 
-	// 턴 종료 위젯 생성 및 뷰포트 추가
+	//턴 종료 위젯 생성 및 뷰포트 추가
 	if (turnEndWidgetClass)
 	{
 		turnEndWidgetInstance = CreateWidget<UTurnEndWidget>(this, turnEndWidgetClass);
@@ -99,7 +99,7 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 		}
 	}
 
-	// 스킬 위젯 생성 — SkillComponent의 액티브 스킬로 버튼 배치
+	//스킬 위젯 생성, SkillComponent의 액티브 스킬로 버튼 배치
 	if (skillWidgetClass)
 	{
 		skillWidgetInstance = CreateWidget<USkillWidget>(this, skillWidgetClass);
@@ -119,9 +119,9 @@ void ABattleController::EndTurn()
 {
 	if (IsValid(activeUnit))
 	{
-		// 델리게이트 해제 후 이동 종료 (해제 먼저 해야 OnUnitMovementCompleted 오발 방지)
+		//델리게이트 해제 후 이동 종료, 해제 먼저 해야 오발 방지
 		activeUnit->OnMovementCompleted.RemoveAll(this);
-		activeUnit->SetNavObstacleEnabled(true); // 턴 종료 후 다시 장애물로 등록
+		activeUnit->SetNavObstacleEnabled(true); //턴 종료 후 다시 장애물로 등록
 		ExitMoveMode();
 		DeactivateSkill();
 		activeUnit->EndTurn();
@@ -177,24 +177,23 @@ void ABattleController::SetupInputComponent()
 	}
 }
 
-// ─── Tick: 캐릭터 추적 / 감속 / 지면 스냅 ───────────────────────────────────
 void ABattleController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 	if (cachedSpringArm)
 	{
-		// 추적 대상: 아군 턴이면 activeUnit, 적 턴이면 aiFollowTarget
+		//추적 대상은 아군 턴이면 activeUnit, 적 턴이면 aiFollowTarget
 		AActor* followUnit = activeUnit;
 		if (!followUnit) followUnit = aiFollowTarget;
 
-		// 카메라 추적 모드: 스프링암 위치를 캐릭터 위치로 고정
+		//카메라 추적 모드, 스프링암 위치를 캐릭터 위치로 고정
 		if (bIsFollowingCharacter && followUnit)
 		{
 			cachedSpringArm->SetWorldLocation(followUnit->GetActorLocation());
 			SnapSpringArmToGround(cachedSpringArm);
 		}
-		// 자유 이동 모드: 입력이 없으면 관성으로 감속
+		//자유 이동 모드, 입력이 없으면 관성으로 감속
 		else if (!bCameraInputActive && !cameraVelocity.IsNearlyZero(1.f))
 		{
 			cameraVelocity = FMath::VInterpTo(cameraVelocity, FVector::ZeroVector, DeltaTime, cameraMoveSmoothing);
@@ -206,7 +205,6 @@ void ABattleController::Tick(float DeltaTime)
 	bCameraInputActive = false;
 }
 
-// ─── 카메라 이동 ──────────────────────────────────────────────────────────────
 void ABattleController::OnCameraMove(const FInputActionValue& Value)
 {
 	APawn* ControlledPawn = GetPawn();
@@ -218,7 +216,7 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 	const FVector2D MoveInput = Value.Get<FVector2D>();
 	if (MoveInput.IsNearlyZero()) return;
 
-	// 카메라를 움직이면 추적 모드 해제
+	//카메라를 움직이면 추적 모드 해제
 	bIsFollowingCharacter = false;
 
 	const FRotator YawRotation(0.f, currentCameraYaw, 0.f);
@@ -227,7 +225,7 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 
 	const float DeltaTime = GetWorld()->GetDeltaSeconds();
 
-	// 목표 속도를 향해 부드럽게 가속 (VInterpTo = 지수 감쇠 보간)
+	//목표 속도를 향해 부드럽게 가속
 	const FVector TargetVelocity = (ForwardDir * MoveInput.Y + RightDir * MoveInput.X) * cameraMoveSpeed;
 	cameraVelocity = FMath::VInterpTo(cameraVelocity, TargetVelocity, DeltaTime, cameraMoveSmoothing);
 
@@ -237,7 +235,6 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 	bCameraInputActive = true;
 }
 
-// ─── 카메라 회전 ──────────────────────────────────────────────────────────────
 void ABattleController::OnCameraRotate(const FInputActionValue& Value)
 {
 	APawn* ControlledPawn = GetPawn();
@@ -251,11 +248,10 @@ void ABattleController::OnCameraRotate(const FInputActionValue& Value)
 
 	currentCameraYaw += RotateInput * cameraRotateSpeed * DeltaTime;
 
-	// Pitch는 고정, Yaw만 변경
+	//Pitch는 고정, Yaw만 변경
 	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
-// ─── 카메라 줌 ───────────────────────────────────────────────────────────────
 void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 {
 	APawn* ControlledPawn = GetPawn();
@@ -272,12 +268,11 @@ void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 	);
 }
 
-// ─── 이동 명령 (좌클릭) ──────────────────────────────────────────────────────
 void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 {
 	if (!activeUnit) return;
 
-	// 스킬 모드 우선 처리
+	//스킬 모드 우선 처리
 	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
 	if (SkillComp && SkillComp->IsSkillActive())
 	{
@@ -285,7 +280,7 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 		return;
 	}
 
-	// 이동 모드
+	//이동 모드
 	if (!bIsMoveMode || !IsValid(cursorIndicatorInstance)) return;
 
 	const TArray<FVector>& PathPoints = cursorIndicatorInstance->GetCachedPathPoints();
@@ -297,10 +292,9 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 		*PathPoints.Last().ToString(), PathPoints.Num());
 }
 
-// ─── 이동 취소 (우클릭) ──────────────────────────────────────────────────────
 void ABattleController::OnCancelMove(const FInputActionValue& Value)
 {
-	// 스킬 모드 활성 시 스킬 취소 우선 (자동이동 중이면 이동도 중단)
+	//스킬 모드 활성 시 스킬 취소 우선, 자동이동 중이면 이동도 중단
 	if (activeUnit)
 	{
 		USkillComponent* SkillComp = activeUnit->GetSkillComponent();
@@ -323,54 +317,51 @@ void ABattleController::OnCancelMove(const FInputActionValue& Value)
 	UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 취소"));
 }
 
-// ─── 카메라 초기화 ───────────────────────────────────────────────────────────
 void ABattleController::OnCameraReset(const FInputActionValue& Value)
 {
 	AActor* followUnit = IsValid(activeUnit) ? activeUnit : nullptr;
 	if (!followUnit) followUnit = IsValid(aiFollowTarget) ? aiFollowTarget : nullptr;
 	if (!cachedSpringArm || !followUnit) return;
 
-	// 스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화
+	//스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화
 	cachedSpringArm->SetWorldLocation(followUnit->GetActorLocation());
 	SnapSpringArmToGround(cachedSpringArm);
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = true;
 
-	// 카메라 각도를 초기값으로 리셋 (턴 전환 시 이전 캐릭터의 Yaw가 남는 문제 방지)
+	//카메라 각도를 초기값으로 리셋, 턴 전환 시 이전 캐릭터의 Yaw가 남는 문제 방지
 	currentCameraYaw = 0.f;
 	cachedSpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
-// ─── 적 턴 카메라 추적 ───────────────────────────────────────────────────────
 void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
 {
 	if (!IsValid(AIUnit)) return;
 
 	aiFollowTarget = AIUnit;
 
-	// 적 턴엔 빙의 전환이 없으므로 현재 빙의 폰(직전 아군)의 스프링암을 카메라 피벗으로 사용
+	//적 턴엔 빙의 전환이 없으므로 현재 빙의 폰의 스프링암을 카메라 피벗으로 사용
 	if (APawn* ControlledPawn = GetPawn())
 	{
 		cachedSpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
 	}
 	if (!cachedSpringArm) return;
 
-	// 즉시 AI 위치로 스냅 후 추적 모드 활성화 — 이후 플레이어가 카메라를 움직이면 OnCameraMove가 추적 해제
+	//즉시 AI 위치로 스냅 후 추적 모드 활성화
 	cachedSpringArm->SetWorldLocation(AIUnit->GetActorLocation());
 	SnapSpringArmToGround(cachedSpringArm);
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = true;
 }
 
-// ─── 스킬 모드 ──────────────────────────────────────────────────────────────
 void ABattleController::ActivateSkill(UActiveSkillBase* Skill)
 {
 	if (!activeUnit || !Skill) return;
 
-	// 이동 모드와 상호 배타
+	//이동 모드와 상호 배타
 	if (bIsMoveMode) ExitMoveMode();
 
-	// 멀티픽 초기화
+	//멀티픽 초기화
 	remainingPicks = (Skill->selectMode == ESelectMode::SinglePick && Skill->pickCount > 1)
 		? Skill->pickCount : 0;
 
@@ -395,7 +386,6 @@ void ABattleController::DeactivateSkill()
 	}
 }
 
-// ─── 이동 모드 ───────────────────────────────────────────────────────────────
 void ABattleController::ToggleMoveMode()
 {
 	if (activeUnit->GetCurrentMovingPoint() <= 0.f)
@@ -410,7 +400,7 @@ void ABattleController::EnterMoveMode()
 {
 	if (bIsMoveMode || !activeUnit || !cursorIndicatorClass) return;
 
-	// 스킬 모드와 상호 배타
+	//스킬 모드와 상호 배타
 	DeactivateSkill();
 
 	cursorIndicatorInstance = GetWorld()->SpawnActor<ACursorIndicator>(cursorIndicatorClass);
@@ -435,7 +425,7 @@ void ABattleController::ExitMoveMode()
 
 void ABattleController::ResetCursorIndicator()
 {
-	// 잠금 해제만으로 마우스 추적 재개 — 스폰/파괴 불필요
+	//잠금 해제만으로 마우스 추적 재개, 스폰/파괴 불필요
 	if (IsValid(cursorIndicatorInstance))
 	{
 		cursorIndicatorInstance->Unlock();
@@ -446,7 +436,7 @@ void ABattleController::OnUnitMovementCompleted()
 {
 	if (!activeUnit) return;
 
-	// 자동이동 후 스킬 실행 — 이동 전 경로 검증 완료, 바로 실행
+	//자동이동 후 스킬 실행, 이동 전 경로 검증 완료라 바로 실행
 	if (bPendingSkillExec)
 	{
 		bPendingSkillExec = false;
@@ -455,7 +445,7 @@ void ABattleController::OnUnitMovementCompleted()
 
 		AAttackRangeIndicator* Indicator = SkillComp->GetAttackRangeIndicator();
 
-		// 인디케이터 방향으로 캐릭터 회전 (Self 제외)
+		//인디케이터 방향으로 캐릭터 회전, Self는 제외
 		UActiveSkillBase* Skill = SkillComp->GetCurrentSkill();
 		if (!Skill) return;
 
@@ -491,7 +481,7 @@ void ABattleController::OnUnitMovementCompleted()
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
 
-		// 자동이동으로 소비된 이동력 반영 — Move 버튼 상태 갱신
+		//자동이동으로 소비된 이동력 반영, Move 버튼 상태 갱신
 		if (IsValid(moveWidgetInstance))
 		{
 			moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
@@ -502,28 +492,27 @@ void ABattleController::OnUnitMovementCompleted()
 		return;
 	}
 
-	// 이동 완료 후 이동력 잔여 여부로 버튼 상태 갱신
+	//이동 완료 후 이동력 잔여 여부로 버튼 상태 갱신
 	if (IsValid(moveWidgetInstance))
 	{
 		moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
 	}
 
-	// 이동 모드 처리
+	//이동 모드 처리
 	if (!bIsMoveMode) return;
 
 	if (activeUnit->GetCurrentMovingPoint() <= 0.f)
 	{
-		// 이동력 소진 → 이동 모드 자동 종료
+		//이동력 소진, 이동 모드 자동 종료
 		ExitMoveMode();
 	}
 	else
 	{
-		// 이동력 잔여 → 커서 인디케이터 리셋해 다음 이동 준비
+		//이동력 잔여, 커서 인디케이터 리셋해 다음 이동 준비
 		ResetCursorIndicator();
 	}
 }
 
-// ─── 스킬 실행 ──────────────────────────────────────────────────────────────
 void ABattleController::ExecuteSkill()
 {
 	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
@@ -534,23 +523,22 @@ void ABattleController::ExecuteSkill()
 
 	AAttackRangeIndicator* Indicator = SkillComp->GetAttackRangeIndicator();
 
-	// SinglePick — 스냅 상태 검증
+	//SinglePick은 스냅 상태 검증
 	if (Skill->selectMode == ESelectMode::SinglePick)
 	{
 		if (!Indicator || !Indicator->GetSnappedTarget()) return;
 	}
 
-	// ─── 멀티픽 모드 (pickCount > 1, SinglePick) ─────────────
-	// pickedTarget(EPickTeam)은 사용 대상, 실제 영향 대상은 EAreaTarget 기반 오버랩
+	//멀티픽 모드(pickCount > 1, SinglePick), 실제 영향 대상은 EAreaTarget 기반 오버랩
 	if (Skill->selectMode == ESelectMode::SinglePick && Skill->pickCount > 1)
 	{
 		ACharacterBase* SnappedTarget = Indicator->GetSnappedTarget();
 		if (!SnappedTarget) return;
 
-		// 사거리 밖 대상은 선택 불가
+		//사거리 밖 대상은 선택 불가
 		if (Indicator->ComputeOutOfRange()) return;
 
-		// 현재 오버랩 대상(EAreaTarget 필터 적용됨)을 누적 저장
+		//현재 오버랩 대상(EAreaTarget 필터 적용됨)을 누적 저장
 		SkillComp->AccumulateCurrentTargets();
 		remainingPicks--;
 
@@ -559,7 +547,7 @@ void ABattleController::ExecuteSkill()
 
 		if (remainingPicks > 0) return;
 
-		// 모든 선택 완료 → 누적된 영향 대상으로 실행
+		//모든 선택 완료, 누적된 영향 대상으로 실행
 		if (Indicator)
 		{
 			FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
@@ -570,7 +558,7 @@ void ABattleController::ExecuteSkill()
 			}
 		}
 
-		// 멀티픽 누적 대상 중 사망한 캐릭터 필터링
+		//멀티픽 누적 대상 중 사망한 캐릭터 필터링
 		TArray<ACharacterBase*> ValidTargets;
 		for (ACharacterBase* Target : SkillComp->GetAccumulatedTargets())
 		{
@@ -601,20 +589,20 @@ void ABattleController::ExecuteSkill()
 		return;
 	}
 
-	// 사거리 밖 → 이동력이 충분한 경우에만 자동이동 (멀티픽은 자동이동 불가)
+	//사거리 밖은 이동력이 충분한 경우에만 자동이동, 멀티픽은 자동이동 불가
 	if (Indicator && Indicator->ComputeOutOfRange())
 	{
 		const TArray<FVector>& MovePath = Indicator->GetMovePath();
 		if (MovePath.Num() < 2) return;
 
-		// 경로 총 거리 계산
+		//경로 총 거리 계산
 		float pathDistanceCm = 0.f;
 		for (int32 i = 0; i + 1 < MovePath.Num(); ++i)
 		{
 			pathDistanceCm += FVector::Dist(MovePath[i], MovePath[i + 1]);
 		}
 
-		// 이동력 부족 시 자동이동 불가
+		//이동력 부족 시 자동이동 불가
 		const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
 		if (pathDistanceCm > budgetCm) return;
 
@@ -624,7 +612,7 @@ void ABattleController::ExecuteSkill()
 		return;
 	}
 
-	// 인디케이터 방향으로 캐릭터 회전 (Self 제외)
+	//인디케이터 방향으로 캐릭터 회전, Self는 제외
 	if (Indicator && Skill->selectMode != ESelectMode::Self)
 	{
 		FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
@@ -635,9 +623,9 @@ void ABattleController::ExecuteSkill()
 		}
 	}
 
-	// 스킬 영향 대상은 오버랩 단계에서 EAreaTarget으로 이미 필터된 SkillComponent 목록 사용
+	//스킬 영향 대상은 오버랩 단계에서 EAreaTarget으로 이미 필터된 SkillComponent 목록 사용
 	const TArray<ACharacterBase*> Targets = SkillComp->GetCurrentTargets();
-	// SinglePick만 타겟 필수 — Self, GroundPoint는 타겟 없이도 실행 가능
+	//SinglePick만 타겟 필수, Self/GroundPoint는 타겟 없이도 실행 가능
 	if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
 	Skill->BeginUse();
@@ -646,7 +634,7 @@ void ABattleController::ExecuteSkill()
 		GM->RecordPlayerSkillUse(activeUnit, Skill);
 	}
 
-	// 전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨 → 바로 ReflectDamage
+	//전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨, 바로 ReflectDamage
 	for (ACharacterBase* Target : Targets)
 	{
 		if (!IsValid(Target)) continue;
@@ -656,7 +644,7 @@ void ABattleController::ExecuteSkill()
 		Skill->Execute(Target);
 	}
 
-	// 스킬 사용 완료 → 비활성화
+	//스킬 사용 완료, 비활성화
 	SkillComp->DeactivateSkill();
 	RefreshSkillButtons();
 
@@ -664,7 +652,6 @@ void ABattleController::ExecuteSkill()
 		*Skill->skillName.ToString(), Targets.Num());
 }
 
-// ─── 스킬 버튼 상태 갱신 ─────────────────────────────────────────────────────
 void ABattleController::RefreshSkillButtons()
 {
 	if (IsValid(skillWidgetInstance))
@@ -673,12 +660,11 @@ void ABattleController::RefreshSkillButtons()
 	}
 }
 
-// ─── 헬퍼: 지면 스냅 ─────────────────────────────────────────────────────────
 void ABattleController::SnapSpringArmToGround(USpringArmComponent* SpringArm)
 {
 	const FVector PivotPos = SpringArm->GetComponentLocation();
 
-	// 랜드스케이프만 감지하기 위해 멀티 트레이스 후 필터링
+	//랜드스케이프만 감지하기 위해 멀티 트레이스 후 필터링
 	TArray<FHitResult> Hits;
 	GetWorld()->LineTraceMultiByChannel(
 		Hits,

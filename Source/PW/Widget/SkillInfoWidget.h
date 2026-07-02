@@ -9,15 +9,14 @@
 
 class UTextBlock;
 
-// 스킬 적용 대상 캐릭터 머리 위에 표시되는 전투 예측 위젯
-// AttackRangeIndicator 오버랩 시 pendingDMG, pendingAccuracy, pendingCritical 표시
+//스킬 적용 대상 캐릭터 머리 위에 표시되는 전투 예측 위젯
 UCLASS()
 class PW_API USkillInfoWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
 public:
-	// 전투 예측 값 갱신
+	//전투 예측 값 갱신
 	void UpdateInfo(float Damage, float Accuracy, float Critical, ESkillType SkillType);
 
 protected:

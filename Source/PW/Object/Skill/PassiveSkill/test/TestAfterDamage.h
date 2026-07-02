@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -8,8 +8,7 @@
 
 class ACharacterBase;
 
-// 테스트용 Reactive 패시브 — AfterDamage 시점에 발동
-// ReflectDamage가 실제 데미지를 적용한 직후 공격자 측에서 호출됨
+//테스트용 피해 후 패시브
 UCLASS()
 class PW_API UTestAfterDamage : public UPassiveSkillBase
 {

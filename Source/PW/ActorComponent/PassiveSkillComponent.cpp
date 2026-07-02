@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "ActorComponent/PassiveSkillComponent.h"
@@ -31,18 +31,15 @@ void UPassiveSkillComponent::AddPassive(TSubclassOf<UPassiveSkillBase> passiveCl
 	switch (instance->passiveType)
 	{
 	case EPassiveType::Stat:
-		// 등록 즉시 영구 스탯 가산 — 제거 시까지 유지
+		//Stat 패시브는 즉시 스탯 적용
 		statPassives.Add(instance);
 		ownerCharacter->ApplyPassiveStatDelta(instance, +1);
 		break;
 	case EPassiveType::Reactive:
 		reactivePassives.Add(instance);
-		// BeforeMove 패시브는 등록 시점에 현재 isMoved 상태로 즉시 동기화
-		// (게임 시작 시 미이동 보너스 자동 적용, 전투 중 영입 시에도 현재 상태에 맞춰 적용)
 		if (instance->reactiveType == EReactiveType::BeforeMove)
 		{
-			// BeforeMove는 인디케이터 hover로도 토글되므로 hp/movingPoint/actionPoint 변동은 부수효과가 큼
-			// 데이터 실수 방지 — 0이 아니면 경고 + 강제 0
+			//BeforeMove 패시브의 자원 변동값 제거
 			if (instance->hp != 0 || instance->movingPoint != 0.f || instance->actionPoint != 0)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("[PassiveSkillComponent] BeforeMove 패시브 '%s'에 hp/movingPoint/actionPoint가 설정됨 (hp=%d, mp=%.1f, ap=%d) — hover 토글 부작용 차단 위해 0으로 강제"),
@@ -51,6 +48,7 @@ void UPassiveSkillComponent::AddPassive(TSubclassOf<UPassiveSkillBase> passiveCl
 				instance->movingPoint = 0.f;
 				instance->actionPoint = 0;
 			}
+			//현재 이동 상태 기준으로 즉시 적용
 			instance->Execute_BeforeMove(ownerCharacter->IsMoved(), +1);
 		}
 		break;
@@ -73,9 +71,9 @@ void UPassiveSkillComponent::RemovePassiveAt(int32 Index)
 			statPassives.Remove(instance);
 			break;
 		case EPassiveType::Reactive:
-			// BeforeMove면 현재 적용된 보너스를 명시 revert (대칭성 — 영구 패시브라 사실상 호출 안 됨)
 			if (instance->reactiveType == EReactiveType::BeforeMove)
 			{
+				//BeforeMove 적용값 복구
 				instance->Execute_BeforeMove(ownerCharacter->IsMoved(), -1);
 			}
 			reactivePassives.Remove(instance);
@@ -97,7 +95,7 @@ void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target, ES
 
 		if (p->Execute_BeforeDamageCalc(target, skillType, damageType))
 		{
-			// 고정 데미지 보너스는 atk 필드를 재사용 (Reactive 컨텍스트에서는 "이 공격에 더할 고정값")
+			//패시브 보너스를 이번 공격값에 합산
 			dmg  += p->atk;
 			amp  += p->damageAmplification;
 			pen  += p->penetration;
@@ -106,7 +104,7 @@ void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target, ES
 		}
 	}
 
-	// Area는 치명타 불가 — SetCalcedStats에서 0으로 강제하지만, 패시브 보너스 합산이 다시 살릴 수 있어 후처리로 차단
+	//광역 피해는 치명타 불가 처리
 	if (damageType == EDamageType::Area)
 	{
 		crit = 0.f;

@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿//Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/SkillBase.h"
@@ -95,13 +95,13 @@ void USkillComponent::DeactivateSkill()
 
 	UE_LOG(LogTemp, Log, TEXT("[SkillComponent] 스킬 비활성화: %s"), *currentSkill->skillName.ToString());
 
+	//인디케이터와 대상 목록 정리
 	DestroyIndicators();
 	ClearCurrentTargets();
 	ClearAccumulatedTargets();
 	currentSkill = nullptr;
 
-	// 인디케이터 가상 토글이 활성 중이었을 수 있음 — 실제 이동력 차감 여부로 isMoved 원복
-	// 이동력이 줄어들었으면 진짜 이동했음(=true), 그대로면 미이동(=false)
+	//실제 이동력 차감 여부로 이동 상태 복구
 	if (ownerCharacter)
 	{
 		const bool actuallyMoved = ownerCharacter->GetCurrentMovingPoint() < ownerCharacter->GetMovingPoint();
@@ -155,15 +155,14 @@ void USkillComponent::RecalculatePending(ACharacterBase* Target)
 {
 	if (!Target || !currentSkill || !ownerCharacter) return;
 
-	// 스킬 인스턴스 멤버를 직접 수정하면 매 호출마다 누적되므로 로컬 카피 후 보정
-	// dmg는 damageRatio 소수 절삭 방지 위해 float 유지 — 치명/일반 분기 시 ReflectDamage가 RoundToInt 수행
+	//스킬 계산값을 로컬 값으로 복사
 	float dmg  = currentSkill->calcDamage;
 	int32 amp  = currentSkill->calcDamageAmplfication;
 	int32 pen  = currentSkill->calcPenetration;
 	float acc  = currentSkill->calcAccuracy;
 	float crit = currentSkill->calcCritical;
 
-	// 캐스터 측 BeforeDamageCalc Reactive 패시브 일괄 디스패치 — 조건 충족분만큼 보너스 합산
+	//공격자 패시브 보너스 반영
 	if (UPassiveSkillComponent* PSC = ownerCharacter->GetPassiveSkillComponent())
 	{
 		PSC->DispatchBeforeDamageCalc(Target, currentSkill->skillType, currentSkill->damageType,
@@ -186,17 +185,19 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, ACharacterBase* Tar
 	if (!Skill || !Target || !ownerCharacter) return;
 	if (!Skill->CanExecute()) return;
 
-	// RecalculatePending이 currentSkill을 참조 — 임시 토글로 우회 (인디케이터 스폰 없이)
+	//currentSkill을 임시 지정해 예측 계산 경로 재사용
 	UActiveSkillBase* saved = currentSkill;
 	currentSkill = Skill;
 
-	RecalculatePending(Target);   // BeforeDamageCalc 디스패치 + Target->CalculateDamage (pending* 기입)
+	//피해 예측값 계산
+	RecalculatePending(Target);
 
-	Skill->BeginUse();             // AP/배틀자원 차감 + 몽타주
+	//자원 차감 후 명중 시 효과 실행
+	Skill->BeginUse();
 	Target->SetLastAttacker(ownerCharacter);
 	if (Target->ReflectDamage() && IsValid(Target))
 	{
-		Skill->Execute(Target);    // hit-gated 후속 효과 (버프 적용 등)
+		Skill->Execute(Target);
 	}
 
 	currentSkill = saved;
@@ -211,7 +212,7 @@ void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 
 	const FVector CasterLocation = ownerCharacter->GetActorLocation();
 
-	// SkillRangeIndicator 초기화
+	//시전 가능 범위 인디케이터 생성
 	if (skillRangeIndicatorClass && Skill->pickRange > 0.f && Skill->selectMode != ESelectMode::Self)
 	{
 		skillRangeIndicator = World->SpawnActor<ASkillRangeIndicator>(
@@ -222,7 +223,7 @@ void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 		}
 	}
 
-	//AttackRangeIndicator 초기화
+	//공격 범위 인디케이터 생성
 	if (attackRangeIndicatorClass)
 	{
 		attackRangeIndicator = World->SpawnActor<AAttackRangeIndicator>(
