@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Characters/CharacterBase.h"
@@ -13,10 +13,10 @@ bool UActiveSkillBase::CanExecute() const
 	ACharacterBase* ownerPtr = GetOwner();
 	if (!ownerPtr) return false;
 
-	// 행동력 부족 시 사용 불가
+	//행동력 부족 시 사용 불가
 	if (ownerPtr->GetCurrentActionPoint() < actionPointCost) return false;
 
-	// 전투 자원 부족 시 사용 불가
+	//전투 자원 부족 시 사용 불가
 	if (ownerPtr->GetBattleResource() < battleResourceCost) return false;
 
 	return true;
@@ -30,11 +30,11 @@ void UActiveSkillBase::SetCalcedStats()
 		return;
 	}
 
-	// (캐릭터 atk + 스킬 고정 피해) * 스킬 계수
+	//(캐릭터 atk + 스킬 고정 피해) * 스킬 계수
 	calcDamage = owner->GetAtk() * damageRatio + baseDamage;
-	// 캐릭터 명중 + 스킬 보너스 명중
+	//캐릭터 명중 + 스킬 보너스 명중
 	calcAccuracy = owner->GetAccuracy() + bonusAccuracy;
-	// 캐릭터 치명타 + 스킬 보너스 치명타
+	//캐릭터 치명타 + 스킬 보너스 치명타
 	if (damageType == EDamageType::Area)
 	{
 		calcCritical = 0;
@@ -43,9 +43,9 @@ void UActiveSkillBase::SetCalcedStats()
 	{
 		calcCritical = owner->GetCritical() + bonusCritical;
 	}
-	// 캐릭터 피해 증폭 + 스킬 보너스 피해 증폭
+	//캐릭터 피해 증폭 + 스킬 보너스 피해 증폭
 	calcDamageAmplfication = owner->GetDamageAmplification() + bonusDamageAmplication;
-	// 캐릭터 관통력 + 스킬 보너스 관통력
+	//캐릭터 관통력 + 스킬 보너스 관통력
 	calcPenetration = owner->GetPenetration() + bonusPenetration;
 }
 
@@ -75,7 +75,7 @@ void UActiveSkillBase::Execute(const ACharacterBase* target)
 
 	ACharacterBase* ownerPtr = GetOwner();
 
-	// 버프 적용 — 스킬에 등록된 버프를 적중 대상의 BuffComponent에 추가
+	//버프 적용
 	if (buffs.Num() > 0)
 	{
 		if (UBuffComponent* targetBuffComp = target->GetBuffComponent())
@@ -87,7 +87,7 @@ void UActiveSkillBase::Execute(const ACharacterBase* target)
 		}
 	}
 
-	// 상태이상 적용 — 스킬에 등록된 상태이상을 적중 대상의 AilmentComponent에 추가
+	//상태이상 적용
 	if (ailments.Num() > 0)
 	{
 		if (UAilmentComponent* targetAilmentComp = target->GetAilmentComponent())

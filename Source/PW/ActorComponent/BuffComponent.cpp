@@ -21,12 +21,11 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> buffClass, ACharacterBase* c
 {
 	if (!buffClass || !ownerCharacter) return;
 
-	// CDO에서 isStackable 정책만 미리 확인 — 인스턴스 생성 비용 회피
+	//CDO로 중첩 가능한지만 확인
 	const UBuffBase* buffCDO = buffClass.GetDefaultObject();
 	if (!buffCDO) return;
 
-	// isStackable=false: 같은 클래스가 이미 걸려있으면 턴수만 누적 (단일 인스턴스 갱신)
-	// 스탯 델타는 이미 적용 중이므로 ApplyBuffDelta 재호출하지 않음 (중첩 가산 방지)
+	//중첩 불가일 경우 턴수만 조정
 	if (!buffCDO->isStackable)
 	{
 		for (TObjectPtr<UBuffBase>& existing : activeBuffs)
@@ -39,17 +38,17 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> buffClass, ACharacterBase* c
 		}
 	}
 
-	// 새 인스턴스 생성 — CDO의 UPROPERTY 기본값을 자동 복사받음
+	//중첩 가능일경우 새 객체 생성
 	UBuffBase* buffInstance = NewObject<UBuffBase>(this, buffClass);
 	if (!buffInstance) return;
 
-	// caster 스냅샷 — 이 시점 이후 caster가 사라져도 안전
+	//caster NPE 방지 위해 caster 스냅
 	buffInstance->OnApply(ownerCharacter, caster);
 	buffInstance->remainingTurn = buffInstance->buffTurn;
 
 	activeBuffs.Add(buffInstance);
 
-	// 스탯 델타 가산 — OnApply가 인스턴스 스탯 필드를 변조했을 수 있으므로 그 다음 순서
+	//버프 적용
 	ownerCharacter->ApplyBuffDelta(buffInstance, +1);
 }
 
@@ -59,7 +58,7 @@ void UBuffComponent::RemoveBuffAt(int32 Index)
 
 	if (UBuffBase* buffInstance = activeBuffs[Index])
 	{
-		// 스탯 델타 되돌림 — 사라질 때만 검사하는 요구사항 충족
+		//버프 값 초기화
 		ownerCharacter->ApplyBuffDelta(buffInstance, -1);
 	}
 	activeBuffs.RemoveAt(Index);
@@ -69,10 +68,10 @@ void UBuffComponent::OnTurnStart()
 {
 	if (!ownerCharacter) return;
 
-	// 턴 시작 효과 — 이 시점에는 만료 처리 X (요구사항: 시작/종료 모두 효과 검사)
+	//턴 시작 고유 효과 발동
 	for (UBuffBase* buff : activeBuffs)
 	{
-		// 직전 효과로 사망했다면 후속 효과 적용 중단 (사망자에게 회복/스탯 변동 적용 방지)
+		//직전 사망시 예외처리
 		if (!IsValid(ownerCharacter) || ownerCharacter->IsDead()) return;
 		if (buff && buff->isStart)
 		{
@@ -88,16 +87,14 @@ void UBuffComponent::OnTurnEnd()
 	for (UBuffBase* buff : activeBuffs)
 	{
 		if (!IsValid(ownerCharacter) || ownerCharacter->IsDead()) return;
-		if (buff && buff->isEnd)
-		{
-			buff->Execute(ownerCharacter);
-		}
-	}
-
-	for (UBuffBase* buff : activeBuffs)
-	{
 		if (buff)
 		{
+			if (buff->isEnd)
+			{
+				//종료시 효과 발동
+				buff->Execute(ownerCharacter);
+			}
+			//턴 수 차감
 			buff->remainingTurn--;
 		}
 	}

@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿//Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -20,15 +20,19 @@ class PW_API USkillComponent : public UActorComponent
 public:
 	USkillComponent();
 	
+	//소유 캐릭터 지정
 	void SetOwner(ACharacterBase* owner);
+
+	//소유 캐릭터 반환
 	ACharacterBase* GetOwner();
 
-	//스킬 클래스로 인스턴스 생성 후 등록 — AddPassive와 동일 패턴
+	//스킬 인스턴스 생성 및 등록
 	void AddSkill(TSubclassOf<USkillBase> skillClass);
 
 	//스킬 제거
 	void RemoveSkill(USkillBase* Skill);
 
+	//액티브 스킬 목록 반환
 	TArray<UActiveSkillBase*> GetActiveSkills() const;
 	const TArray<TObjectPtr<USkillBase>>& GetAllSkills() const { return skills; }
 	
@@ -49,7 +53,7 @@ public:
 	void RemoveTarget(ACharacterBase* Target);
 	void ClearCurrentTargets();
 
-	// 멀티픽: 현재 오버랩 대상을 누적 배열에 스냅샷 저장
+	//멀티픽 대상 누적
 	void AccumulateCurrentTargets();
 	const TArray<ACharacterBase*>& GetAccumulatedTargets() const { return accumulatedTargets; }
 	void ClearAccumulatedTargets();
@@ -57,14 +61,10 @@ public:
 	//캐릭터의 스탯 변경 시 호출해 스킬들의 계산된 값 변경
 	void CalcSkillStats();
 
-	// 단일 타겟의 데미지 미리 계산 — currentSkill의 calc 스냅샷에 BeforeDamageCalc 패시브 보너스 합산 후
-	// Target->CalculateDamage 호출. UI 표시(ShowSkillInfo)는 호출자가 별도 처리.
-	// 호출자: AttackRangeIndicator(오버랩/이동상태 전이 후 재계산), 적 AI BT 공격 노드 등
+	//단일 대상의 피해 예측값 계산
 	void RecalculatePending(ACharacterBase* Target);
 
-	// 인디케이터 없이 단일 타겟에 즉시 시전 — AI 전용 경로.
-	// 내부: currentSkill 임시 토글(RecalculatePending이 의존) → BeginUse → ReflectDamage → Execute.
-	// 회전·이동 등 시전 전 처리는 호출자(UUtilityAIComponent::ExecuteAttackImmediate) 책임.
+	//인디케이터 없이 단일 대상에게 즉시 시전
 	void DirectExecute(UActiveSkillBase* Skill, ACharacterBase* Target);
 
 protected:
@@ -95,7 +95,7 @@ private:
 	//스킬 영향 범위 내 대상 목록
 	TArray<ACharacterBase*> currentTargets;
 
-	// 멀티픽용 누적 대상 목록 (각 pick 시점의 오버랩 대상 스냅샷)
+	//멀티픽 누적 대상 목록
 	TArray<ACharacterBase*> accumulatedTargets;
 
 	//인디케이터 생성

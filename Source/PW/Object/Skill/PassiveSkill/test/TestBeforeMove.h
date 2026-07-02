@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -6,8 +6,7 @@
 #include "Object/Skill/PassiveSkillBase.h"
 #include "TestBeforeMove.generated.h"
 
-// 테스트용 Reactive 패시브 — BeforeMove (이동 보너스 예시)
-// 이동 시 본 패시브의 보너스 필드를 owner 스탯에 합산, 미이동 시 제거
+//테스트용 이동 전 패시브
 UCLASS()
 class PW_API UTestBeforeMove : public UPassiveSkillBase
 {

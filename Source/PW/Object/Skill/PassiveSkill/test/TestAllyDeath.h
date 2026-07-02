@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 #include "Object/Skill/PassiveSkillBase.h"
 #include "TestAllyDeath.generated.h"
 
-// 테스트용 Conditional 패시브 — AllyDeath (전역 이벤트, 아군 사망)
+//테스트용 아군 사망 패시브
 UCLASS()
 class PW_API UTestAllyDeath : public UPassiveSkillBase
 {

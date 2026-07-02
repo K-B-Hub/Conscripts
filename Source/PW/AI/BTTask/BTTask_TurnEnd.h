@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 #include "BehaviorTree/BTTaskNode.h"
 #include "BTTask_TurnEnd.generated.h"
 
-// 적 BT의 마지막 노드 — AIController::OnEnemyTurnEnd 호출로 GameMode에 턴 진행 위임
+//적 BT 턴 종료 Task
 UCLASS()
 class PW_API UBTTask_TurnEnd : public UBTTaskNode
 {

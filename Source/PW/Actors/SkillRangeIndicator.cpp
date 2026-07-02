@@ -12,7 +12,7 @@ ASkillRangeIndicator::ASkillRangeIndicator()
 
 	rangeDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("RangeDecal"));
 	rangeDecal->SetupAttachment(RootComponent);
-	// 데칼을 지면 방향으로 투영
+	//데칼을 지면 방향으로 투영
 	rangeDecal->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
 }
 
@@ -28,7 +28,7 @@ void ASkillRangeIndicator::BeginPlay()
 
 void ASkillRangeIndicator::InitRange(float Range)
 {
-	// DecalSize: X=투영 깊이, Y=반지름, Z=반지름
+	//DecalSize의 X는 투영 깊이, Y와 Z는 반지름
 	rangeDecal->DecalSize = FVector(decalProjectionDepth, Range, Range);
 	rangeDecal->MarkRenderStateDirty();
 }

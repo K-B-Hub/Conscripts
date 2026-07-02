@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 #include "Object/Skill/PassiveSkillBase.h"
 #include "TestRoundStart.generated.h"
 
-// 테스트용 Conditional 패시브 — RoundStart
+//테스트용 라운드 시작 패시브
 UCLASS()
 class PW_API UTestRoundStart : public UPassiveSkillBase
 {

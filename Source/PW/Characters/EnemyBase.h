@@ -20,17 +20,18 @@ class PW_API AEnemyBase : public ACharacterBase
 public:
 	AEnemyBase();
 
-	// 사망 시 경험치 분배용 델리게이트
+	//사망 시 경험치 분배용 델리게이트
 	FOnEnemyDeath OnEnemyDeath;
 
+	//경험치 분배 브로드캐스트
 	virtual void HandleDeath() override;
+	//비전투 감지 부채꼴 디버그 표시
 	virtual void Tick(float DeltaTime) override;
 
-	// 적 턴 시작 — Super 호출 후 본인 AIController에 통지하여 BT 진행 결정 위임
+	//적 턴 시작 시 AIController에 통지
 	virtual void InitTurn() override;
 
-	// 비전투 상태에서 전방 감지에 사용하는 부채꼴 — AIController가 폴링하여 전투 전이 판단
-	// 시야 차단(엄폐/벽) 검사는 본 클래스에서 다루지 않음 — AIController 책임
+	//해당 좌표가 전방 감지 부채꼴 안인지 확인, 시야 차단 검사는 AIController 책임
 	bool IsInDetectionFan(const FVector& worldPoint) const;
 
 	float GetDetectionRadius() const { return detectionRadius; }
@@ -59,19 +60,19 @@ protected:
 	//왕복 진행 방향 — true면 역방향(되돌아가는 중). 양 끝점에서 토글
 	bool bPatrolReverse = false;
 
-	// 부채꼴 반경 (cm)
+	//부채꼴 반경
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
 	float detectionRadius = 1200.f;
 
-	// 부채꼴 전체 각도 (degrees) — 중심축(전방) 기준 좌우 각각 detectionAngle/2
+	//부채꼴 전체 각도, 전방 기준 좌우 각각 절반씩
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection", meta = (ClampMin = "0.0", ClampMax = "360.0"))
 	float detectionAngle = 120.f;
 
-	// 에디터에서 부채꼴 디버그 표시
+	//에디터에서 부채꼴 디버그 표시
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
 	bool bShowDetectionDebug = false;
 
-	// 전투 행동 결정 — 전투 진입 후 자기 턴에 ExecuteTurn 호출
+	//전투 행동 결정, 전투 진입 후 자기 턴에 ExecuteTurn 호출
 	UPROPERTY(VisibleAnywhere, Category = "AI")
 	TObjectPtr<UUtilityAIComponent> utilityAI;
 };

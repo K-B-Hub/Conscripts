@@ -43,6 +43,6 @@ void USkillButton::OnSkillButtonClicked()
 		BC->ActivateSkill(skill);
 	}
 
-	// 클릭 후 포커스를 게임 뷰포트로 반환
+	//클릭 후 포커스를 게임 뷰포트로 반환
 	UWidgetBlueprintLibrary::SetFocusToGameViewport();
 }

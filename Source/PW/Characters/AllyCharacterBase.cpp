@@ -12,16 +12,16 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 
 	const FVector CurrentLoc = GetActorLocation();
 
-	// 이전 프레임 대비 이동한 수평 거리(cm)를 미터로 변환해 currentMovingPoint 차감
+	//이전 프레임 대비 이동한 거리를 미터로 변환해 이동력 차감
 	const float MovedCm = FVector::Dist(CurrentLoc, lastFrameLocation);
 	currentMovingPoint = FMath::Max(0.f, currentMovingPoint - MovedCm / 100.f);
 	lastFrameLocation = CurrentLoc;
 
-	// 이동력 소진 시 즉시 정지 후 자연 종료 알림
+	//이동력 소진 시 즉시 정지 후 자연 종료 알림
 	if (currentMovingPoint <= 0.f)
 	{
 		StopMovement();
-		// MoveComplete 패시브가 후속 자동공격에 영향을 줄 수 있도록 OnMovementCompleted 브로드캐스트 전에 발동
+		//MoveComplete 패시브 발동을 OnMovementCompleted 브로드캐스트 전에 처리
 		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 		{
 			GM->BroadcastMoveComplete();
@@ -34,18 +34,18 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 	const FVector Delta = Target - CurrentLoc;
 	const float Dist2D = FVector2D(Delta.X, Delta.Y).Size();
 
-	// 현재 경유점 도달 판정 (수평 거리 5cm 이내)
+	//현재 경유점 도달 판정
 	if (Dist2D < 5.f)
 	{
 		pathPointIndex++;
 
-		// 마지막 경유점 도달 → 정확한 위치에 스냅 후 이동 종료, 자연 종료 알림
+		//마지막 경유점 도달 시 정확한 위치에 스냅 후 이동 종료, 자연 종료 알림
 		if (pathPointIndex >= pathPoints.Num())
 		{
 			SetActorLocation(FVector(moveDestination.X, moveDestination.Y, CurrentLoc.Z));
 			GetCharacterMovement()->StopMovementImmediately();
 			bIsMovingToTarget = false;
-			// MoveComplete 패시브가 후속 자동공격에 영향을 줄 수 있도록 OnMovementCompleted 브로드캐스트 전에 발동
+			//MoveComplete 패시브 발동을 OnMovementCompleted 브로드캐스트 전에 처리
 			if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 			{
 				GM->BroadcastMoveComplete();
@@ -55,7 +55,7 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 		}
 	}
 
-	// 다음 경유점 방향으로 입력 (목적지 근접 시 감속)
+	//다음 경유점 방향으로 입력, 목적지 근접 시 감속
 	const FVector MoveDir = FVector(Delta.X, Delta.Y, 0.f).GetSafeNormal();
 
 	const float distToDestination = FVector2D(moveDestination.X - CurrentLoc.X,
@@ -75,10 +75,10 @@ void AAllyCharacterBase::EndTurn()
 
 void AAllyCharacterBase::HandleDeath()
 {
-	// 이동 중이면 정지
+	//이동 중이면 정지
 	StopMovement();
 
-	// 델리게이트 바인딩 정리 — 소멸자에서 정리 시 크래시 방지
+	//델리게이트 바인딩 정리, 소멸자에서 정리 시 크래시 방지
 	OnMovementCompleted.Clear();
 
 	Super::HandleDeath();
@@ -89,13 +89,13 @@ void AAllyCharacterBase::MoveAlongPath(const TArray<FVector>& Points)
 	StopMovement();
 	if (Points.Num() == 0) return;
 
-	// 실제 이동 시작 — BeforeMove 전이 (이미 true면 no-op)
+	//실제 이동 시작, BeforeMove 전이
 	OnMoveStateChanged(true);
 
 	pathPoints = Points;
 	pathPointIndex = 0;
 	moveDestination = Points.Last();
-	lastFrameLocation = GetActorLocation(); // 첫 프레임 거리 오차 방지
+	lastFrameLocation = GetActorLocation(); //첫 프레임 거리 오차 방지
 	bIsMovingToTarget = true;
 }
 

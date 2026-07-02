@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Object/Skill/PassiveSkill/test/TestAfterSlay.h"
@@ -31,7 +31,7 @@ void UTestAfterSlay::Execute_AfterSlay(FVector slainLocation)
 		FCollisionShape::MakeSphere(Radius)
 	);
 
-	// 같은 액터에 Pawn 채널 컴포넌트가 여러 개일 수 있으므로 dedup
+	//같은 액터에 Pawn 채널 컴포넌트가 여러 개일 수 있으므로 예외처리
 	TSet<AEnemyBase*> hitOnce;
 	for (const FOverlapResult& result : overlaps)
 	{

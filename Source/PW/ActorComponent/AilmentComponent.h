@@ -21,17 +21,16 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	// 새 상태이상 적용 — 스킬에서 적용 대상에게 호출
-	// caster는 OnApply에 전달되어 인스턴스 멤버로 스냅샷됨, 컴포넌트는 caster를 저장하지 않음
+	//새 상태이상 적용, 스킬 객체에서 적용 시 호출
 	void AddAilment(TSubclassOf<UAilmentBase> ailmentClass, ACharacterBase* caster);
 
-	// 인덱스로 상태이상 제거 (만료 처리, 해제 등)
+	//인덱스로 제거
 	void RemoveAilmentAt(int32 Index);
 
-	// 턴 시작시 — isStart 상태이상의 Execute 호출
+	//턴 시작시 적용
 	void OnTurnStart();
 
-	// 턴 종료시 — isEnd 상태이상의 Execute 호출 + 남은 턴 차감 + 만료 정리
+	//턴 종료시 적용 + 만료 삭제
 	void OnTurnEnd();
 
 	const TArray<TObjectPtr<UAilmentBase>>& GetActiveAilments() const { return activeAilments; }
@@ -39,8 +38,7 @@ public:
 private:
 	UPROPERTY()
 	TObjectPtr<ACharacterBase> ownerCharacter = nullptr;
-
-	// 현재 적용 중인 상태이상 인스턴스 목록 — 각 요소는 NewObject로 생성된 per-application 인스턴스
+	
 	UPROPERTY()
 	TArray<TObjectPtr<UAilmentBase>> activeAilments;
 };

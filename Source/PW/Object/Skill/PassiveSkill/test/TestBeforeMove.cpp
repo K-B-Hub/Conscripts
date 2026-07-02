@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Object/Skill/PassiveSkill/test/TestBeforeMove.h"
@@ -10,13 +10,13 @@ UTestBeforeMove::UTestBeforeMove()
 	reactiveType = EReactiveType::BeforeMove;
 	conditionType = EConditionalType::None;
 
-	// 테스트 보너스 — BP 파생에서 조정 가능
+	//테스트 보너스
 	atk = 5;
 }
 
 void UTestBeforeMove::Execute_BeforeMove(bool bIsMoved, int32 sign)
 {
-	// 이동 보너스 패턴 — bIsMoved 매칭 시 sign 그대로 적용
+	//이동 보너스 패턴
 	if (bIsMoved)
 	{
 		if (ACharacterBase* o = owner.Get())
