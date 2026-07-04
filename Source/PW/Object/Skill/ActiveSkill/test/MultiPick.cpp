@@ -11,7 +11,7 @@ UMultiPick::UMultiPick()
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::SinglePick;
-	pickTeam = EPickTeam::Any;
+	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 	areaForm = EAreaForm::Circle;		//단일 공격이니 확인 안함
 	areaParameter1 = 100.f;				//단일 공격이니 확인 안함

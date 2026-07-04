@@ -21,7 +21,7 @@
 //데미지 산식의 단일 출처, CalculateDamage와 PreviewDamage가 공유
 static void ComputeDamageNumbers(const ACharacterBase* Target,
 	float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int32 Penetration,
-	ESkillType SkillType, EPickTeam PickTeam,
+	ESkillType SkillType, bool bAllyTarget,
 	float& OutDmg, float& OutAccuracy, float& OutCritical)
 {
 	if (!Target)
@@ -30,12 +30,20 @@ static void ComputeDamageNumbers(const ACharacterBase* Target,
 		return;
 	}
 
+	if (SkillType == ESkillType::Heal)
+	{
+		//음수 데미지로 회복 처리, 치명타 미적용
+		OutDmg = -(Damage * (1 + DamageAmplfication / 100.f));
+		//아군 대상이면 회피 무시하고 반드시 명중
+		OutAccuracy = bAllyTarget ? 100.f : FMath::Clamp(Accuracy - Target->GetEvasion(), 0.f, 100.f);
+		OutCritical = 0.f;
+		return;
+	}
 	if (SkillType == ESkillType::Buff)
 	{
 		OutDmg = 0.f;
-		//아군 전용 버프는 회피 차감 없이 스킬 명중 그대로
-		OutAccuracy = (PickTeam == EPickTeam::AllyOnly) ? Accuracy : (Accuracy - Target->GetEvasion());
-		OutAccuracy = FMath::Clamp(OutAccuracy, 0.f, 100.f);
+		//아군 대상이면 회피 무시하고 반드시 명중
+		OutAccuracy = bAllyTarget ? 100.f : FMath::Clamp(Accuracy - Target->GetEvasion(), 0.f, 100.f);
 		OutCritical = 0.f;
 		return;
 	}
@@ -211,12 +219,13 @@ void ACharacterBase::ConsumeMovingPoint(float meters)
 }
 
 void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication,
-                                     int Penetration, ESkillType SkillType, EPickTeam PickTeam)
+                                     int Penetration, ESkillType SkillType, const ACharacterBase* Attacker)
 {
 	//공용 헬퍼 호출, 결과를 pending* 멤버에 기입 (인디케이터 위젯·ReflectDamage 경로)
 	pendingSkillType = SkillType;
+	const bool bAllyTarget = Attacker && (Attacker->IsAlly() == IsAlly());
 	ComputeDamageNumbers(this, Damage, Accuracy, Critical, DamageAmplfication, Penetration,
-		SkillType, PickTeam, pendingDMG, pendingAccuracy, pendingCritical);
+		SkillType, bAllyTarget, pendingDMG, pendingAccuracy, pendingCritical);
 }
 
 FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
@@ -242,8 +251,9 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 			Skill->skillType, Skill->damageType, dmg, amp, pen, acc, crit);
 	}
 
+	const bool bAllyTarget = Attacker->IsAlly() == IsAlly();
 	float outDmg = 0.f, outAcc = 0.f, outCrit = 0.f;
-	ComputeDamageNumbers(this, dmg, acc, crit, amp, pen, Skill->skillType, Skill->pickTeam,
+	ComputeDamageNumbers(this, dmg, acc, crit, amp, pen, Skill->skillType, bAllyTarget,
 		outDmg, outAcc, outCrit);
 
 	result.HitChance   = outAcc;
@@ -259,13 +269,18 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 
 bool ACharacterBase::ReflectDamage()
 {
-	if (pendingSkillType == ESkillType::Buff || pendingSkillType == ESkillType::Ailment)
+	if (pendingSkillType == ESkillType::Buff || pendingSkillType == ESkillType::Ailment || pendingSkillType == ESkillType::Heal)
 	{
 		float hitRoll = FMath::FRandRange(0.f, 100.f);
 		if (hitRoll > pendingAccuracy)
 		{
 			UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 버프 or 상태이상 회피"), *GetName());
 			return false;
+		}
+		//치명타 굴림 없이 음수 데미지(pendingDMG)로 즉시 회복
+		if (pendingSkillType == ESkillType::Heal)
+		{
+			ReceiveDamage(FMath::RoundToInt(pendingDMG), true);
 		}
 		return true;
 	}

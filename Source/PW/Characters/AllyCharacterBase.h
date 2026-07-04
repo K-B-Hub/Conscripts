@@ -13,6 +13,8 @@ class PW_API AAllyCharacterBase : public ACharacterBase
 	GENERATED_BODY()
 
 public:
+	virtual bool IsAlly() const override { return true; }
+
 	//경로 추종 이동 및 이동력 차감 처리
 	virtual void Tick(float DeltaTime) override;
 	virtual void EndTurn() override;

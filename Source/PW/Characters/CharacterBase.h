@@ -222,9 +222,12 @@ public:
 	float GetEvasion() const { return evasion; }
 	int32 GetDamageReduction() const { return damageReduction; }
 	
+	//아군 여부, AAllyCharacterBase에서 true로 override
+	virtual bool IsAlly() const { return false; }
+
 	//AttackRangeIndicator 오버렙 시 데미지 미리 계산
-	//PickTeam: Buff 스킬에서 AllyOnly면 아군 대상이라 회피를 차감하지 않음
-	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration, ESkillType SkillType, EPickTeam PickTeam);
+	//Attacker: 실제 시전자, this와 IsAlly()가 같으면 아군 대상 취급(회피 차감 없이 반드시 명중)
+	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration, ESkillType SkillType, const ACharacterBase* Attacker);
 
 	//순수 데미지 예측, 상태 미변경(const)이라 AI 후보 평가에서 다회 호출 안전
 	FDamageResult PreviewDamage(const UActiveSkillBase* Skill,

@@ -37,6 +37,19 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Threat")
 	float weightOverkillPenalty = -0.5f;
 
+	//아군 오사 피해 페널티, 범위/멀티픽이 같은 진영을 맞출 때 적용
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Threat")
+	float weightAllyDamagePenalty = -2.0f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Heal")
+	float weightExpectedHeal = 0.8f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Heal")
+	float weightHealTargetLowHp = 20.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Heal")
+	float weightHealTargetExtremeLowHp = 50.f;
+	
 	//대상 위협도 가중치
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Threat")
 	float weightTargetThreat = 0.2f;

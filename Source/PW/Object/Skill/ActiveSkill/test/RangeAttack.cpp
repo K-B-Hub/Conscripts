@@ -11,10 +11,10 @@ URangeAttack::URangeAttack()
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Area;
 	selectMode = ESelectMode::GroundPoint;
-	//pickTeam = EPickTeam::Any;				//지면 대상이니 확인 안함
+	pickTeam = EPickTeam::EnemyOnly;				//지면 대상이니 확인 안함
 	areaTarget = EAreaTarget::All;
 	areaForm = EAreaForm::Circle;
-	areaParameter1 = 50.f;
+	areaParameter1 = 200.f;
 	//areaParameter2 = 0.f;						//Circle이니 확인 안함
 
 	pickRange = 800.f;

@@ -47,6 +47,9 @@ public:
 	//AIController가 감지 평가 시 사용, 살아있는 아군 목록 조회
 	const TArray<TObjectPtr<AAllyCharacterBase>>& GetAllies() const { return allies; }
 
+	//AI가 아군(같은 진영) 대상 스킬 후보를 만들 때 사용, 적군(AI 진영) 목록 조회
+	const TArray<TObjectPtr<AEnemyBase>>& GetEnemies() const { return enemies; }
+
 	//플레이어가 스킬을 사용했을 때 그 캐릭터의 위협 프로파일 갱신
 	void RecordPlayerSkillUse(AAllyCharacterBase* Ally, const UActiveSkillBase* Skill);
 

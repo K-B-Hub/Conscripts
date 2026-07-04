@@ -1,18 +1,19 @@
-//Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Object/Skill/ActiveSkill/test/SingleBuff.h"
-#include "Object/Buff/test/TestBuff.h"
+#include "Object/Skill/ActiveSkill/test/TestDebuffSkill.h"
 
-USingleBuff::USingleBuff()
+#include "Object/Buff/test/TestDebuff.h"
+
+UTestDebuffSkill::UTestDebuffSkill()
 {
-	skillName = NSLOCTEXT("Skill", "SingleBuff_Name", "단일 버프");
-	skillDescription = NSLOCTEXT("Skill", "SingleBuff_Description", "단일 대상에게 버프 적용");
+	skillName = NSLOCTEXT("Skill", "TestDeBuff_Name", "단일 디버프");
+	skillDescription = NSLOCTEXT("Skill", "TestDeBuff_Description", "단일 대상에게 디버프 적용");
 
 	skillType = ESkillType::Buff;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::SinglePick;
-	pickTeam = EPickTeam::AllyOnly;
+	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 50.f;
@@ -37,10 +38,10 @@ USingleBuff::USingleBuff()
 		skillMontage = MontageAsset.Object;
 	}
 	
-	buffs.Add(UTestBuff::StaticClass());
+	buffs.Add(UTestDebuff::StaticClass());
 }
 
-void USingleBuff::Execute(const ACharacterBase* targets)
+void UTestDebuffSkill::Execute(const ACharacterBase* target)
 {
-	Super::Execute(targets);
+	Super::Execute(target);
 }

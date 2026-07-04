@@ -1,15 +1,14 @@
-//Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Object/Skill/ActiveSkill/test/SingleBuff.h"
-#include "Object/Buff/test/TestBuff.h"
+#include "Object/Skill/ActiveSkill/test/TestHeal.h"
 
-USingleBuff::USingleBuff()
+UTestHeal::UTestHeal()
 {
-	skillName = NSLOCTEXT("Skill", "SingleBuff_Name", "단일 버프");
-	skillDescription = NSLOCTEXT("Skill", "SingleBuff_Description", "단일 대상에게 버프 적용");
+	skillName = NSLOCTEXT("Skill", "TestHeal_Name", "단일 회복");
+	skillDescription = NSLOCTEXT("Skill", "TestHeal_Description", "단일 대상에게 회복 적용");
 
-	skillType = ESkillType::Buff;
+	skillType = ESkillType::Heal;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::SinglePick;
 	pickTeam = EPickTeam::AllyOnly;
@@ -18,16 +17,16 @@ USingleBuff::USingleBuff()
 	areaParameter1 = 50.f;
 	//areaParameter2 = 0.f;						//Circle이니 확인 안함
 
-	pickRange = 800.f;
+	pickRange = 1200.f;
 	pickCount = 1;
 	
 	battleResourceCost = 0;
 	actionPointCost = 2;
 	
-	damageRatio = 0.f;
-	bonusAccuracy = 20.f;
+	damageRatio = 1.0f;
+	bonusAccuracy = 35.f;
 	bonusCritical = 0.f;
-	baseDamage = 0;
+	baseDamage = 1;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 	
@@ -36,11 +35,9 @@ USingleBuff::USingleBuff()
 	{
 		skillMontage = MontageAsset.Object;
 	}
-	
-	buffs.Add(UTestBuff::StaticClass());
 }
 
-void USingleBuff::Execute(const ACharacterBase* targets)
+void UTestHeal::Execute(const ACharacterBase* target)
 {
-	Super::Execute(targets);
+	Super::Execute(target);
 }

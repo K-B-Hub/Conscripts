@@ -176,28 +176,32 @@ void USkillComponent::RecalculatePending(ACharacterBase* Target)
 		amp,
 		pen,
 		currentSkill->skillType,
-		currentSkill->pickTeam
+		ownerCharacter
 	);
 }
 
-void USkillComponent::DirectExecute(UActiveSkillBase* Skill, ACharacterBase* Target)
+void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets)
 {
-	if (!Skill || !Target || !ownerCharacter) return;
+	if (!Skill || Targets.Num() == 0 || !ownerCharacter) return;
 	if (!Skill->CanExecute()) return;
 
 	//currentSkill을 임시 지정해 예측 계산 경로 재사용
 	UActiveSkillBase* saved = currentSkill;
 	currentSkill = Skill;
 
-	//피해 예측값 계산
-	RecalculatePending(Target);
-
-	//자원 차감 후 명중 시 효과 실행
+	//자원 차감은 1회만
 	Skill->BeginUse();
-	Target->SetLastAttacker(ownerCharacter);
-	if (Target->ReflectDamage() && IsValid(Target))
+
+	//대상별로 예측 계산 후 명중 시 효과 실행
+	for (ACharacterBase* Target : Targets)
 	{
-		Skill->Execute(Target);
+		if (!IsValid(Target)) continue;
+		RecalculatePending(Target);
+		Target->SetLastAttacker(ownerCharacter);
+		if (Target->ReflectDamage() && IsValid(Target))
+		{
+			Skill->Execute(Target);
+		}
 	}
 
 	currentSkill = saved;

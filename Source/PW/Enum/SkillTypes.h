@@ -5,13 +5,13 @@
 UENUM(BlueprintType)
 enum class ESelectMode : uint8		//스킬 사용시 선택 방식
 {
-	Self        UMETA(DisplayName = "Self"),		//본인에게 시전
+	Self        UMETA(DisplayName = "Self"),		//본인에게 시전(버프,회복, 주변 버프, 회복, 디버프 등)
 	SinglePick  UMETA(DisplayName = "Single Pick"),	//한명의 대상에게 시전, 시전 대상 수 만큼 지정 가능
 	GroundPoint UMETA(DisplayName = "Ground Point")	//원하는 지점에 시전 가능
 };
 
 UENUM(BlueprintType)
-enum class EPickTeam : uint8		//선택 대상, SelectMode의 2일때만 진입해 확인
+enum class EPickTeam : uint8		//선택 대상, SelectMode의 SinglePick일때만 진입해 확인
 {
 	EnemyOnly   UMETA(DisplayName = "Enemy Only"),	//적만 선택 가능
 	AllyOnly    UMETA(DisplayName = "Ally Only"),	//아군만 선택 가능
@@ -41,7 +41,8 @@ enum class ESkillType : uint8		//액티브 스킬의 유형
 	Melee       UMETA(DisplayName = "Melee"),	//근접
 	Ranged      UMETA(DisplayName = "Ranged"),	//원거리
 	Throw       UMETA(DisplayName = "Throw"),	//투척
-	Buff        UMETA(DisplayName = "Buff"),	//버프 및 디버프 전용 스킬(피해량 없음)
+	Heal		UMETA(DisplayName = "Heal"),	//회복 전용 스킬(음수 피해량)
+	Buff        UMETA(DisplayName = "Buff"),	//버프 전용 스킬(피해량 없음)
 	Ailment		UMETA(DisplayName = "Ailment")	//상태이상 전용 스킬(피해량 없음)
 };
 
