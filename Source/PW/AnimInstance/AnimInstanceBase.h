@@ -26,10 +26,10 @@ protected:
 	//매 프레임 속도 갱신 및 IK 업데이트
 	virtual void NativeUpdateAnimation(float DeltaTime) override;
 
-	UPROPERTY(VisibleAnyWhere, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	ACharacterBase* OwnerCharacter;
 
-	UPROPERTY(VisibleAnyWhere, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float speed;
 
 	//감속 부드러움 조절
