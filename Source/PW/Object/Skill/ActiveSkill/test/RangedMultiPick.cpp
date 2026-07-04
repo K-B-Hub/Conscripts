@@ -11,7 +11,7 @@ URangedMultiPick::URangedMultiPick()
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::SinglePick;
-	pickTeam = EPickTeam::Any;
+	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::All;
 	areaForm = EAreaForm::Circle;		
 	areaParameter1 = 100.f;			

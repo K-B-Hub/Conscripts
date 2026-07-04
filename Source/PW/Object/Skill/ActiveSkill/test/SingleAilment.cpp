@@ -12,7 +12,7 @@ USingleAilment::USingleAilment()
 	skillType = ESkillType::Ailment;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::SinglePick;
-	pickTeam = EPickTeam::Any;
+	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 500.f;

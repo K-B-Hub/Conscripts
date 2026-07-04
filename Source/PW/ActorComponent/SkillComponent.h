@@ -64,8 +64,8 @@ public:
 	//단일 대상의 피해 예측값 계산
 	void RecalculatePending(ACharacterBase* Target);
 
-	//인디케이터 없이 단일 대상에게 즉시 시전
-	void DirectExecute(UActiveSkillBase* Skill, ACharacterBase* Target);
+	//인디케이터 없이 대상들에게 즉시 시전, 비용은 1회만 차감, 대상별 예측·명중 판정 후 시전
+	void DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets);
 
 protected:
 	virtual void BeginPlay() override;

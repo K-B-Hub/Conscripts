@@ -5,6 +5,7 @@
 #include "AI/AIPersonalityData.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/AllyCharacterBase.h"
+#include "Characters/EnemyBase.h"
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
 #include "GameMode/BattleGameMode.h"
@@ -54,61 +55,500 @@ void UUtilityAIComponent::FibonacciDiskSample(const FVector& Center, float Radiu
 	}
 }
 
-void UUtilityAIComponent::EnumerateAttackActionsForTarget(UActiveSkillBase* Skill, ACharacterBase* Target,
-                                                          bool bAssumeMoved,
-                                                          TArray<FAIAction>& OutCandidates) const
+void UUtilityAIComponent::ResolvePickTargets(EPickTeam Team, TArray<ACharacterBase*>& Out) const
 {
-	if (!Skill || !Target || !ownerCharacter) return;
-	if (Target->IsDead()) return;
+	Out.Reset();
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gm || !ownerCharacter) return;
 
-	const FVector targetLoc = Target->GetActorLocation();
+	//시전자의 적 = 플레이어 아군
+	if (Team == EPickTeam::EnemyOnly || Team == EPickTeam::Any)
+	{
+		for (AAllyCharacterBase* a : gm->GetAllies())
+		{
+			if (IsValid(a) && !a->IsDead()) Out.Add(a);
+		}
+	}
+	//시전자의 아군 = AI 진영, 자기 자신은 제외(범위 규칙과 일치)
+	if (Team == EPickTeam::AllyOnly || Team == EPickTeam::Any)
+	{
+		for (AEnemyBase* e : gm->GetEnemies())
+		{
+			if (IsValid(e) && !e->IsDead() && e != ownerCharacter) Out.Add(e);
+		}
+	}
+}
+
+void UUtilityAIComponent::CollectAllCharacters(TArray<ACharacterBase*>& Out) const
+{
+	Out.Reset();
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gm) return;
+
+	for (AAllyCharacterBase* a : gm->GetAllies())
+	{
+		if (IsValid(a) && !a->IsDead()) Out.Add(a);
+	}
+	for (AEnemyBase* e : gm->GetEnemies())
+	{
+		if (IsValid(e) && !e->IsDead()) Out.Add(e);
+	}
+}
+
+float UUtilityAIComponent::AreaOverlapRadius(const UActiveSkillBase* Skill)
+{
+	if (!Skill) return 0.f;
+	//인디케이터의 overlapSphere 반경 규칙을 그대로 미러링
+	switch (Skill->areaForm)
+	{
+	case EAreaForm::Circle: return Skill->areaParameter1;
+	case EAreaForm::Cone:   return Skill->areaParameter1;
+	case EAreaForm::Ray:    return FMath::Max(Skill->areaParameter1, Skill->areaParameter2) * 0.5f;
+	}
+	return 0.f;
+}
+
+bool UUtilityAIComponent::PassesAreaTargetFilter(const UActiveSkillBase* Skill, const ACharacterBase* Character) const
+{
+	if (!Skill || !Character || !ownerCharacter) return false;
+
+	//시전자 기준 같은 진영 여부
+	const bool bSameTeam = (Character->IsAlly() == ownerCharacter->IsAlly());
+	switch (Skill->areaTarget)
+	{
+	case EAreaTarget::EnemyOnly: return !bSameTeam;
+	case EAreaTarget::AllyOnly:  return bSameTeam;
+	case EAreaTarget::All:       return true;
+	case EAreaTarget::None:      return true;
+	}
+	return false;
+}
+
+void UUtilityAIComponent::CollectAreaAffected(const UActiveSkillBase* Skill, const FVector& AimLoc,
+                                              TArray<ACharacterBase*>& Out) const
+{
+	Out.Reset();
+	if (!Skill || !ownerCharacter) return;
+
+	const float radiusCm = AreaOverlapRadius(Skill);
+	if (radiusCm <= 0.f) return;
+
+	TArray<ACharacterBase*> all;
+	CollectAllCharacters(all);
+	for (ACharacterBase* c : all)
+	{
+		if (c == ownerCharacter) continue;   //시전자 제외
+		if (FVector::Dist(c->GetActorLocation(), AimLoc) > radiusCm) continue;
+		if (!PassesAreaTargetFilter(Skill, c)) continue;
+		Out.Add(c);
+	}
+}
+
+bool UUtilityAIComponent::HasLOSToLocation(const FVector& FromLoc, const FVector& AimLoc) const
+{
+	UWorld* world = GetWorld();
+	if (!world || !ownerCharacter) return false;
+
+	const FVector eye(0.f, 0.f, 80.f);
+	FCollisionQueryParams params(SCENE_QUERY_STAT(AI_GroundLOS), false, ownerCharacter);
+	FHitResult hit;
+	const bool bBlocked = world->LineTraceSingleByChannel(
+		hit, FromLoc + eye, AimLoc + eye, ECC_Visibility, params);
+	//지면 지점은 캐릭터가 아니므로 무엇이든 막히면 시야 차단으로 간주
+	return !bBlocked;
+}
+
+void UUtilityAIComponent::GatherCastPositions(const FVector& AimLoc, float PickRangeCm, bool bAssumeMoved,
+                                              TArray<TPair<FVector, float>>& Out, bool bGateAimRange) const
+{
+	Out.Reset();
+	if (!ownerCharacter) return;
+
 	const FVector casterLoc = ownerCharacter->GetActorLocation();
-	const float pickRangeCm = Skill->pickRange;   //cm, 0이면 무제한
+	const float budgetCm = ownerCharacter->GetCurrentMovingPoint() * 100.f;
 
-	//이동 가정 여부로 위치 후보 분리
 	TArray<FVector> samples;
 	if (bAssumeMoved)
 	{
-		//이동 후 후보는 대상 주변 샘플 사용
-		if (pickRangeCm > 0.f)
+		//이동 후 후보는 aim 주변 샘플, 사거리 무제한이면 제자리만
+		if (PickRangeCm > 0.f)
 		{
-			FibonacciDiskSample(targetLoc, pickRangeCm, attackPositionSamples, samples);
+			FibonacciDiskSample(AimLoc, PickRangeCm, attackPositionSamples, samples);
+		}
+		else
+		{
+			samples.Add(casterLoc);
 		}
 	}
 	else
 	{
-		//제자리 후보는 현재 위치만 사용
+		//제자리 후보는 현재 위치만
 		samples.Add(casterLoc);
 	}
 
-	const float casterBudgetCm = ownerCharacter->GetCurrentMovingPoint() * 100.f;
-
-	for (const FVector& sample : samples)
+	for (const FVector& s : samples)
 	{
-		//잔여 이동력 초과 후보 제외
-		const float distToSampleCm = FVector::Dist(casterLoc, sample);
-		if (distToSampleCm > casterBudgetCm) continue;
-
-		//사거리 밖 후보 제외
-		if (pickRangeCm > 0.f && FVector::Dist(sample, targetLoc) > pickRangeCm) continue;
+		//사거리 밖 후보 제외, 멀티픽은 픽별 검사에 위임하므로 게이트 생략
+		if (bGateAimRange && PickRangeCm > 0.f && FVector::Dist(s, AimLoc) > PickRangeCm) continue;
 
 		float pathLenCm = 0.f;
-		if (!UAINavigationHelper::CanReach(ownerCharacter, sample, pathLenCm)) continue;
+		if (bAssumeMoved)
+		{
+			//잔여 이동력 내 도달 가능 여부
+			if (FVector::Dist(casterLoc, s) > budgetCm) continue;
+			if (!UAINavigationHelper::CanReach(ownerCharacter, s, pathLenCm)) continue;
+		}
+		Out.Emplace(s, pathLenCm);
+	}
+}
 
-		//시야선 없는 후보 제외
-		if (!UAINavigationHelper::HasLineOfSightFrom(ownerCharacter, sample, Target)) continue;
+void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FVector& CastFrom, float PathLenCm,
+                                              const TArray<ACharacterBase*>& Affected, bool bHeal,
+                                              TArray<FAIAction>& OutCandidates) const
+{
+	if (!Skill || !ownerCharacter || Affected.Num() == 0) return;
 
-		FAIAction action;
-		action.Skill = Skill;
-		action.Target = Target;
-		action.CastFrom = sample;
-		action.PathLengthCm = pathLenCm;
-		action.Preview = Target->PreviewDamage(Skill, ownerCharacter, sample);
-		action.IncomingDangerExpected = ComputeIncomingDangerAt(sample);
-		//버프는 지원 행동으로 분류
-		action.Type = (Skill->skillType == ESkillType::Buff) ? EAIActionType::Support : EAIActionType::Attack;
+	const bool casterIsAlly = ownerCharacter->IsAlly();
 
-		OutCandidates.Add(action);
+	//데미지 집계
+	float enemyExpected = 0.f;
+	float allyExpected = 0.f;
+	int32 enemyCount = 0;
+	float hitChanceSum = 0.f;
+	float expectedKills = 0.f;
+	float expectedCritKills = 0.f;
+	float overkillTotal = 0.f;
+
+	//회복 집계
+	float healTotal = 0.f;
+	float healLowHpCount = 0.f;
+	float healExtremeLowHpCount = 0.f;
+
+	//대표 선정용, 데미지=최대 피해 적군 / 회복=가장 많이 부상한 아군
+	ACharacterBase* primary = nullptr;
+	float bestKey = -1.f;
+	FDamageResult primaryPreview;
+
+	//나머지 영향 대상 보관, 대표를 [0]에 두기 위해 분리 수집
+	TArray<ACharacterBase*> others;
+
+	for (ACharacterBase* c : Affected)
+	{
+		if (!IsValid(c)) continue;
+
+		const bool bSameTeam = (c->IsAlly() == casterIsAlly);
+		const FDamageResult pr = c->PreviewDamage(Skill, ownerCharacter, CastFrom);
+		const float hitP = pr.HitChance / 100.f;
+
+		if (bHeal)
+		{
+			//회복은 같은 진영 부상 대상만 의미
+			if (!bSameTeam) continue;
+			const int32 maxHp = c->GetMaxHp();
+			const int32 missing = maxHp - c->GetHp();
+			if (missing <= 0 || maxHp <= 0) continue;   //풀피는 오버힐이라 제외
+
+			//회복은 음수 데미지, 부호 반전해 회복량으로 사용
+			const float healAmount = -static_cast<float>(pr.NormalDamage);
+			if (healAmount <= 0.f) continue;
+
+			//오버힐 제외한 유효 회복량 집계
+			healTotal += hitP * FMath::Min(healAmount, static_cast<float>(missing));
+
+			//체력 비율 구간별 가중, 배타적 구간(20% 미만은 extreme만, 20~50%는 low만)
+			const float ratio = static_cast<float>(c->GetHp()) / static_cast<float>(maxHp);
+			if (ratio < 0.2f)      healExtremeLowHpCount += 1.f;
+			else if (ratio < 0.5f) healLowHpCount += 1.f;
+
+			if (static_cast<float>(missing) > bestKey)
+			{
+				if (primary) others.Add(primary);
+				primary = c;
+				bestKey = static_cast<float>(missing);
+				primaryPreview = pr;
+			}
+			else
+			{
+				others.Add(c);
+			}
+		}
+		else
+		{
+			const float critP = pr.CritChance / 100.f;
+			float expected = hitP * ((1.f - critP) * pr.NormalDamage + critP * pr.CritDamage);
+			if (expected < 0.f) expected = 0.f;
+
+			if (bSameTeam)
+			{
+				//아군 오사 피해 별도 집계
+				allyExpected += expected;
+				others.Add(c);
+			}
+			else
+			{
+				enemyExpected += expected;
+
+				//적군 대상별 명중·처치·오버킬 집계
+				++enemyCount;
+				hitChanceSum += pr.HitChance;
+				if (pr.bCanKill)     expectedKills += hitP;
+				if (pr.bCanCritKill) expectedCritKills += hitP * critP;
+				overkillTotal += FMath::Max(0.f, static_cast<float>(pr.NormalDamage - c->GetHp()));
+
+				if (expected > bestKey)
+				{
+					if (primary) others.Add(primary);
+					primary = c;
+					bestKey = expected;
+					primaryPreview = pr;
+				}
+				else
+				{
+					others.Add(c);
+				}
+			}
+		}
+	}
+
+	//유효 대상이 없으면 후보 미생성 (데미지=적군 없음, 회복=부상 아군 없음)
+	if (!primary) return;
+
+	FAIAction action;
+	action.Skill = Skill;
+	action.CastFrom = CastFrom;
+	action.PathLengthCm = PathLenCm;
+	action.Preview = primaryPreview;
+	action.IncomingDangerExpected = ComputeIncomingDangerAt(CastFrom);
+
+	if (bHeal)
+	{
+		action.Type = EAIActionType::Support;
+		action.HealExpectedTotal = healTotal;
+		action.HealLowHpCount = healLowHpCount;
+		action.HealExtremeLowHpCount = healExtremeLowHpCount;
+	}
+	else
+	{
+		action.Type = EAIActionType::Attack;
+		action.EnemyExpectedDamage = enemyExpected;
+		action.AllyExpectedDamage = allyExpected;
+		action.AvgEnemyHitChance = (enemyCount > 0) ? hitChanceSum / enemyCount : 0.f;
+		action.ExpectedKills = expectedKills;
+		action.ExpectedCritKills = expectedCritKills;
+		action.OverkillTotal = overkillTotal;
+	}
+
+	//대표를 맨 앞에, 이어서 나머지 영향 대상
+	action.Targets.Add(primary);
+	for (ACharacterBase* c : others)
+	{
+		action.Targets.Add(c);
+	}
+
+	OutCandidates.Add(action);
+}
+
+void UUtilityAIComponent::EnumerateSingleTarget(UActiveSkillBase* Skill, ACharacterBase* Target,
+                                                bool bAssumeMoved, bool bHeal, TArray<FAIAction>& OutCandidates) const
+{
+	if (!Skill || !Target || !ownerCharacter || Target->IsDead()) return;
+
+	const FVector aimLoc = Target->GetActorLocation();
+
+	TArray<TPair<FVector, float>> positions;
+	GatherCastPositions(aimLoc, Skill->pickRange, bAssumeMoved, positions);
+
+	for (const TPair<FVector, float>& pos : positions)
+	{
+		//대표 대상에 대한 시야선 필요
+		if (!UAINavigationHelper::HasLineOfSightFrom(ownerCharacter, pos.Key, Target)) continue;
+
+		TArray<ACharacterBase*> affected;
+		if (Skill->areaTarget != EAreaTarget::None)
+		{
+			//범위 스킬은 대상 주변을 오버랩, 대표 대상 포함 보장
+			CollectAreaAffected(Skill, aimLoc, affected);
+			affected.AddUnique(Target);
+		}
+		else
+		{
+			affected.Add(Target);
+		}
+
+		BuildActionFromCast(Skill, pos.Key, pos.Value, affected, bHeal, OutCandidates);
+	}
+}
+
+void UUtilityAIComponent::EnumerateMultiPick(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& PickTargets,
+                                             bool bAssumeMoved, bool bHeal, TArray<FAIAction>& OutCandidates) const
+{
+	if (!Skill || !ownerCharacter || PickTargets.Num() == 0) return;
+
+	//대상 중심(centroid)을 aim으로 시전 위치 샘플
+	FVector centroid = FVector::ZeroVector;
+	for (ACharacterBase* t : PickTargets)
+	{
+		centroid += t->GetActorLocation();
+	}
+	centroid /= static_cast<float>(PickTargets.Num());
+
+	//centroid는 위치 샘플 중심일 뿐이라 aim-사거리 게이트는 끄고, 픽별 사거리로 유효성 판정
+	TArray<TPair<FVector, float>> positions;
+	GatherCastPositions(centroid, Skill->pickRange, bAssumeMoved, positions, false);
+
+	for (const TPair<FVector, float>& pos : positions)
+	{
+		//시전 위치에서 사거리·시야선 확보된 픽 후보를 효용(회복량 또는 피해)으로 정렬
+		TArray<TPair<ACharacterBase*, float>> cands;
+		for (ACharacterBase* t : PickTargets)
+		{
+			if (!IsValid(t) || t->IsDead()) continue;
+			if (Skill->pickRange > 0.f && FVector::Dist(pos.Key, t->GetActorLocation()) > Skill->pickRange) continue;
+			if (!UAINavigationHelper::HasLineOfSightFrom(ownerCharacter, pos.Key, t)) continue;
+
+			const FDamageResult pr = t->PreviewDamage(Skill, ownerCharacter, pos.Key);
+			const float hitP  = pr.HitChance / 100.f;
+			float value;
+			if (bHeal)
+			{
+				//회복 효용은 오버힐 제외한 유효 회복량, 풀피는 후보 제외
+				const int32 missing = t->GetMaxHp() - t->GetHp();
+				if (missing <= 0) continue;
+				const float healAmount = -static_cast<float>(pr.NormalDamage);
+				value = hitP * FMath::Min(healAmount, static_cast<float>(missing));
+			}
+			else
+			{
+				const float critP = pr.CritChance / 100.f;
+				value = hitP * ((1.f - critP) * pr.NormalDamage + critP * pr.CritDamage);
+			}
+			cands.Emplace(t, value);
+		}
+		if (cands.Num() == 0) continue;
+
+		cands.Sort([](const TPair<ACharacterBase*, float>& A, const TPair<ACharacterBase*, float>& B)
+		{
+			return A.Value > B.Value;
+		});
+
+		//상위 pickCount개 선택, 범위 스킬이면 각 픽의 오버랩까지 합류
+		const int32 takeN = FMath::Min(Skill->pickCount, cands.Num());
+		TArray<ACharacterBase*> affected;
+		for (int32 i = 0; i < takeN; ++i)
+		{
+			affected.AddUnique(cands[i].Key);
+			if (Skill->areaTarget != EAreaTarget::None)
+			{
+				TArray<ACharacterBase*> areaHit;
+				CollectAreaAffected(Skill, cands[i].Key->GetActorLocation(), areaHit);
+				for (ACharacterBase* h : areaHit)
+				{
+					affected.AddUnique(h);
+				}
+			}
+		}
+
+		BuildActionFromCast(Skill, pos.Key, pos.Value, affected, bHeal, OutCandidates);
+	}
+}
+
+void UUtilityAIComponent::EnumerateGroundPoint(UActiveSkillBase* Skill, bool bAssumeMoved,
+                                               bool bHeal, TArray<FAIAction>& OutCandidates) const
+{
+	if (!Skill || !ownerCharacter) return;
+	//지면 대상 스킬은 범위가 없으면 맞출 대상이 없음
+	if (Skill->areaTarget == EAreaTarget::None) return;
+
+	//EAreaTarget에 부합하는 캐릭터를 seed로, 위치와 쌍 중점을 지면점 후보로
+	TArray<ACharacterBase*> all;
+	CollectAllCharacters(all);
+	TArray<ACharacterBase*> eligible;
+	for (ACharacterBase* c : all)
+	{
+		if (c == ownerCharacter) continue;
+		if (PassesAreaTargetFilter(Skill, c)) eligible.Add(c);
+	}
+	if (eligible.Num() == 0) return;
+
+	TArray<FVector> aimPoints;
+	for (ACharacterBase* c : eligible)
+	{
+		aimPoints.Add(c->GetActorLocation());
+	}
+	//대상 쌍 중점, 두 대상을 한 번에 덮는 지점 탐색
+	for (int32 i = 0; i < eligible.Num(); ++i)
+	{
+		for (int32 j = i + 1; j < eligible.Num(); ++j)
+		{
+			aimPoints.Add((eligible[i]->GetActorLocation() + eligible[j]->GetActorLocation()) * 0.5f);
+		}
+	}
+
+	for (const FVector& aim : aimPoints)
+	{
+		TArray<TPair<FVector, float>> positions;
+		GatherCastPositions(aim, Skill->pickRange, bAssumeMoved, positions);
+
+		for (const TPair<FVector, float>& pos : positions)
+		{
+			if (!HasLOSToLocation(pos.Key, aim)) continue;
+
+			TArray<ACharacterBase*> affected;
+			CollectAreaAffected(Skill, aim, affected);
+			BuildActionFromCast(Skill, pos.Key, pos.Value, affected, bHeal, OutCandidates);
+		}
+	}
+}
+
+void UUtilityAIComponent::EnumerateSkillActions(UActiveSkillBase* Skill, bool bAssumeMoved,
+                                                TArray<FAIAction>& OutCandidates) const
+{
+	if (!Skill || !ownerCharacter) return;
+
+	const bool bHeal = (Skill->skillType == ESkillType::Heal);
+
+	//회복 외 지원 스킬(Buff/Ailment)은 전용 점수 축이 없어 이번 단계 미열거
+	//TODO: 버프/상태이상 점수 축 구현 시 열거 활성화
+	if (!bHeal && (Skill->skillType == ESkillType::Buff || Skill->skillType == ESkillType::Ailment))
+	{
+		return;
+	}
+
+	//Self 대상: 자기 회복만 처리, 그 외 Self 지원 스킬은 보류
+	if (Skill->selectMode == ESelectMode::Self)
+	{
+		if (!bHeal) return;
+		//자기 회복은 제자리 후보로 충분, 이동 패스에서는 생략
+		if (bAssumeMoved) return;
+		TArray<ACharacterBase*> selfOnly;
+		selfOnly.Add(ownerCharacter);
+		BuildActionFromCast(Skill, ownerCharacter->GetActorLocation(), 0.f, selfOnly, true, OutCandidates);
+		return;
+	}
+
+	if (Skill->selectMode == ESelectMode::GroundPoint)
+	{
+		EnumerateGroundPoint(Skill, bAssumeMoved, bHeal, OutCandidates);
+		return;
+	}
+
+	//SinglePick, pickTeam으로 대상 집합 결정
+	TArray<ACharacterBase*> pickTargets;
+	ResolvePickTargets(Skill->pickTeam, pickTargets);
+	if (pickTargets.Num() == 0) return;
+
+	if (Skill->pickCount > 1)
+	{
+		EnumerateMultiPick(Skill, pickTargets, bAssumeMoved, bHeal, OutCandidates);
+	}
+	else
+	{
+		for (ACharacterBase* t : pickTargets)
+		{
+			EnumerateSingleTarget(Skill, t, bAssumeMoved, bHeal, OutCandidates);
+		}
 	}
 }
 
@@ -160,27 +600,17 @@ void UUtilityAIComponent::EnumerateActions(bool bExcludeMove, TArray<FAIAction>&
 	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	if (!gm) { EnumerateWaitAction(OutCandidates); return; }
 
-	//공격 대상은 살아있는 아군
-	TArray<ACharacterBase*> targets;
-	for (AAllyCharacterBase* a : gm->GetAllies())
-	{
-		if (IsValid(a) && !a->IsDead()) targets.Add(a);
-	}
-
 	USkillComponent* sc = ownerCharacter->GetSkillComponent();
 	TArray<UActiveSkillBase*> skills = sc ? sc->GetActiveSkills() : TArray<UActiveSkillBase*>();
 
-	//제자리 공격 후보
+	//제자리 스킬 후보, 대상 집합은 각 스킬의 pickTeam/selectMode/EAreaTarget으로 결정
 	for (UActiveSkillBase* skill : skills)
 	{
 		if (!skill || !skill->CanExecute()) continue;
-		for (ACharacterBase* t : targets)
-		{
-			EnumerateAttackActionsForTarget(skill, t, false, OutCandidates);
-		}
+		EnumerateSkillActions(skill, false, OutCandidates);
 	}
 
-	//이동 후 공격과 순수 이동 후보
+	//이동 후 스킬과 순수 이동 후보
 	const bool bCanMoveMore = !bExcludeMove && (ownerCharacter->GetCurrentMovingPoint() > 0.f);
 	if (bCanMoveMore)
 	{
@@ -194,10 +624,7 @@ void UUtilityAIComponent::EnumerateActions(bool bExcludeMove, TArray<FAIAction>&
 		for (UActiveSkillBase* skill : skills)
 		{
 			if (!skill || !skill->CanExecute()) continue;
-			for (ACharacterBase* t : targets)
-			{
-				EnumerateAttackActionsForTarget(skill, t, true, OutCandidates);
-			}
+			EnumerateSkillActions(skill, true, OutCandidates);
 		}
 
 		EnumerateMoveActions(OutCandidates);
@@ -255,27 +682,27 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 	}
 	else
 	{
-		//공격과 지원 점수
-		const float hitP  = Action.Preview.HitChance / 100.f;
-		const float critP = Action.Preview.CritChance / 100.f;
+		//공격과 지원 점수, 대상별 집계값 사용
+		ACharacterBase* primary = Action.GetPrimaryTarget();
 
-		//기대 피해 계산
-		const float expected = hitP * ((1.f - critP) * Action.Preview.NormalDamage
-		                              + critP * Action.Preview.CritDamage);
-		score += expected * p->weightExpectedDamage;
+		//적군 누적 기대 피해 보너스, 아군 오사 기대 피해 페널티
+		score += Action.EnemyExpectedDamage * p->weightExpectedDamage;
+		score += Action.AllyExpectedDamage * p->weightAllyDamagePenalty;
 
-		//명중률 보너스
-		score += hitP * p->weightHitChance;
+		//명중률 보너스, 적군 대상 평균 명중률
+		score += (Action.AvgEnemyHitChance / 100.f) * p->weightHitChance;
 
-		//처치 보너스
-		if (Action.Preview.bCanKill)
-		{
-			score += p->weightCanKillBonus * hitP;
-		}
-		if (Action.Preview.bCanCritKill)
-		{
-			score += p->weightCanCritKillBonus * hitP * critP;
-		}
+		//처치 보너스, 대상별 기대 처치 수만큼 가중
+		score += p->weightCanKillBonus * Action.ExpectedKills;
+		score += p->weightCanCritKillBonus * Action.ExpectedCritKills;
+
+		//오버킬 페널티, 대상별 오버킬 합산
+		score += Action.OverkillTotal * p->weightOverkillPenalty;
+
+		//회복 점수, 데미지 후보는 회복 집계가 0이라 영향 없음
+		score += Action.HealExpectedTotal * p->weightExpectedHeal;
+		score += Action.HealLowHpCount * p->weightHealTargetLowHp;
+		score += Action.HealExtremeLowHpCount * p->weightHealTargetExtremeLowHp;
 
 		//이동 거리 페널티
 		score += Action.PathLengthCm * p->weightDistancePenalty;
@@ -287,16 +714,12 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 			score += resCost * p->weightResourceCost;
 		}
 
-		//대상 기반 점수
-		if (Action.Type == EAIActionType::Attack && Action.Target)
+		//대표 대상 기반 점수
+		if (Action.Type == EAIActionType::Attack && primary)
 		{
-			//오버킬 페널티
-			const int32 targetHp = Action.Target->GetHp();
-			const float overkill = FMath::Max(0.f, static_cast<float>(Action.Preview.NormalDamage - targetHp));
-			score += overkill * p->weightOverkillPenalty;
-
 			//체력 낮은 대상 보너스
-			const int32 targetMaxHp = Action.Target->GetMaxHp();
+			const int32 targetHp = primary->GetHp();
+			const int32 targetMaxHp = primary->GetMaxHp();
 			if (targetMaxHp > 0)
 			{
 				const float missingRatio = 1.f - static_cast<float>(targetHp) / static_cast<float>(targetMaxHp);
@@ -308,7 +731,7 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 			{
 				if (ABattleGameMode* gm = w->GetAuthGameMode<ABattleGameMode>())
 				{
-					if (AAllyCharacterBase* allyTarget = Cast<AAllyCharacterBase>(Action.Target))
+					if (AAllyCharacterBase* allyTarget = Cast<AAllyCharacterBase>(primary))
 					{
 						const FPlayerThreatProfile& tp = gm->GetPlayerThreatProfile(allyTarget);
 						const float tHitP  = tp.Accuracy / 100.f;
@@ -414,12 +837,13 @@ void UUtilityAIComponent::StepNext()
 
 void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
 {
-	if (!Action.Skill || !Action.Target || !ownerCharacter) return;
+	ACharacterBase* primary = Action.GetPrimaryTarget();
+	if (!Action.Skill || !primary || !ownerCharacter) return;
 
-	//대상 방향으로 회전
+	//대표 대상 방향으로 회전
 	if (Action.Skill->selectMode != ESelectMode::Self)
 	{
-		FVector dir = Action.Target->GetActorLocation() - ownerCharacter->GetActorLocation();
+		FVector dir = primary->GetActorLocation() - ownerCharacter->GetActorLocation();
 		dir.Z = 0.f;
 		if (!dir.IsNearlyZero())
 		{
@@ -429,7 +853,28 @@ void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
 
 	if (USkillComponent* sc = ownerCharacter->GetSkillComponent())
 	{
-		sc->DirectExecute(Action.Skill, Action.Target);
+		//유효한 영향 대상만 추려 다중 대상 시전
+		TArray<ACharacterBase*> targets;
+		for (const TObjectPtr<ACharacterBase>& t : Action.Targets)
+		{
+			if (IsValid(t)) targets.Add(t);
+		}
+
+		//회복은 회복량, 그 외는 적군 기대 피해로 로그 표기
+		if (Action.Type == EAIActionType::Support)
+		{
+			UE_LOG(LogTemp, Log, TEXT("[UtilityAI] %s 회복 스킬 사용: %s → 대표 %s, 대상 %d명 (기대 회복량 %.1f)"),
+				*GetNameSafe(ownerCharacter), *Action.Skill->skillName.ToString(),
+				*GetNameSafe(primary), targets.Num(), Action.HealExpectedTotal);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Log, TEXT("[UtilityAI] %s 스킬 사용: %s → 대표 %s, 대상 %d명 (적군 기대피해 %.1f)"),
+				*GetNameSafe(ownerCharacter), *Action.Skill->skillName.ToString(),
+				*GetNameSafe(primary), targets.Num(), Action.EnemyExpectedDamage);
+		}
+
+		sc->DirectExecute(Action.Skill, targets);
 	}
 }
 
@@ -618,12 +1063,16 @@ void UUtilityAIComponent::DrawDebugCandidates(const TArray<FAIAction>& Candidate
 		DrawDebugString(world, c.CastFrom + textOffset, label,
 			nullptr, color, duration, false, bIsBest ? 2.2f : 1.4f);
 
-		//공격과 지원 의도선 표시
-		if ((c.Type == EAIActionType::Attack || c.Type == EAIActionType::Support) && c.Target)
+		//공격과 지원 의도선 표시, 영향 대상마다 한 줄씩
+		if (c.Type == EAIActionType::Attack || c.Type == EAIActionType::Support)
 		{
-			DrawDebugLine(world, c.CastFrom + FVector(0.f, 0.f, 80.f),
-				c.Target->GetActorLocation() + FVector(0.f, 0.f, 80.f),
-				color, false, duration, 0, bIsBest ? 2.f : 0.5f);
+			for (const TObjectPtr<ACharacterBase>& t : c.Targets)
+			{
+				if (!IsValid(t)) continue;
+				DrawDebugLine(world, c.CastFrom + FVector(0.f, 0.f, 80.f),
+					t->GetActorLocation() + FVector(0.f, 0.f, 80.f),
+					color, false, duration, 0, bIsBest ? 2.f : 0.5f);
+			}
 		}
 	}
 }
