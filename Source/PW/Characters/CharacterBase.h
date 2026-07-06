@@ -188,7 +188,7 @@ protected:
 	virtual void SetDefaultSkills();
 	//캐릭터의 기본 패시브 스킬, 파생 클래스에서 구현
 	virtual void SetDefaultPassives();
-	//스탯에 따른 캐릭터의 기본 명중, 치명, 회피 계산
+	//파생 스탯(명중/회피/치명) 재계산, 기본 공식 + 버프/패시브 보너스 가산
 	void SetDefaultStats();
 	//레벨업
 	void LevelUp();
@@ -279,7 +279,7 @@ public:
 	UPassiveSkillComponent* GetPassiveSkillComponent() const { return passiveSkillComponent; }
 
 	//버프 적용/해제 시 스탯 델타 일괄 가감 — sign: +1=적용, -1=해제
-	//파생 스탯(accuracy/evasion/critical)은 SetDefaultStats를 다시 부르지 않고 직접 가감
+	//파생 스탯(accuracy/evasion/critical)은 BuffComponent 보너스에 저장 후 재계산으로 반영
 	void ApplyBuffDelta(const UBuffBase* buff, int32 sign);
 
 	//패시브(Stat) 등록/해제 시 스탯 델타 일괄 가감 — sign: +1=등록, -1=해제

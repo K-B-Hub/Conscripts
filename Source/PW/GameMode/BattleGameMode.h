@@ -12,9 +12,9 @@ class AEnemyBase;
 class ABattleController;
 class UActiveSkillBase;
 
-//플레이어 한 명에 대해 적 AI가 인지하고 있는 최대 위협 스냅샷
+//캐릭터 한 명에 대해 상대 진영이 인지하고 있는 최대 위협 스냅샷, 진영 무관 관측 기반
 USTRUCT(BlueprintType)
-struct FPlayerThreatProfile
+struct FThreatProfile
 {
 	GENERATED_BODY()
 
@@ -50,11 +50,11 @@ public:
 	//AI가 아군(같은 진영) 대상 스킬 후보를 만들 때 사용, 적군(AI 진영) 목록 조회
 	const TArray<TObjectPtr<AEnemyBase>>& GetEnemies() const { return enemies; }
 
-	//플레이어가 스킬을 사용했을 때 그 캐릭터의 위협 프로파일 갱신
-	void RecordPlayerSkillUse(AAllyCharacterBase* Ally, const UActiveSkillBase* Skill);
+	//캐릭터가 스킬을 사용했을 때 위협 프로파일 갱신, 플레이어·AI 공통
+	void RecordSkillUse(ACharacterBase* Character, const UActiveSkillBase* Skill);
 
-	//적 AI 위험도 계산 시 사용, 미관측 캐릭터면 디폴트 프로파일 반환
-	const FPlayerThreatProfile& GetPlayerThreatProfile(const AAllyCharacterBase* Ally) const;
+	//AI 위험도·레버리지 계산 시 사용, 미관측 캐릭터면 디폴트 프로파일 반환
+	const FThreatProfile& GetThreatProfile(const ACharacterBase* Character) const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -81,9 +81,9 @@ private:
 	UPROPERTY()
 	TArray<TObjectPtr<AEnemyBase>> enemies;
 
-	//플레이어 별 관측된 최대 위협 프로파일, 키가 없으면 디폴트 반환
+	//캐릭터 별 관측된 최대 위협 프로파일, 키가 없으면 디폴트 반환
 	UPROPERTY()
-	TMap<TObjectPtr<AAllyCharacterBase>, FPlayerThreatProfile> playerThreatProfiles;
+	TMap<TObjectPtr<ACharacterBase>, FThreatProfile> threatProfiles;
 
 	//캐릭터 사망 시 turnOrder/아군/적군 배열 정리
 	UFUNCTION()
