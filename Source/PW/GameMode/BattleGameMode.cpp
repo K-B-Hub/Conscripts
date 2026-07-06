@@ -143,11 +143,13 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 		}
 	}
 
+	//위협 프로파일 정리, 진영 무관
+	threatProfiles.Remove(DeadCharacter);
+
 	//아군/적군 배열에서 제거
 	if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(DeadCharacter))
 	{
 		allies.Remove(Ally);
-		playerThreatProfiles.Remove(Ally);
 	}
 	else if (AEnemyBase* Enemy = Cast<AEnemyBase>(DeadCharacter))
 	{
@@ -262,21 +264,22 @@ void ABattleGameMode::BroadcastUnitDeath(ACharacterBase* DeadCharacter)
 	}
 }
 
-const FPlayerThreatProfile& ABattleGameMode::GetPlayerThreatProfile(const AAllyCharacterBase* Ally) const
+const FThreatProfile& ABattleGameMode::GetThreatProfile(const ACharacterBase* Character) const
 {
-	static const FPlayerThreatProfile defaultProfile;
-	if (!Ally) return defaultProfile;
-	const FPlayerThreatProfile* found = playerThreatProfiles.Find(Ally);
+	static const FThreatProfile defaultProfile;
+	if (!Character) return defaultProfile;
+	const FThreatProfile* found = threatProfiles.Find(Character);
 	return found ? *found : defaultProfile;
 }
 
-void ABattleGameMode::RecordPlayerSkillUse(AAllyCharacterBase* Ally, const UActiveSkillBase* Skill)
+void ABattleGameMode::RecordSkillUse(ACharacterBase* Character, const UActiveSkillBase* Skill)
 {
-	if (!Ally || !Skill) return;
+	if (!Character || !Skill) return;
 
-	//위협 모델은 피해 기반, 비-피해 스킬은 일단 스킵
+	//위협 모델은 피해 기반, 비-피해 스킬은 스킵 (Heal은 calcDamage가 회복량이라 오염 방지)
 	if (Skill->skillType == ESkillType::Buff
-		|| Skill->skillType == ESkillType::Ailment)
+		|| Skill->skillType == ESkillType::Ailment
+		|| Skill->skillType == ESkillType::Heal)
 	{
 		return;
 	}
@@ -291,7 +294,7 @@ void ABattleGameMode::RecordPlayerSkillUse(AAllyCharacterBase* Ally, const UActi
 	const float newCritP = newCritChance / 100.f;
 	const float newExpected = newHitP * ((1.f - newCritP) * newDamage + newCritP * newCritDamage);
 
-	FPlayerThreatProfile& prof = playerThreatProfiles.FindOrAdd(Ally);
+	FThreatProfile& prof = threatProfiles.FindOrAdd(Character);
 
 	const float oldHitP  = prof.Accuracy / 100.f;
 	const float oldCritP = prof.CritChance / 100.f;
@@ -305,5 +308,8 @@ void ABattleGameMode::RecordPlayerSkillUse(AAllyCharacterBase* Ally, const UActi
 		prof.CritDamage   = newCritDamage;
 		prof.CritChance   = newCritChance;
 		prof.RangeCm      = Skill->pickRange;
+
+		UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] %s 위협 프로파일 갱신 (기대피해 %.1f, 사거리 %.0f)"),
+			*GetNameSafe(Character), newExpected, prof.RangeCm);
 	}
 }

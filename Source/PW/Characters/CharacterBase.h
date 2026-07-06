@@ -105,59 +105,59 @@ protected:
 	float cameraPitchAngle = -55.f;
 
 	//캐릭터 스탯
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 maxHp = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 hp = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 atk = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 speed = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 skill = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 def = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	float movingPoint = 9.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	float currentMovingPoint = 9.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 mentality = 1;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 stress = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 maxStress = 100;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 actionPoint = 2;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 currentActionPoint = 2;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 damageReduction = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 damageAmplification = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 penetration = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	float sight = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 battleResource = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Combat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
 	float accuracy = 0.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Combat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
 	float evasion = 0.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Combat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
 	float critical = 0.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 hpGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 atkGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 speedGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 skillGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 defGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat|Growth")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 mentalityGrowth = 5;
 	
 	//AttackRangeIndicator와 오버렙 시 미리 계산해 값을 저장
@@ -179,7 +179,7 @@ protected:
 	//레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	int32 level = 1;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Level")
 	float exp = 0;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	float maxExp = 100;
@@ -214,6 +214,8 @@ public:
 	int32 GetBattleResource() const { return battleResource; }
 	void ReduceBattleResource(int32 amount);
 	int32 GetAtk() const { return atk; }
+	int32 GetSpeed() const { return speed; }
+	int32 GetSkill() const { return skill; }
 	float GetAccuracy() const { return accuracy; }
 	float GetCritical() const { return critical; }
 	int32 GetDamageAmplification() const { return damageAmplification; }

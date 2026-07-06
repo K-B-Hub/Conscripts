@@ -467,7 +467,7 @@ void ABattleController::OnUnitMovementCompleted()
 		Skill->BeginUse();
 		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 		{
-			GM->RecordPlayerSkillUse(activeUnit, Skill);
+			GM->RecordSkillUse(activeUnit, Skill);
 		}
 
 		for (ACharacterBase* Target : Targets)
@@ -571,7 +571,7 @@ void ABattleController::ExecuteSkill()
 		Skill->BeginUse();
 		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 		{
-			GM->RecordPlayerSkillUse(activeUnit, Skill);
+			GM->RecordSkillUse(activeUnit, Skill);
 		}
 
 		for (ACharacterBase* Target : ValidTargets)
@@ -631,7 +631,7 @@ void ABattleController::ExecuteSkill()
 	Skill->BeginUse();
 	if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 	{
-		GM->RecordPlayerSkillUse(activeUnit, Skill);
+		GM->RecordSkillUse(activeUnit, Skill);
 	}
 
 	//전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨, 바로 ReflectDamage
