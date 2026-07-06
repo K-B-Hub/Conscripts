@@ -35,9 +35,28 @@ public:
 
 	const TArray<TObjectPtr<UBuffBase>>& GetActiveBuffs() const { return activeBuffs; }
 
+	//버프로 얻는 전투 파생 스탯 보너스 누적, 재계산 덮어쓰기 방지 위해 컴포넌트에 저장
+	void AddCombatStatBonus(float acc, float eva, float crit)
+	{
+		accuracyBonus += acc;
+		evasionBonus += eva;
+		criticalBonus += crit;
+	}
+	float GetAccuracyBonus() const { return accuracyBonus; }
+	float GetEvasionBonus() const { return evasionBonus; }
+	float GetCriticalBonus() const { return criticalBonus; }
+
 private:
 	UPROPERTY()
 	TObjectPtr<ACharacterBase> ownerCharacter = nullptr;
+
+	//전투 파생 스탯 보너스 누적치, 스탯 재계산 시 가산
+	UPROPERTY(VisibleAnywhere)
+	float accuracyBonus = 0.f;
+	UPROPERTY(VisibleAnywhere)
+	float evasionBonus = 0.f;
+	UPROPERTY(VisibleAnywhere)
+	float criticalBonus = 0.f;
 
 	UPROPERTY()
 	TArray<TObjectPtr<UBuffBase>> activeBuffs;

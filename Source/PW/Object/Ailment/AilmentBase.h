@@ -34,6 +34,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Ailment")
 	bool isStackable = false;
 
+	//AI 평가용, 턴당 기대 대미지
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+	float aiDamagePerTurn = 0.f;
+
+	//AI 평가용, 대상 턴당 기대 대미지에 곱할 계수 (1.0=완전 행동 불가, 0.7=약한 패널티)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+	float aiControlCoefficient = 0.f;
+
 	//적용 직후 1회 호출
 	virtual void OnApply(ACharacterBase* affected, ACharacterBase* caster);
 

@@ -8,6 +8,10 @@
 #include "Characters/EnemyBase.h"
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "Object/Buff/BuffBase.h"
+#include "Object/Ailment/AilmentBase.h"
+#include "ActorComponent/BuffComponent.h"
+#include "ActorComponent/AilmentComponent.h"
 #include "GameMode/BattleGameMode.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
@@ -19,7 +23,7 @@
 static TAutoConsoleVariable<int32> CVarUtilityAIDebug(
 	TEXT("ai.UtilityDebug"),
 	0,
-	TEXT("Utility AI 후보 점수 시각화. 0=off, 1=on"),
+	TEXT("Utility AI 후보 점수 시각화. 0=off, 1=행동 라벨+최고점 상세, 2=전 후보 상세"),
 	ECVF_Default);
 
 UUtilityAIComponent::UUtilityAIComponent()
@@ -204,8 +208,74 @@ void UUtilityAIComponent::GatherCastPositions(const FVector& AimLoc, float PickR
 	}
 }
 
+float UUtilityAIComponent::ComputeRiderValue(const UActiveSkillBase* Skill, const ACharacterBase* Target, float HitP,
+                                             float& OutBuffValue, float& OutAilmentValue) const
+{
+	OutBuffValue = 0.f;
+	OutAilmentValue = 0.f;
+	if (!Skill || !Target || !ownerCharacter) return 0.f;
+
+	const bool bSameTeam = (Target->IsAlly() == ownerCharacter->IsAlly());
+	const float teamSign = bSameTeam ? 1.f : -1.f;
+
+	//버프: 대상 입장 이로움 × 팀부호, 적에게 건 음수 델타(디버프)는 자동으로 양수 가치
+	for (const TSubclassOf<UBuffBase>& buffClass : Skill->buffs)
+	{
+		const UBuffBase* cdo = buffClass ? buffClass.GetDefaultObject() : nullptr;
+		if (!cdo) continue;
+
+		//비중첩 버프가 이미 있고 잔여 2턴 이상이면 가치 0, 1턴 이하는 리필 허용
+		if (!cdo->isStackable)
+		{
+			bool bBlocked = false;
+			if (UBuffComponent* bc = Target->GetBuffComponent())
+			{
+				for (const TObjectPtr<UBuffBase>& active : bc->GetActiveBuffs())
+				{
+					if (active && active->GetClass() == buffClass && active->remainingTurn >= 2)
+					{
+						bBlocked = true;
+						break;
+					}
+				}
+			}
+			if (bBlocked) continue;
+		}
+
+		OutBuffValue += HitP * teamSign * cdo->buffTurn * BuffValueForTarget(cdo, Target);
+	}
+
+	//상태이상: 해로운 효과라 상대 진영이 +, 아군 오염은 −
+	for (const TSubclassOf<UAilmentBase>& ailmentClass : Skill->ailments)
+	{
+		const UAilmentBase* cdo = ailmentClass ? ailmentClass.GetDefaultObject() : nullptr;
+		if (!cdo) continue;
+
+		if (!cdo->isStackable)
+		{
+			bool bBlocked = false;
+			if (UAilmentComponent* ac = Target->GetAilmentComponent())
+			{
+				for (const TObjectPtr<UAilmentBase>& active : ac->GetActiveAilments())
+				{
+					if (active && active->GetClass() == ailmentClass && active->remainingTurn >= 2)
+					{
+						bBlocked = true;
+						break;
+					}
+				}
+			}
+			if (bBlocked) continue;
+		}
+
+		OutAilmentValue += HitP * (-teamSign) * cdo->ailmentTurn * AilmentValueForTarget(cdo, Target);
+	}
+
+	return OutBuffValue + OutAilmentValue;
+}
+
 void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FVector& CastFrom, float PathLenCm,
-                                              const TArray<ACharacterBase*>& Affected, bool bHeal,
+                                              const TArray<ACharacterBase*>& Affected,
                                               TArray<FAIAction>& OutCandidates) const
 {
 	if (!Skill || !ownerCharacter || Affected.Num() == 0) return;
@@ -226,55 +296,61 @@ void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FVe
 	float healLowHpCount = 0.f;
 	float healExtremeLowHpCount = 0.f;
 
-	//대표 선정용, 데미지=최대 피해 적군 / 회복=가장 많이 부상한 아군
-	ACharacterBase* primary = nullptr;
-	float bestKey = -1.f;
-	FDamageResult primaryPreview;
+	//rider 집계
+	float buffTotal = 0.f;
+	float ailmentTotal = 0.f;
 
-	//나머지 영향 대상 보관, 대표를 [0]에 두기 위해 분리 수집
-	TArray<ACharacterBase*> others;
+	//대표 후보, 우선순위 = 최대 피해 적군 > 최대 부상 아군 > 최대 rider 가치 대상
+	ACharacterBase* bestEnemy = nullptr;
+	float bestEnemyKey = -1.f;
+	FDamageResult bestEnemyPreview;
+	ACharacterBase* bestHeal = nullptr;
+	float bestHealKey = 0.f;
+	FDamageResult bestHealPreview;
+	ACharacterBase* bestRider = nullptr;
+	float bestRiderKey = 0.f;
+	FDamageResult bestRiderPreview;
+
+	TArray<ACharacterBase*> validTargets;
 
 	for (ACharacterBase* c : Affected)
 	{
 		if (!IsValid(c)) continue;
+		validTargets.Add(c);
 
 		const bool bSameTeam = (c->IsAlly() == casterIsAlly);
 		const FDamageResult pr = c->PreviewDamage(Skill, ownerCharacter, CastFrom);
 		const float hitP = pr.HitChance / 100.f;
 
-		if (bHeal)
+		//직접 피해/회복, 부호로 구분 (회복 스킬은 음수 데미지)
+		if (pr.NormalDamage < 0)
 		{
-			//회복은 같은 진영 부상 대상만 의미
-			if (!bSameTeam) continue;
-			const int32 maxHp = c->GetMaxHp();
-			const int32 missing = maxHp - c->GetHp();
-			if (missing <= 0 || maxHp <= 0) continue;   //풀피는 오버힐이라 제외
-
-			//회복은 음수 데미지, 부호 반전해 회복량으로 사용
-			const float healAmount = -static_cast<float>(pr.NormalDamage);
-			if (healAmount <= 0.f) continue;
-
-			//오버힐 제외한 유효 회복량 집계
-			healTotal += hitP * FMath::Min(healAmount, static_cast<float>(missing));
-
-			//체력 비율 구간별 가중, 배타적 구간(20% 미만은 extreme만, 20~50%는 low만)
-			const float ratio = static_cast<float>(c->GetHp()) / static_cast<float>(maxHp);
-			if (ratio < 0.2f)      healExtremeLowHpCount += 1.f;
-			else if (ratio < 0.5f) healLowHpCount += 1.f;
-
-			if (static_cast<float>(missing) > bestKey)
+			//같은 진영 부상 대상만 유효 회복
+			if (bSameTeam)
 			{
-				if (primary) others.Add(primary);
-				primary = c;
-				bestKey = static_cast<float>(missing);
-				primaryPreview = pr;
-			}
-			else
-			{
-				others.Add(c);
+				const int32 maxHp = c->GetMaxHp();
+				const int32 missing = maxHp - c->GetHp();
+				if (missing > 0 && maxHp > 0)
+				{
+					//오버힐 제외한 유효 회복량 집계
+					const float healAmount = -static_cast<float>(pr.NormalDamage);
+					healTotal += hitP * FMath::Min(healAmount, static_cast<float>(missing));
+
+					//체력 비율 구간별 가중, 배타적 구간(20% 미만은 extreme만, 20~50%는 low만)
+					const float ratio = static_cast<float>(c->GetHp()) / static_cast<float>(maxHp);
+					if (ratio < 0.2f)      healExtremeLowHpCount += 1.f;
+					else if (ratio < 0.5f) healLowHpCount += 1.f;
+
+					if (static_cast<float>(missing) > bestHealKey)
+					{
+						bestHeal = c;
+						bestHealKey = static_cast<float>(missing);
+						bestHealPreview = pr;
+					}
+				}
 			}
 		}
-		else
+		else if (pr.NormalDamage > 0)
 		{
 			const float critP = pr.CritChance / 100.f;
 			float expected = hitP * ((1.f - critP) * pr.NormalDamage + critP * pr.CritDamage);
@@ -284,7 +360,6 @@ void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FVe
 			{
 				//아군 오사 피해 별도 집계
 				allyExpected += expected;
-				others.Add(c);
 			}
 			else
 			{
@@ -297,23 +372,33 @@ void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FVe
 				if (pr.bCanCritKill) expectedCritKills += hitP * critP;
 				overkillTotal += FMath::Max(0.f, static_cast<float>(pr.NormalDamage - c->GetHp()));
 
-				if (expected > bestKey)
+				if (expected > bestEnemyKey)
 				{
-					if (primary) others.Add(primary);
-					primary = c;
-					bestKey = expected;
-					primaryPreview = pr;
-				}
-				else
-				{
-					others.Add(c);
+					bestEnemy = c;
+					bestEnemyKey = expected;
+					bestEnemyPreview = pr;
 				}
 			}
 		}
+
+		//rider 버프/상태이상 가치, 스킬 유형과 무관하게 집계
+		float buffV = 0.f;
+		float ailV = 0.f;
+		const float riderV = ComputeRiderValue(Skill, c, hitP, buffV, ailV);
+		buffTotal += buffV;
+		ailmentTotal += ailV;
+		if (riderV > bestRiderKey)
+		{
+			bestRider = c;
+			bestRiderKey = riderV;
+			bestRiderPreview = pr;
+		}
 	}
 
-	//유효 대상이 없으면 후보 미생성 (데미지=적군 없음, 회복=부상 아군 없음)
+	//대표 선정, 유효 가치가 전혀 없으면 후보 미생성
+	ACharacterBase* primary = bestEnemy ? bestEnemy : (bestHeal ? bestHeal : bestRider);
 	if (!primary) return;
+	const FDamageResult& primaryPreview = bestEnemy ? bestEnemyPreview : (bestHeal ? bestHealPreview : bestRiderPreview);
 
 	FAIAction action;
 	action.Skill = Skill;
@@ -322,36 +407,35 @@ void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FVe
 	action.Preview = primaryPreview;
 	action.IncomingDangerExpected = ComputeIncomingDangerAt(CastFrom);
 
-	if (bHeal)
-	{
-		action.Type = EAIActionType::Support;
-		action.HealExpectedTotal = healTotal;
-		action.HealLowHpCount = healLowHpCount;
-		action.HealExtremeLowHpCount = healExtremeLowHpCount;
-	}
-	else
-	{
-		action.Type = EAIActionType::Attack;
-		action.EnemyExpectedDamage = enemyExpected;
-		action.AllyExpectedDamage = allyExpected;
-		action.AvgEnemyHitChance = (enemyCount > 0) ? hitChanceSum / enemyCount : 0.f;
-		action.ExpectedKills = expectedKills;
-		action.ExpectedCritKills = expectedCritKills;
-		action.OverkillTotal = overkillTotal;
-	}
+	//적 대상 직접 피해가 있으면 공격, 그 외는 지원
+	action.Type = bestEnemy ? EAIActionType::Attack : EAIActionType::Support;
+	action.EnemyExpectedDamage = enemyExpected;
+	action.AllyExpectedDamage = allyExpected;
+	action.AvgEnemyHitChance = (enemyCount > 0) ? hitChanceSum / enemyCount : 0.f;
+	action.ExpectedKills = expectedKills;
+	action.ExpectedCritKills = expectedCritKills;
+	action.OverkillTotal = overkillTotal;
+	action.HealExpectedTotal = healTotal;
+	action.HealLowHpCount = healLowHpCount;
+	action.HealExtremeLowHpCount = healExtremeLowHpCount;
+	action.BuffValueTotal = buffTotal;
+	action.AilmentValueTotal = ailmentTotal;
 
-	//대표를 맨 앞에, 이어서 나머지 영향 대상
+	//대표를 맨 앞에, 이어서 나머지 영향 대상 (실행 시 DirectExecute 대상 집합)
 	action.Targets.Add(primary);
-	for (ACharacterBase* c : others)
+	for (ACharacterBase* c : validTargets)
 	{
-		action.Targets.Add(c);
+		if (c != primary)
+		{
+			action.Targets.Add(c);
+		}
 	}
 
 	OutCandidates.Add(action);
 }
 
 void UUtilityAIComponent::EnumerateSingleTarget(UActiveSkillBase* Skill, ACharacterBase* Target,
-                                                bool bAssumeMoved, bool bHeal, TArray<FAIAction>& OutCandidates) const
+                                                bool bAssumeMoved, TArray<FAIAction>& OutCandidates) const
 {
 	if (!Skill || !Target || !ownerCharacter || Target->IsDead()) return;
 
@@ -377,12 +461,12 @@ void UUtilityAIComponent::EnumerateSingleTarget(UActiveSkillBase* Skill, ACharac
 			affected.Add(Target);
 		}
 
-		BuildActionFromCast(Skill, pos.Key, pos.Value, affected, bHeal, OutCandidates);
+		BuildActionFromCast(Skill, pos.Key, pos.Value, affected, OutCandidates);
 	}
 }
 
 void UUtilityAIComponent::EnumerateMultiPick(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& PickTargets,
-                                             bool bAssumeMoved, bool bHeal, TArray<FAIAction>& OutCandidates) const
+                                             bool bAssumeMoved, TArray<FAIAction>& OutCandidates) const
 {
 	if (!Skill || !ownerCharacter || PickTargets.Num() == 0) return;
 
@@ -410,20 +494,26 @@ void UUtilityAIComponent::EnumerateMultiPick(UActiveSkillBase* Skill, const TArr
 
 			const FDamageResult pr = t->PreviewDamage(Skill, ownerCharacter, pos.Key);
 			const float hitP  = pr.HitChance / 100.f;
-			float value;
-			if (bHeal)
+
+			//픽 효용 = 유효 회복(음수 데미지) 또는 기대 피해(양수) + rider 가치
+			float value = 0.f;
+			if (pr.NormalDamage < 0)
 			{
-				//회복 효용은 오버힐 제외한 유효 회복량, 풀피는 후보 제외
 				const int32 missing = t->GetMaxHp() - t->GetHp();
-				if (missing <= 0) continue;
 				const float healAmount = -static_cast<float>(pr.NormalDamage);
-				value = hitP * FMath::Min(healAmount, static_cast<float>(missing));
+				if (missing > 0) value += hitP * FMath::Min(healAmount, static_cast<float>(missing));
 			}
-			else
+			else if (pr.NormalDamage > 0)
 			{
 				const float critP = pr.CritChance / 100.f;
-				value = hitP * ((1.f - critP) * pr.NormalDamage + critP * pr.CritDamage);
+				value += hitP * ((1.f - critP) * pr.NormalDamage + critP * pr.CritDamage);
 			}
+			float buffV = 0.f;
+			float ailV = 0.f;
+			value += ComputeRiderValue(Skill, t, hitP, buffV, ailV);
+
+			//이득 없는 픽 제외
+			if (value <= 0.f) continue;
 			cands.Emplace(t, value);
 		}
 		if (cands.Num() == 0) continue;
@@ -450,12 +540,12 @@ void UUtilityAIComponent::EnumerateMultiPick(UActiveSkillBase* Skill, const TArr
 			}
 		}
 
-		BuildActionFromCast(Skill, pos.Key, pos.Value, affected, bHeal, OutCandidates);
+		BuildActionFromCast(Skill, pos.Key, pos.Value, affected, OutCandidates);
 	}
 }
 
 void UUtilityAIComponent::EnumerateGroundPoint(UActiveSkillBase* Skill, bool bAssumeMoved,
-                                               bool bHeal, TArray<FAIAction>& OutCandidates) const
+                                               TArray<FAIAction>& OutCandidates) const
 {
 	if (!Skill || !ownerCharacter) return;
 	//지면 대상 스킬은 범위가 없으면 맞출 대상이 없음
@@ -497,7 +587,7 @@ void UUtilityAIComponent::EnumerateGroundPoint(UActiveSkillBase* Skill, bool bAs
 
 			TArray<ACharacterBase*> affected;
 			CollectAreaAffected(Skill, aim, affected);
-			BuildActionFromCast(Skill, pos.Key, pos.Value, affected, bHeal, OutCandidates);
+			BuildActionFromCast(Skill, pos.Key, pos.Value, affected, OutCandidates);
 		}
 	}
 }
@@ -507,30 +597,19 @@ void UUtilityAIComponent::EnumerateSkillActions(UActiveSkillBase* Skill, bool bA
 {
 	if (!Skill || !ownerCharacter) return;
 
-	const bool bHeal = (Skill->skillType == ESkillType::Heal);
-
-	//회복 외 지원 스킬(Buff/Ailment)은 전용 점수 축이 없어 이번 단계 미열거
-	//TODO: 버프/상태이상 점수 축 구현 시 열거 활성화
-	if (!bHeal && (Skill->skillType == ESkillType::Buff || Skill->skillType == ESkillType::Ailment))
-	{
-		return;
-	}
-
-	//Self 대상: 자기 회복만 처리, 그 외 Self 지원 스킬은 보류
+	//Self 대상: 회복·자기 버프 모두 제자리 후보로 충분, 이동 패스에서는 생략
 	if (Skill->selectMode == ESelectMode::Self)
 	{
-		if (!bHeal) return;
-		//자기 회복은 제자리 후보로 충분, 이동 패스에서는 생략
 		if (bAssumeMoved) return;
 		TArray<ACharacterBase*> selfOnly;
 		selfOnly.Add(ownerCharacter);
-		BuildActionFromCast(Skill, ownerCharacter->GetActorLocation(), 0.f, selfOnly, true, OutCandidates);
+		BuildActionFromCast(Skill, ownerCharacter->GetActorLocation(), 0.f, selfOnly, OutCandidates);
 		return;
 	}
 
 	if (Skill->selectMode == ESelectMode::GroundPoint)
 	{
-		EnumerateGroundPoint(Skill, bAssumeMoved, bHeal, OutCandidates);
+		EnumerateGroundPoint(Skill, bAssumeMoved, OutCandidates);
 		return;
 	}
 
@@ -541,13 +620,13 @@ void UUtilityAIComponent::EnumerateSkillActions(UActiveSkillBase* Skill, bool bA
 
 	if (Skill->pickCount > 1)
 	{
-		EnumerateMultiPick(Skill, pickTargets, bAssumeMoved, bHeal, OutCandidates);
+		EnumerateMultiPick(Skill, pickTargets, bAssumeMoved, OutCandidates);
 	}
 	else
 	{
 		for (ACharacterBase* t : pickTargets)
 		{
-			EnumerateSingleTarget(Skill, t, bAssumeMoved, bHeal, OutCandidates);
+			EnumerateSingleTarget(Skill, t, bAssumeMoved, OutCandidates);
 		}
 	}
 }
@@ -704,6 +783,10 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 		score += Action.HealLowHpCount * p->weightHealTargetLowHp;
 		score += Action.HealExtremeLowHpCount * p->weightHealTargetExtremeLowHp;
 
+		//버프/상태이상 rider 점수, 기대 HP 환산치라 기대 피해와 같은 저울
+		score += Action.BuffValueTotal * p->weightBuffValue;
+		score += Action.AilmentValueTotal * p->weightAilmentValue;
+
 		//이동 거리 페널티
 		score += Action.PathLengthCm * p->weightDistancePenalty;
 
@@ -733,7 +816,7 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 				{
 					if (AAllyCharacterBase* allyTarget = Cast<AAllyCharacterBase>(primary))
 					{
-						const FPlayerThreatProfile& tp = gm->GetPlayerThreatProfile(allyTarget);
+						const FThreatProfile& tp = gm->GetThreatProfile(allyTarget);
 						const float tHitP  = tp.Accuracy / 100.f;
 						const float tCritP = tp.CritChance / 100.f;
 						const float targetThreat = tHitP * ((1.f - tCritP) * tp.NormalDamage + tCritP * tp.CritDamage);
@@ -796,6 +879,9 @@ void UUtilityAIComponent::StepNext()
 
 	apBefore = ownerCharacter->GetCurrentActionPoint();
 	moveBefore = ownerCharacter->GetCurrentMovingPoint();
+
+	//극단성 배율용 전장 평균 갱신
+	UpdateBattlefieldAverages();
 
 	TArray<FAIAction> candidates;
 	EnumerateActions(lastWasMove, candidates);
@@ -860,12 +946,13 @@ void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
 			if (IsValid(t)) targets.Add(t);
 		}
 
-		//회복은 회복량, 그 외는 적군 기대 피해로 로그 표기
+		//지원은 회복·버프·상태이상 가치, 그 외는 적군 기대 피해로 로그 표기
 		if (Action.Type == EAIActionType::Support)
 		{
-			UE_LOG(LogTemp, Log, TEXT("[UtilityAI] %s 회복 스킬 사용: %s → 대표 %s, 대상 %d명 (기대 회복량 %.1f)"),
+			UE_LOG(LogTemp, Log, TEXT("[UtilityAI] %s 지원 스킬 사용: %s → 대표 %s, 대상 %d명 (회복 %.1f, 버프 %.1f, 상태이상 %.1f)"),
 				*GetNameSafe(ownerCharacter), *Action.Skill->skillName.ToString(),
-				*GetNameSafe(primary), targets.Num(), Action.HealExpectedTotal);
+				*GetNameSafe(primary), targets.Num(),
+				Action.HealExpectedTotal, Action.BuffValueTotal, Action.AilmentValueTotal);
 		}
 		else
 		{
@@ -1001,7 +1088,7 @@ float UUtilityAIComponent::ComputeIncomingDangerAt(const FVector& AtLocation) co
 	{
 		if (!IsValid(threat) || threat->IsDead()) continue;
 
-		const FPlayerThreatProfile& prof = gm->GetPlayerThreatProfile(threat);
+		const FThreatProfile& prof = gm->GetThreatProfile(threat);
 		const FVector threatLoc = threat->GetActorLocation();
 
 		//사거리 밖 위협 제외
@@ -1022,6 +1109,258 @@ float UUtilityAIComponent::ComputeIncomingDangerAt(const FVector& AtLocation) co
 	return total;
 }
 
+void UUtilityAIComponent::UpdateBattlefieldAverages()
+{
+	battlefieldAvg = FBattlefieldStatAverages();
+
+	TArray<ACharacterBase*> all;
+	CollectAllCharacters(all);
+	if (all.Num() == 0) return;
+
+	for (ACharacterBase* c : all)
+	{
+		battlefieldAvg.hp += c->GetMaxHp();
+		battlefieldAvg.atk += c->GetAtk();
+		battlefieldAvg.def += c->GetDef();
+		battlefieldAvg.speed += c->GetSpeed();
+		battlefieldAvg.skill += c->GetSkill();
+		battlefieldAvg.movingPoint += c->GetMovingPoint();
+		battlefieldAvg.damageReduction += c->GetDamageReduction();
+		battlefieldAvg.damageAmplification += c->GetDamageAmplification();
+		battlefieldAvg.penetration += c->GetPenetration();
+		battlefieldAvg.accuracy += c->GetAccuracy();
+		battlefieldAvg.evasion += c->GetEvasion();
+		battlefieldAvg.critical += c->GetCritical();
+	}
+
+	const float n = static_cast<float>(all.Num());
+	battlefieldAvg.hp /= n;
+	battlefieldAvg.atk /= n;
+	battlefieldAvg.def /= n;
+	battlefieldAvg.speed /= n;
+	battlefieldAvg.skill /= n;
+	battlefieldAvg.movingPoint /= n;
+	battlefieldAvg.damageReduction /= n;
+	battlefieldAvg.damageAmplification /= n;
+	battlefieldAvg.penetration /= n;
+	battlefieldAvg.accuracy /= n;
+	battlefieldAvg.evasion /= n;
+	battlefieldAvg.critical /= n;
+}
+
+float UUtilityAIComponent::ComputeExpectedOutput(const ACharacterBase* Target) const
+{
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gm || !Target) return 0.f;
+
+	const FThreatProfile& prof = gm->GetThreatProfile(Target);
+	const float hitP  = prof.Accuracy / 100.f;
+	const float critP = prof.CritChance / 100.f;
+	return hitP * ((1.f - critP) * prof.NormalDamage + critP * prof.CritDamage);
+}
+
+float UUtilityAIComponent::ComputeIncomingFor(const ACharacterBase* Target, float& OutRawDamage) const
+{
+	OutRawDamage = 0.f;
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gm || !Target) return 0.f;
+
+	const FVector targetLoc = Target->GetActorLocation();
+
+	//대상의 상대 진영이 위협
+	TArray<ACharacterBase*> threats;
+	if (Target->IsAlly())
+	{
+		for (AEnemyBase* e : gm->GetEnemies())
+		{
+			if (IsValid(e) && !e->IsDead()) threats.Add(e);
+		}
+	}
+	else
+	{
+		for (AAllyCharacterBase* a : gm->GetAllies())
+		{
+			if (IsValid(a) && !a->IsDead()) threats.Add(a);
+		}
+	}
+
+	float total = 0.f;
+	for (ACharacterBase* threat : threats)
+	{
+		const FThreatProfile& prof = gm->GetThreatProfile(threat);
+
+		//사거리 밖 위협 제외
+		if (prof.RangeCm > 0.f && FVector::Dist(threat->GetActorLocation(), targetLoc) > prof.RangeCm) continue;
+
+		const float hitP  = prof.Accuracy / 100.f;
+		const float critP = prof.CritChance / 100.f;
+		const float raw = (1.f - critP) * prof.NormalDamage + critP * prof.CritDamage;
+		OutRawDamage += raw;
+		total += hitP * raw;
+	}
+	return total;
+}
+
+float UUtilityAIComponent::OpposingTeamAverageDef(const ACharacterBase* Target) const
+{
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gm || !Target) return 0.f;
+
+	float sum = 0.f;
+	int32 count = 0;
+	if (Target->IsAlly())
+	{
+		for (AEnemyBase* e : gm->GetEnemies())
+		{
+			if (IsValid(e) && !e->IsDead()) { sum += e->GetDef(); ++count; }
+		}
+	}
+	else
+	{
+		for (AAllyCharacterBase* a : gm->GetAllies())
+		{
+			if (IsValid(a) && !a->IsDead()) { sum += a->GetDef(); ++count; }
+		}
+	}
+	return count > 0 ? sum / count : 0.f;
+}
+
+float UUtilityAIComponent::StatLeverage(EAIBuffStat Stat, const ACharacterBase* Target) const
+{
+	if (!Target) return 0.f;
+
+	//플랫 스탯은 상수, 산식 유도값
+	switch (Stat)
+	{
+	case EAIBuffStat::Hp:          return 0.8f;
+	case EAIBuffStat::Atk:         return 0.8f;
+	case EAIBuffStat::Def:         return 0.8f;
+	case EAIBuffStat::MovingPoint: return 0.25f;
+	default: break;
+	}
+
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gm) return 0.f;
+
+	//퍼센트 스탯은 앵커의 1%, 프로파일 NormalDamage는 방어 적용 전 원시 일격 피해
+	const FThreatProfile& prof = gm->GetThreatProfile(Target);
+	const float hitP  = prof.Accuracy / 100.f;
+	const float critP = prof.CritChance / 100.f;
+	const float strikeDmg = prof.NormalDamage;
+
+	switch (Stat)
+	{
+	case EAIBuffStat::Accuracy:
+		return 0.01f * strikeDmg * (1.f + critP);
+	case EAIBuffStat::Critical:
+		return 0.01f * hitP * strikeDmg;
+	case EAIBuffStat::DamageAmplification:
+		return 0.01f * hitP * (1.f + critP) * strikeDmg;
+	case EAIBuffStat::Penetration:
+		return 0.01f * hitP * (1.f + critP) * OpposingTeamAverageDef(Target);
+	case EAIBuffStat::Evasion:
+	{
+		//회피 1%p의 가치는 명중률 미적용 원시 피격 피해의 1%
+		float rawIncoming = 0.f;
+		ComputeIncomingFor(Target, rawIncoming);
+		return 0.01f * rawIncoming;
+	}
+	case EAIBuffStat::DamageReduction:
+	{
+		float rawIncoming = 0.f;
+		return 0.01f * ComputeIncomingFor(Target, rawIncoming);
+	}
+	//파생 스탯은 SetDefaultStats 공식(skill×1.2→accuracy, skill×0.5→critical, speed×1.2→evasion)과 연동
+	case EAIBuffStat::Skill:
+		return 1.2f * StatLeverage(EAIBuffStat::Accuracy, Target)
+		     + 0.5f * StatLeverage(EAIBuffStat::Critical, Target);
+	case EAIBuffStat::Speed:
+		return 1.2f * StatLeverage(EAIBuffStat::Evasion, Target);
+	default:
+		return 0.f;
+	}
+}
+
+float UUtilityAIComponent::ExtremenessMultiplier(float TargetStat, float BattlefieldAvg, bool bSameTeam) const
+{
+	if (BattlefieldAvg <= 0.f) return 1.f;
+
+	const UAIPersonalityData* p = personalityData
+		? personalityData.Get()
+		: GetDefault<UAIPersonalityData>();
+
+	//e>0이면 전장 평균보다 높은 스탯, (팀, 부호)로 성향 가중치 선택
+	const float e = TargetStat / BattlefieldAvg - 1.f;
+	float w;
+	if (bSameTeam)
+	{
+		w = (e >= 0.f) ? p->weightPreferHighStatAlly : p->weightPreferLowStatAlly;
+	}
+	else
+	{
+		w = (e >= 0.f) ? p->weightPreferHighStatEnemy : p->weightPreferLowStatEnemy;
+	}
+	//기피(음수 w)가 커도 가치 부호는 뒤집지 않음
+	return FMath::Max(0.f, 1.f + w * FMath::Abs(e));
+}
+
+float UUtilityAIComponent::BuffValueForTarget(const UBuffBase* BuffCDO, const ACharacterBase* Target) const
+{
+	if (!BuffCDO || !Target || !ownerCharacter) return 0.f;
+
+	const bool bSameTeam = (Target->IsAlly() == ownerCharacter->IsAlly());
+
+	//스탯별 델타 × 레버리지 × 극단성 배율, 델타 0이면 항 소거
+	auto term = [&](float delta, EAIBuffStat stat, float targetStat, float avg) -> float
+	{
+		if (delta == 0.f) return 0.f;
+		return delta * StatLeverage(stat, Target) * ExtremenessMultiplier(targetStat, avg, bSameTeam);
+	};
+
+	float value = 0.f;
+	value += term(BuffCDO->hp, EAIBuffStat::Hp, Target->GetMaxHp(), battlefieldAvg.hp);
+	value += term(BuffCDO->atk, EAIBuffStat::Atk, Target->GetAtk(), battlefieldAvg.atk);
+	value += term(BuffCDO->def, EAIBuffStat::Def, Target->GetDef(), battlefieldAvg.def);
+	value += term(BuffCDO->speed, EAIBuffStat::Speed, Target->GetSpeed(), battlefieldAvg.speed);
+	value += term(BuffCDO->skill, EAIBuffStat::Skill, Target->GetSkill(), battlefieldAvg.skill);
+	value += term(BuffCDO->movingPoint, EAIBuffStat::MovingPoint, Target->GetMovingPoint(), battlefieldAvg.movingPoint);
+	value += term(BuffCDO->damageReduction, EAIBuffStat::DamageReduction, Target->GetDamageReduction(), battlefieldAvg.damageReduction);
+	value += term(BuffCDO->damageAmplification, EAIBuffStat::DamageAmplification, Target->GetDamageAmplification(), battlefieldAvg.damageAmplification);
+	value += term(BuffCDO->penetration, EAIBuffStat::Penetration, Target->GetPenetration(), battlefieldAvg.penetration);
+	value += term(BuffCDO->accuracy, EAIBuffStat::Accuracy, Target->GetAccuracy(), battlefieldAvg.accuracy);
+	value += term(BuffCDO->evasion, EAIBuffStat::Evasion, Target->GetEvasion(), battlefieldAvg.evasion);
+	value += term(BuffCDO->critical, EAIBuffStat::Critical, Target->GetCritical(), battlefieldAvg.critical);
+	//mentality/sight/actionPoint는 레버리지 미정의로 평가 제외
+
+	return value;
+}
+
+float UUtilityAIComponent::AilmentValueForTarget(const UAilmentBase* AilmentCDO, const ACharacterBase* Target) const
+{
+	if (!AilmentCDO || !Target) return 0.f;
+
+	//합산형: DoT 성분 + 제어 성분 × 대상 턴당 기대 대미지, 성분 0이면 자동 소거
+	return AilmentCDO->aiDamagePerTurn
+	     + AilmentCDO->aiControlCoefficient * ComputeExpectedOutput(Target);
+}
+
+//행동 종류 ASCII 라벨, 디버그 폰트 한글 미지원 대응
+static const TCHAR* ActionTypeStr(EAIActionType Type)
+{
+	switch (Type)
+	{
+		case EAIActionType::Attack:  return TEXT("ATK");
+		case EAIActionType::Support: return TEXT("SUP");
+		case EAIActionType::Move:    return TEXT("MOV");
+		case EAIActionType::Wait:    return TEXT("WAIT");
+	}
+	return TEXT("?");
+}
+
 void UUtilityAIComponent::DrawDebugCandidates(const TArray<FAIAction>& Candidates,
                                               const TArray<float>& Scores,
                                               const FAIAction* Best) const
@@ -1029,6 +1368,37 @@ void UUtilityAIComponent::DrawDebugCandidates(const TArray<FAIAction>& Candidate
 	if (CVarUtilityAIDebug.GetValueOnGameThread() == 0) return;
 	UWorld* world = GetWorld();
 	if (!world || Candidates.Num() != Scores.Num()) return;
+
+	//DrawDebugString은 HUD 텍스트라 카메라 분리(eject) 시 안 보임, 로그로도 점수 상위 후보 덤프
+	{
+		TArray<int32> order;
+		order.Reserve(Candidates.Num());
+		for (int32 i = 0; i < Candidates.Num(); ++i)
+		{
+			order.Add(i);
+		}
+		order.Sort([&Scores](int32 A, int32 B) { return Scores[A] > Scores[B]; });
+
+		//레벨 1은 상위 15개, 레벨 2는 전체
+		const int32 logN = (CVarUtilityAIDebug.GetValueOnGameThread() >= 2)
+			? order.Num() : FMath::Min(order.Num(), 15);
+		UE_LOG(LogTemp, Log, TEXT("[UtilityAI] %s 후보 %d개 (상위 %d개 표시)"),
+			*GetNameSafe(ownerCharacter), Candidates.Num(), logN);
+
+		for (int32 k = 0; k < logN; ++k)
+		{
+			const FAIAction& c = Candidates[order[k]];
+			const float s = Scores[order[k]];
+			const bool bIsBest = (Best && &c == Best);
+
+			UE_LOG(LogTemp, Log, TEXT("  %s%s %s>%s  %.1f | dmg %.1f ff %.1f heal %.1f buff %.1f ail %.1f dan %.1f path %.0f"),
+				bIsBest ? TEXT(">> ") : TEXT("   "), ActionTypeStr(c.Type),
+				c.Skill ? *c.Skill->GetClass()->GetName() : TEXT("-"),
+				*GetNameSafe(c.GetPrimaryTarget()), s,
+				c.EnemyExpectedDamage, c.AllyExpectedDamage, c.HealExpectedTotal,
+				c.BuffValueTotal, c.AilmentValueTotal, c.IncomingDangerExpected, c.PathLengthCm);
+		}
+	}
 
 	const float duration = 6.f;
 	const FVector textOffset(0.f, 0.f, 70.f);
@@ -1055,13 +1425,42 @@ void UUtilityAIComponent::DrawDebugCandidates(const TArray<FAIAction>& Candidate
 		DrawDebugSphere(world, c.CastFrom + FVector(0.f, 0.f, 5.f),
 			radius, 12, color, false, duration, 0, bIsBest ? 4.f : 1.5f);
 
-		//선택 후보 점수 강조
-		const FString label = bIsBest
-			? FString::Printf(TEXT(">> %.1f  (D=%.1f Path=%.0f)"),
-				score, c.IncomingDangerExpected, c.PathLengthCm)
-			: FString::Printf(TEXT("%.1f"), score);
+		//행동 종류 문자열, 디버그 폰트가 한글 미지원이라 ASCII 사용
+		const TCHAR* typeStr = TEXT("?");
+		switch (c.Type)
+		{
+			case EAIActionType::Attack:  typeStr = TEXT("ATK");  break;
+			case EAIActionType::Support: typeStr = TEXT("SUP");  break;
+			case EAIActionType::Move:    typeStr = TEXT("MOV");  break;
+			case EAIActionType::Wait:    typeStr = TEXT("WAIT"); break;
+		}
+
+		//스킬 후보는 스킬 클래스와 대표 대상까지 표기
+		FString label;
+		if (c.Skill)
+		{
+			label = FString::Printf(TEXT("%s%s %s>%s  %.1f"),
+				bIsBest ? TEXT(">> ") : TEXT(""), typeStr,
+				*c.Skill->GetClass()->GetName(), *GetNameSafe(c.GetPrimaryTarget()), score);
+		}
+		else
+		{
+			label = FString::Printf(TEXT("%s%s  %.1f"),
+				bIsBest ? TEXT(">> ") : TEXT(""), typeStr, score);
+		}
 		DrawDebugString(world, c.CastFrom + textOffset, label,
 			nullptr, color, duration, false, bIsBest ? 2.2f : 1.4f);
+
+		//점수 구성 요소 상세, 최고점은 항상·나머지는 레벨 2에서 표기
+		if (bIsBest || CVarUtilityAIDebug.GetValueOnGameThread() >= 2)
+		{
+			const FString detail = FString::Printf(
+				TEXT("dmg %.1f ff %.1f heal %.1f buff %.1f ail %.1f dan %.1f path %.0f"),
+				c.EnemyExpectedDamage, c.AllyExpectedDamage, c.HealExpectedTotal,
+				c.BuffValueTotal, c.AilmentValueTotal, c.IncomingDangerExpected, c.PathLengthCm);
+			DrawDebugString(world, c.CastFrom + textOffset - FVector(0.f, 0.f, 22.f), detail,
+				nullptr, color, duration, false, bIsBest ? 1.4f : 1.0f);
+		}
 
 		//공격과 지원 의도선 표시, 영향 대상마다 한 줄씩
 		if (c.Type == EAIActionType::Attack || c.Type == EAIActionType::Support)

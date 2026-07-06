@@ -80,6 +80,14 @@ struct FAIAction
 	UPROPERTY(BlueprintReadOnly)
 	float HealExtremeLowHpCount = 0.f;
 
+	//버프 기대 가치 합산, 기대 HP 환산·팀부호 반영
+	UPROPERTY(BlueprintReadOnly)
+	float BuffValueTotal = 0.f;
+
+	//상태이상 기대 가치 합산, 기대 HP 환산·팀부호 반영
+	UPROPERTY(BlueprintReadOnly)
+	float AilmentValueTotal = 0.f;
+
 	//시전 위치의 예상 피격 피해
 	UPROPERTY(BlueprintReadOnly)
 	float IncomingDangerExpected = 0.f;

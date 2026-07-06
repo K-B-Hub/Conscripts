@@ -7,6 +7,7 @@
 #include "Actors/AttackRangeIndicator.h"
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/PassiveSkillComponent.h"
+#include "GameMode/BattleGameMode.h"
 
 USkillComponent::USkillComponent()
 {
@@ -191,6 +192,12 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<AChara
 
 	//자원 차감은 1회만
 	Skill->BeginUse();
+
+	//위협 프로파일에 기록
+	if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		gm->RecordSkillUse(ownerCharacter, Skill);
+	}
 
 	//대상별로 예측 계산 후 명중 시 효과 실행
 	for (ACharacterBase* Target : Targets)

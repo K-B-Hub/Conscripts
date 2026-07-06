@@ -126,7 +126,7 @@ void ACharacterBase::BeginPlay()
 	}
 	SetDefaultStats();
 	SetDefaultSkills();
-	//패시브는 SetDefaultStats 이후에 등록, 파생 스탯 덮어쓰기 방지
+	//패시브 등록, 파생 스탯 보너스는 컴포넌트에 저장되어 재계산에도 보존
 	SetDefaultPassives();
 }
 
@@ -142,9 +142,22 @@ void ACharacterBase::SetDefaultPassives()
 
 void ACharacterBase::SetDefaultStats()
 {
+	//기본 공식으로 계산 후 버프/패시브 보너스 가산, 언제 재계산해도 보너스 보존
 	accuracy = skill * 1.2;
 	evasion = speed * 1.2;
 	critical = skill * 0.5;
+	if (buffComponent)
+	{
+		accuracy += buffComponent->GetAccuracyBonus();
+		evasion += buffComponent->GetEvasionBonus();
+		critical += buffComponent->GetCriticalBonus();
+	}
+	if (passiveSkillComponent)
+	{
+		accuracy += passiveSkillComponent->GetAccuracyBonus();
+		evasion += passiveSkillComponent->GetEvasionBonus();
+		critical += passiveSkillComponent->GetCriticalBonus();
+	}
 	if (skillComponent)
 	{
 		skillComponent->CalcSkillStats();
@@ -405,15 +418,16 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	penetration += buff->penetration * sign;
 	sight += buff->sight * sign;
 
-	//전투 파생 스탯은 직접 가감, 자동 재계산은 하지 않음
-	accuracy += buff->accuracy * sign;
-	evasion += buff->evasion * sign;
-	critical += buff->critical * sign;
-
-	//스킬 측 계산값 재계산 알림, 사망 상태에서는 owner가 stale weak ptr이라 스킵
-	if (skillComponent && !IsDead())
+	//전투 파생 스탯은 직접 가감하지 않고 BuffComponent 보너스에 저장, 재계산 시 가산
+	if (buffComponent)
 	{
-		skillComponent->CalcSkillStats();
+		buffComponent->AddCombatStatBonus(buff->accuracy * sign, buff->evasion * sign, buff->critical * sign);
+	}
+
+	//파생 스탯 재계산(보너스 포함), 사망 상태에서는 owner가 stale weak ptr이라 스킵
+	if (!IsDead())
+	{
+		SetDefaultStats();
 	}
 }
 
@@ -476,14 +490,16 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 	penetration += passive->penetration * sign;
 	sight += passive->sight * sign;
 
-	//전투 파생 스탯은 직접 가감, SetDefaultStats 재호출하지 않음
-	accuracy += passive->accuracy * sign;
-	evasion += passive->evasion * sign;
-	critical += passive->critical * sign;
-
-	if (skillComponent && !IsDead())
+	//전투 파생 스탯은 직접 가감하지 않고 PassiveSkillComponent 보너스에 저장, 재계산 시 가산
+	if (passiveSkillComponent)
 	{
-		skillComponent->CalcSkillStats();
+		passiveSkillComponent->AddCombatStatBonus(passive->accuracy * sign, passive->evasion * sign, passive->critical * sign);
+	}
+
+	//파생 스탯 재계산(보너스 포함), 사망 상태에서는 owner가 stale weak ptr이라 스킵
+	if (!IsDead())
+	{
+		SetDefaultStats();
 	}
 
 	//변경된 스탯만 로그 출력

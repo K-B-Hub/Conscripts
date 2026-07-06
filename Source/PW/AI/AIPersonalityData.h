@@ -78,6 +78,27 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Cost")
 	float weightRemainingResource = 0.f;
 
+	//버프 가치 가중치, 기대 HP 환산치에 곱산
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
+	float weightBuffValue = 1.0f;
+
+	//상태이상 가치 가중치, 기대 HP 환산치에 곱산
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
+	float weightAilmentValue = 1.0f;
+
+	//아군의 높은 스탯 강화 선호
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
+	float weightPreferHighStatAlly = 0.f;
+	//아군의 낮은 스탯 보충 선호
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
+	float weightPreferLowStatAlly = 0.f;
+	//적의 높은 스탯 디버프 선호
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
+	float weightPreferHighStatEnemy = 0.f;
+	//적의 낮은 스탯 디버프 선호
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
+	float weightPreferLowStatEnemy = 0.f;
+
 	//예상 피격 피해 가중치
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Risk")
 	float weightIncomingDanger = -0.5f;
