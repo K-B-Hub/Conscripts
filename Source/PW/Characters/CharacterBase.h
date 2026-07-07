@@ -94,16 +94,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Skill")
 	TObjectPtr<UPassiveSkillComponent> passiveSkillComponent;
 
-	//카메라 관련
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	TObjectPtr<class USpringArmComponent> springArmComponent;
-	UPROPERTY(VisibleAnywhere, Category = "Camera")
-	TObjectPtr<class UCameraComponent> cameraComponent;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float cameraArmLength = 1400.f;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float cameraPitchAngle = -55.f;
-
 	//캐릭터 스탯
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 maxHp = 10;
@@ -138,7 +128,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 penetration = 0;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
-	float sight = 10;
+	float sight = 15;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 battleResource = 10;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
@@ -216,6 +206,7 @@ public:
 	int32 GetAtk() const { return atk; }
 	int32 GetSpeed() const { return speed; }
 	int32 GetSkill() const { return skill; }
+	float GetSight() const { return sight; }
 	float GetAccuracy() const { return accuracy; }
 	float GetCritical() const { return critical; }
 	int32 GetDamageAmplification() const { return damageAmplification; }

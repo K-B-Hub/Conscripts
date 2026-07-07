@@ -6,6 +6,7 @@
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "PlayerController/BattleController.h"
+#include "Pawn/CameraPawn.h"
 #include "AI/AIController/EnemyAIController.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Enum/SkillTypes.h"
@@ -13,6 +14,8 @@
 
 ABattleGameMode::ABattleGameMode()
 {
+	//플레이어는 카메라 전용 폰을 상시 빙의, 캐릭터 빙의 전환 없음
+	DefaultPawnClass = ACameraPawn::StaticClass();
 }
 
 void ABattleGameMode::BeginPlay()
@@ -28,15 +31,18 @@ void ABattleGameMode::BeginPlay()
 			ACharacterBase* Character = *It;
 			if (!IsValid(Character)) continue;
 
-			Character->SetNavObstacleEnabled(true);
 			Character->OnCharacterDeath.AddDynamic(this, &ABattleGameMode::OnCharacterDeath);
 
 			if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(Character))
 			{
+				//아군은 상시 전투로 장애물 등록
+				Character->SetNavObstacleEnabled(true);
 				allies.Add(Ally);
 			}
 			else if (AEnemyBase* Enemy = Cast<AEnemyBase>(Character))
 			{
+				//적은 전투 합류 전까지 미등록, JoinCombat에서 등록
+				Character->SetNavObstacleEnabled(false);
 				enemies.Add(Enemy);
 				Enemy->OnEnemyDeath.AddDynamic(this, &ABattleGameMode::OnEnemyDeath);
 			}
@@ -109,10 +115,17 @@ void ABattleGameMode::StartCurrentTurn()
 
 	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
 	{
-		//별도 입력이 없으면 카메라가 행동 중인 AI를 추적하도록 컨트롤러에 통지
+		//시야 내 적만 카메라 추적, 시야 밖 적 턴은 카메라 무조작
 		if (ABattleController* BattleController = Cast<ABattleController>(GetWorld()->GetFirstPlayerController()))
 		{
-			BattleController->BeginAITurnFollow(Enemy);
+			if (Enemy->IsVisibleToPlayers())
+			{
+				BattleController->BeginAITurnFollow(Enemy);
+			}
+			else
+			{
+				BattleController->ClearAITurnFollow();
+			}
 		}
 
 		//적 턴 시작, InitTurn 내부에서 AIController에 통지되어 BT 실행
@@ -121,10 +134,10 @@ void ABattleGameMode::StartCurrentTurn()
 	}
 	else if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(TurnUnit))
 	{
+		//빙의 전환 없이 컨트롤러에 턴 유닛만 전달, 카메라는 컨트롤러가 추적 처리
 		ABattleController* BattleController = Cast<ABattleController>(GetWorld()->GetFirstPlayerController());
 		if (BattleController)
 		{
-			BattleController->Possess(Ally);
 			BattleController->InitTurn(Ally);
 		}
 	}

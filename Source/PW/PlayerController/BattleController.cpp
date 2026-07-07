@@ -43,17 +43,26 @@ void ABattleController::BeginPlay()
 		}
 	}
 
-	//초기 카메라 Yaw/Pitch를 스프링암 기준으로 동기화
-	if (APawn* ControlledPawn = GetPawn())
+	//카메라 폰 스프링암 캐시 및 초기 Yaw/Pitch 동기화
+	if (USpringArmComponent* SpringArm = ResolveSpringArm())
 	{
-		if (USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>())
+		const FRotator InitRot = SpringArm->GetRelativeRotation();
+		currentCameraYaw     = InitRot.Yaw;
+		cachedSpringArmPitch = InitRot.Pitch;
+	}
+}
+
+USpringArmComponent* ABattleController::ResolveSpringArm()
+{
+	//카메라 폰은 상시 빙의라 최초 1회만 재캐시 발생
+	if (!IsValid(cachedSpringArm))
+	{
+		if (APawn* ControlledPawn = GetPawn())
 		{
-			const FRotator InitRot = SpringArm->GetRelativeRotation();
-			currentCameraYaw     = InitRot.Yaw;
-			cachedSpringArmPitch = InitRot.Pitch;
+			cachedSpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
 		}
 	}
-
+	return cachedSpringArm;
 }
 
 void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
@@ -62,12 +71,9 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 
 	activeUnit = TurnUnit;
 	aiFollowTarget = nullptr; //아군 턴 진입, 적 추적 해제
-	cachedSpringArm = activeUnit
-		? activeUnit->FindComponentByClass<USpringArmComponent>()
-		: nullptr;
-	if (cachedSpringArm == nullptr)
+	if (ResolveSpringArm() == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[BattleController] InitTurn: 유효한 SpringArmComponent를 찾을 수 없습니다."));
+		UE_LOG(LogTemp, Warning, TEXT("[BattleController] InitTurn: 카메라 폰의 SpringArmComponent를 찾을 수 없습니다."));
 		return;
 	}
 	activeUnit->InitTurn();
@@ -142,8 +148,6 @@ void ABattleController::EndTurn()
 		skillWidgetInstance = nullptr;
 	}
 	activeUnit = nullptr;
-	//턴 주인의 스프링암 참조 해제, 적 턴은 BeginAITurnFollow가 재캐시
-	cachedSpringArm = nullptr;
 }
 
 void ABattleController::SetupInputComponent()
@@ -183,8 +187,7 @@ void ABattleController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	//사망 직후 pending-kill 구간 방어, raw 검사로는 파괴된 컴포넌트 접근 가능
-	if (IsValid(cachedSpringArm))
+	if (USpringArmComponent* SpringArm = ResolveSpringArm())
 	{
 		//추적 대상은 아군 턴이면 activeUnit, 적 턴이면 aiFollowTarget
 		AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
@@ -193,15 +196,15 @@ void ABattleController::Tick(float DeltaTime)
 		//카메라 추적 모드, 스프링암 위치를 캐릭터 위치로 고정
 		if (bIsFollowingCharacter && followUnit)
 		{
-			cachedSpringArm->SetWorldLocation(followUnit->GetActorLocation());
-			SnapSpringArmToGround(cachedSpringArm);
+			SpringArm->SetWorldLocation(followUnit->GetActorLocation());
+			SnapSpringArmToGround(SpringArm);
 		}
 		//자유 이동 모드, 입력이 없으면 관성으로 감속
 		else if (!bCameraInputActive && !cameraVelocity.IsNearlyZero(1.f))
 		{
 			cameraVelocity = FMath::VInterpTo(cameraVelocity, FVector::ZeroVector, DeltaTime, cameraMoveSmoothing);
-			cachedSpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
-			SnapSpringArmToGround(cachedSpringArm);
+			SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
+			SnapSpringArmToGround(SpringArm);
 		}
 	}
 
@@ -210,10 +213,7 @@ void ABattleController::Tick(float DeltaTime)
 
 void ABattleController::OnCameraMove(const FInputActionValue& Value)
 {
-	APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn) return;
-
-	USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
+	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm) return;
 
 	const FVector2D MoveInput = Value.Get<FVector2D>();
@@ -240,10 +240,7 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 
 void ABattleController::OnCameraRotate(const FInputActionValue& Value)
 {
-	APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn) return;
-
-	USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
+	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm) return;
 
 	const float RotateInput = Value.Get<float>();
@@ -257,10 +254,7 @@ void ABattleController::OnCameraRotate(const FInputActionValue& Value)
 
 void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 {
-	APawn* ControlledPawn = GetPawn();
-	if (!ControlledPawn) return;
-
-	USpringArmComponent* SpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
+	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm) return;
 
 	const float ZoomInput = Value.Get<float>();
@@ -324,17 +318,18 @@ void ABattleController::OnCameraReset(const FInputActionValue& Value)
 {
 	AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
 	if (!followUnit) followUnit = IsValid(aiFollowTarget) ? static_cast<AActor*>(aiFollowTarget) : nullptr;
-	if (!IsValid(cachedSpringArm) || !followUnit) return;
+	USpringArmComponent* SpringArm = ResolveSpringArm();
+	if (!SpringArm || !followUnit) return;
 
 	//스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화
-	cachedSpringArm->SetWorldLocation(followUnit->GetActorLocation());
-	SnapSpringArmToGround(cachedSpringArm);
+	SpringArm->SetWorldLocation(followUnit->GetActorLocation());
+	SnapSpringArmToGround(SpringArm);
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = true;
 
-	//카메라 각도를 초기값으로 리셋, 턴 전환 시 이전 캐릭터의 Yaw가 남는 문제 방지
+	//카메라 각도를 초기값으로 리셋, 턴 전환 시 이전 Yaw가 남는 문제 방지
 	currentCameraYaw = 0.f;
-	cachedSpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
+	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
 void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
@@ -343,16 +338,12 @@ void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
 
 	aiFollowTarget = AIUnit;
 
-	//적 턴엔 빙의 전환이 없으므로 현재 빙의 폰의 스프링암을 카메라 피벗으로 사용
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		cachedSpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
-	}
-	if (!IsValid(cachedSpringArm)) return;
+	USpringArmComponent* SpringArm = ResolveSpringArm();
+	if (!SpringArm) return;
 
 	//즉시 AI 위치로 스냅 후 추적 모드 활성화
-	cachedSpringArm->SetWorldLocation(AIUnit->GetActorLocation());
-	SnapSpringArmToGround(cachedSpringArm);
+	SpringArm->SetWorldLocation(AIUnit->GetActorLocation());
+	SnapSpringArmToGround(SpringArm);
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = true;
 }

@@ -34,6 +34,7 @@ EBTNodeResult::Type UBTTask_Patrol::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 		return EBTNodeResult::InProgress;
 	}
 
+	//비전투 적은 NavMesh 미등록 상태라 순찰 중 장애물 처리 불필요
 	FAIMoveRequest req(enemy->GetCurrentPatrolWorldLocation());
 	req.SetUsePathfinding(true);
 	req.SetAcceptanceRadius(10.f);

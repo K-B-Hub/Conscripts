@@ -1,8 +1,6 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CharacterBase.h"
-#include "GameFramework/SpringArmComponent.h"
-#include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -66,16 +64,6 @@ ACharacterBase::ACharacterBase()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	springArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	springArmComponent->TargetArmLength = cameraArmLength;
-	springArmComponent->SetRelativeRotation(FRotator(cameraPitchAngle, 0.f, 0.f));
-	springArmComponent->bUsePawnControlRotation = false;
-	springArmComponent->bDoCollisionTest = false;
-
-	cameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-	cameraComponent->SetupAttachment(springArmComponent, USpringArmComponent::SocketName);
-	cameraComponent->bUsePawnControlRotation = false;
-
 	healthWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("HealthWidget"));
 	healthWidgetComponent->SetupAttachment(RootComponent);
 	healthWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 120.f)); //캡슐 상단 위
@@ -110,9 +98,11 @@ ACharacterBase::ACharacterBase()
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 
-	bUseControllerRotationYaw = false; 
+	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 540.f, 0.f);
+	//컨트롤러는 카메라 폰만 빙의, 빙의 없이도 AddMovementInput 이동 허용
+	GetCharacterMovement()->bRunPhysicsWithNoController = true;
 }
 
 void ACharacterBase::BeginPlay()
@@ -629,6 +619,8 @@ void ACharacterBase::SetNavObstacleEnabled(bool bEnabled)
 	if (UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld()))
 	{
 		NavSys->UpdateActorInNavOctree(*this);
+		//월드 시작 직후 등 옥트리 갱신이 타일 재빌드로 이어지지 않는 경우 대비, 캡슐 영역 명시적 dirty
+		NavSys->AddDirtyArea(GetCapsuleComponent()->Bounds.GetBox().ExpandBy(100.f), ENavigationDirtyFlag::All);
 	}
 }
 

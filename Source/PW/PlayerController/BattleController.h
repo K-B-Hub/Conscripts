@@ -31,8 +31,11 @@ public:
 	void InitTurn(AAllyCharacterBase* TurnUnit);
 	void EndTurn();
 
-	//적 턴 시작 시 GameMode에서 호출, 현재 빙의 폰의 스프링암을 피벗으로 AI 추적
+	//적 턴 시작 시 GameMode에서 호출, 카메라 폰 스프링암을 피벗으로 AI 추적
 	void BeginAITurnFollow(ACharacterBase* AIUnit);
+
+	//시야 밖 적 턴, 추적 대상만 해제하고 카메라는 무조작
+	void ClearAITurnFollow() { aiFollowTarget = nullptr; }
 
 	//MoveWidget 버튼에서 호출, 이동 모드 토글
 	void ToggleMoveMode();
@@ -113,10 +116,14 @@ private:
 	//현재 카메라가 바라보는 Yaw 각도, 회전 누적용
 	float currentCameraYaw = 0.f;
 
-	//true면 Tick에서 스프링암 위치를 캐릭터 위치로 고정, false면 자유 이동 모드
-	//캐릭터 소유 컴포넌트라 소유자 사망 시 GC가 null 처리하도록 UPROPERTY 필수
+	//상시 빙의 중인 카메라 폰의 스프링암 캐시
 	UPROPERTY()
 	TObjectPtr<class USpringArmComponent> cachedSpringArm = nullptr;
+
+	//카메라 폰 스프링암 반환, 캐시 미보유 시 빙의 폰에서 재캐시
+	class USpringArmComponent* ResolveSpringArm();
+
+	//true면 Tick에서 스프링암 위치를 캐릭터 위치로 고정, false면 자유 이동 모드
 	bool bIsFollowingCharacter = true;
 
 	//Detach 후에도 Pitch를 복원하기 위해 초기값 캐싱

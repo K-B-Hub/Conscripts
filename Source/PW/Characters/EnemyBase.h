@@ -38,6 +38,9 @@ public:
 	float GetDetectionAngle() const { return detectionAngle; }
 	float GetProximityWaveRadius() const { return proximityWaveRadius; }
 
+	//플레이어 진영 시야 내 여부, 시야 밖 적은 숨김·카메라 추적 제외
+	bool IsVisibleToPlayers() const { return bVisibleToPlayers; }
+
 	//비전투 중 상대 진영 피격 시 즉시 전투 전환
 	virtual void ReceiveDamage(int32 Amount, bool bIsLethal) override;
 
@@ -83,4 +86,10 @@ protected:
 	//전투 행동 결정, 전투 진입 후 자기 턴에 ExecuteTurn 호출
 	UPROPERTY(VisibleAnywhere, Category = "AI")
 	TObjectPtr<UUtilityAIComponent> utilityAI;
+
+	//시야 판정 결과 캐시, 변화 시에만 숨김 상태 갱신
+	bool bVisibleToPlayers = false;
+
+	//아군 시야 스탯(XY 반경) 기준 가시성 갱신, Tick에서 호출
+	void UpdatePlayerVisibility();
 };

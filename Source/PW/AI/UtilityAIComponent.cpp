@@ -924,7 +924,19 @@ void UUtilityAIComponent::StepNext()
 	lastWasMove = false;
 	ExecuteAttackImmediate(*best);
 	if (ShouldStopAfterStep()) { FinishTurn(); return; }
+	ScheduleStepNext();
+}
+
+void UUtilityAIComponent::ScheduleStepNext()
+{
+	if (bFastForward) { StepNext(); return; }
 	GetWorld()->GetTimerManager().SetTimer(stepTimerHandle, this, &UUtilityAIComponent::StepNext, actionDelay, false);
+}
+
+void UUtilityAIComponent::SchedulePendingAfterMove()
+{
+	if (bFastForward) { ExecutePendingAfterMove(); return; }
+	GetWorld()->GetTimerManager().SetTimer(stepTimerHandle, this, &UUtilityAIComponent::ExecutePendingAfterMove, actionDelay, false);
 }
 
 void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
@@ -1030,15 +1042,23 @@ void UUtilityAIComponent::OnAIMoveCompleted(FAIRequestID RequestID, EPathFollowi
 		}
 	}
 
-	//예약된 이동 후 공격 처리
+	//예약된 이동 후 공격도 행동 간 딜레이 후 실행
 	if (bHasPendingAfterMove)
 	{
 		bHasPendingAfterMove = false;
-		ExecuteAttackImmediate(pendingActionAfterMove);
+		SchedulePendingAfterMove();
+		return;
 	}
 
 	if (ShouldStopAfterStep()) { FinishTurn(); return; }
-	GetWorld()->GetTimerManager().SetTimer(stepTimerHandle, this, &UUtilityAIComponent::StepNext, actionDelay, false);
+	ScheduleStepNext();
+}
+
+void UUtilityAIComponent::ExecutePendingAfterMove()
+{
+	ExecuteAttackImmediate(pendingActionAfterMove);
+	if (ShouldStopAfterStep()) { FinishTurn(); return; }
+	ScheduleStepNext();
 }
 
 bool UUtilityAIComponent::ShouldStopAfterStep() const

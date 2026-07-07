@@ -4,6 +4,8 @@
 #include "Characters/AllyCharacterBase.h"
 #include "AI/AIController/EnemyAIController.h"
 #include "AI/UtilityAIComponent.h"
+#include "GameMode/BattleGameMode.h"
+#include "Components/WidgetComponent.h"
 #include "DrawDebugHelpers.h"
 
 AEnemyBase::AEnemyBase()
@@ -22,6 +24,13 @@ void AEnemyBase::BeginPlay()
 	spawnLocation = GetActorLocation();
 	//원위치(상대좌표 0)를 순찰 지점에 추가 — 1개만 입력해도 원위치와 왕복
 	patrolPoints.AddUnique(FVector::ZeroVector);
+
+	//시야 판정 전 기본 숨김, 첫 Tick에서 갱신
+	SetActorHiddenInGame(true);
+	if (healthWidgetComponent)
+	{
+		healthWidgetComponent->SetVisibility(false);
+	}
 }
 
 FVector AEnemyBase::GetCurrentPatrolWorldLocation() const
@@ -60,9 +69,40 @@ void AEnemyBase::InitTurn()
 	}
 }
 
+void AEnemyBase::UpdatePlayerVisibility()
+{
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gm) return;
+
+	//생존 아군 하나라도 시야 반경(XY) 안이면 가시
+	bool bVisible = false;
+	const FVector myLoc = GetActorLocation();
+	for (AAllyCharacterBase* ally : gm->GetAllies())
+	{
+		if (!IsValid(ally) || ally->IsDead()) continue;
+		if (FVector::Dist2D(ally->GetActorLocation(), myLoc) <= ally->GetSight() * 100.f)
+		{
+			bVisible = true;
+			break;
+		}
+	}
+
+	//변화 시에만 숨김 상태 갱신
+	if (bVisible == bVisibleToPlayers) return;
+	bVisibleToPlayers = bVisible;
+	SetActorHiddenInGame(!bVisible);
+	if (healthWidgetComponent)
+	{
+		healthWidgetComponent->SetVisibility(bVisible);
+	}
+}
+
 void AEnemyBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	UpdatePlayerVisibility();
 
 	if (!bShowDetectionDebug) return;
 

@@ -9,6 +9,7 @@
 #include "GameMode/BattleGameMode.h"
 #include "AI/UtilityAIComponent.h"
 #include "AI/AINavigationHelper.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 const FName AEnemyAIController::BBKey_TargetActor(TEXT("TargetActor"));
 const FName AEnemyAIController::BBKey_InCombat(TEXT("InCombat"));
@@ -63,6 +64,37 @@ void AEnemyAIController::OnEnemyTurnStart()
 		return;
 	}
 
+	//시야 밖 턴은 연출 딜레이 생략 + 이동 배속으로 빠르게 진행
+	AEnemyBase* enemyPawn = Cast<AEnemyBase>(GetPawn());
+	bFastForwardTurn = enemyPawn && !enemyPawn->IsVisibleToPlayers();
+	if (enemyPawn)
+	{
+		if (UUtilityAIComponent* ai = enemyPawn->FindComponentByClass<UUtilityAIComponent>())
+		{
+			ai->SetFastForward(bFastForwardTurn);
+		}
+		if (bFastForwardTurn)
+		{
+			if (UCharacterMovementComponent* move = enemyPawn->GetCharacterMovement())
+			{
+				normalWalkSpeed = move->MaxWalkSpeed;
+				move->MaxWalkSpeed *= fastForwardSpeedMultiplier;
+			}
+		}
+	}
+
+	//행동 시작 연출 딜레이, 카메라가 행동 주체를 먼저 비추도록
+	if (!bFastForwardTurn && turnStartDelay > 0.f)
+	{
+		GetWorld()->GetTimerManager().SetTimer(turnPacingTimerHandle, this,
+			&AEnemyAIController::BeginTurnAction, turnStartDelay, false);
+		return;
+	}
+	BeginTurnAction();
+}
+
+void AEnemyAIController::BeginTurnAction()
+{
 	//알람 합류자는 교전 게이트 밖이면 알람 지점 접근만 수행
 	if (bHasAlarmFocus)
 	{
@@ -109,6 +141,20 @@ void AEnemyAIController::OnUtilityAITurnComplete()
 
 void AEnemyAIController::OnEnemyTurnEnd()
 {
+	//고속 턴 종료, 이동 배속 복원
+	const bool bWasFastForward = bFastForwardTurn;
+	if (bWasFastForward)
+	{
+		bFastForwardTurn = false;
+		if (ACharacterBase* pawnAsChar = Cast<ACharacterBase>(GetPawn()))
+		{
+			if (UCharacterMovementComponent* move = pawnAsChar->GetCharacterMovement())
+			{
+				move->MaxWalkSpeed = normalWalkSpeed;
+			}
+		}
+	}
+
 	//NavMesh 장애물 복원 및 버프/상태이상 차감, TurnEnd Conditional 패시브 발동
 	if (ACharacterBase* pawnAsChar = Cast<ACharacterBase>(GetPawn()))
 	{
@@ -127,12 +173,12 @@ void AEnemyAIController::OnEnemyTurnEnd()
 		bb->SetValueAsObject(BBKey_TargetActor, nullptr);
 	}
 
-	//다음 틱에 턴 진행
+	//턴 종료 연출 딜레이 후 다음 턴 진행
 	UWorld* world = GetWorld();
 	if (!world) return;
 
 	TWeakObjectPtr<AEnemyAIController> weakSelf(this);
-	world->GetTimerManager().SetTimerForNextTick([weakSelf]()
+	FTimerDelegate advanceTurn = FTimerDelegate::CreateLambda([weakSelf]()
 	{
 		if (!weakSelf.IsValid()) return;
 		if (ABattleGameMode* gm = weakSelf->GetWorld()->GetAuthGameMode<ABattleGameMode>())
@@ -140,6 +186,14 @@ void AEnemyAIController::OnEnemyTurnEnd()
 			gm->OnTurnEnd();
 		}
 	});
+	if (!bWasFastForward && turnEndDelay > 0.f)
+	{
+		world->GetTimerManager().SetTimer(turnPacingTimerHandle, advanceTurn, turnEndDelay, false);
+	}
+	else
+	{
+		world->GetTimerManager().SetTimerForNextTick(advanceTurn);
+	}
 }
 
 void AEnemyAIController::EvaluateDetectionAndMaybeJoinCombat()
@@ -219,6 +273,12 @@ void AEnemyAIController::JoinCombat(EJoinCombatReason Reason, const FVector& Ala
 		btComp->StopTree(EBTStopMode::Safe);
 	}
 	StopMovement();
+
+	//전투 합류와 함께 NavMesh 장애물 등록, 이후 본인 턴에만 해제
+	if (ACharacterBase* pawnChar = Cast<ACharacterBase>(GetPawn()))
+	{
+		pawnChar->SetNavObstacleEnabled(true);
+	}
 
 	//전투 그룹 등록 위치
 	//if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
+#include "TimerManager.h"
 #include "EnemyAIController.generated.h"
 
 class UBehaviorTree;
@@ -62,6 +63,24 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Combat")
 	float engagementGateRadius = 1000.f;
 
+	//턴 시작 후 첫 행동까지의 연출 딜레이
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Pacing")
+	float turnStartDelay = 0.8f;
+
+	//마지막 행동 후 다음 턴 진행까지의 연출 딜레이
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Pacing")
+	float turnEndDelay = 0.8f;
+
+	//시야 밖 턴 이동 배속
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Pacing")
+	float fastForwardSpeedMultiplier = 3.f;
+
+	//시야 밖 고속 턴 여부, 턴 시작 시 판정
+	bool bFastForwardTurn = false;
+
+	//배속 복원용 원래 이동 속도
+	float normalWalkSpeed = 0.f;
+
 	//알람 발생 지점, 게이트 통과 전까지 접근 목표
 	FVector alarmFocusLocation = FVector::ZeroVector;
 	bool bHasAlarmFocus = false;
@@ -79,6 +98,12 @@ private:
 
 	//UtilityAI 턴 완료 콜백
 	void OnUtilityAITurnComplete();
+
+	//턴 시작 딜레이 후 실제 행동 개시, 게이트 검사와 UtilityAI 실행
+	void BeginTurnAction();
+
+	//턴 시작/종료 연출 딜레이 타이머
+	FTimerHandle turnPacingTimerHandle;
 
 	//알람 지점 접근 이동 시작, 이동 접수 시 true
 	bool TryStartApproachToAlarm();
