@@ -142,6 +142,8 @@ void ABattleController::EndTurn()
 		skillWidgetInstance = nullptr;
 	}
 	activeUnit = nullptr;
+	//턴 주인의 스프링암 참조 해제, 적 턴은 BeginAITurnFollow가 재캐시
+	cachedSpringArm = nullptr;
 }
 
 void ABattleController::SetupInputComponent()
@@ -181,11 +183,12 @@ void ABattleController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (cachedSpringArm)
+	//사망 직후 pending-kill 구간 방어, raw 검사로는 파괴된 컴포넌트 접근 가능
+	if (IsValid(cachedSpringArm))
 	{
 		//추적 대상은 아군 턴이면 activeUnit, 적 턴이면 aiFollowTarget
-		AActor* followUnit = activeUnit;
-		if (!followUnit) followUnit = aiFollowTarget;
+		AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
+		if (!followUnit) followUnit = IsValid(aiFollowTarget) ? static_cast<AActor*>(aiFollowTarget) : nullptr;
 
 		//카메라 추적 모드, 스프링암 위치를 캐릭터 위치로 고정
 		if (bIsFollowingCharacter && followUnit)
@@ -319,9 +322,9 @@ void ABattleController::OnCancelMove(const FInputActionValue& Value)
 
 void ABattleController::OnCameraReset(const FInputActionValue& Value)
 {
-	AActor* followUnit = IsValid(activeUnit) ? activeUnit : nullptr;
-	if (!followUnit) followUnit = IsValid(aiFollowTarget) ? aiFollowTarget : nullptr;
-	if (!cachedSpringArm || !followUnit) return;
+	AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
+	if (!followUnit) followUnit = IsValid(aiFollowTarget) ? static_cast<AActor*>(aiFollowTarget) : nullptr;
+	if (!IsValid(cachedSpringArm) || !followUnit) return;
 
 	//스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화
 	cachedSpringArm->SetWorldLocation(followUnit->GetActorLocation());
@@ -345,7 +348,7 @@ void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
 	{
 		cachedSpringArm = ControlledPawn->FindComponentByClass<USpringArmComponent>();
 	}
-	if (!cachedSpringArm) return;
+	if (!IsValid(cachedSpringArm)) return;
 
 	//즉시 AI 위치로 스냅 후 추적 모드 활성화
 	cachedSpringArm->SetWorldLocation(AIUnit->GetActorLocation());

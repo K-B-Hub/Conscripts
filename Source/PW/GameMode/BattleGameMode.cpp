@@ -6,6 +6,7 @@
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "PlayerController/BattleController.h"
+#include "AI/AIController/EnemyAIController.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Enum/SkillTypes.h"
 #include "Object/Skill/ActiveSkillBase.h"
@@ -21,11 +22,10 @@ void ABattleGameMode::BeginPlay()
 	//모든 액터의 BeginPlay 완료를 보장하기 위해 첫 턴 시작을 다음 틱으로 지연
 	GetWorldTimerManager().SetTimerForNextTick([this]()
 	{
-		BuildTurnOrder();
-
-		//아군/적군 분류 및 적 사망 델리게이트 바인딩
-		for (ACharacterBase* Character : turnOrder)
+		//아군/적군 분류 및 사망 델리게이트 바인딩, 턴 순서는 전투 참여자만 담으므로 전 캐릭터를 별도 순회
+		for (TActorIterator<ACharacterBase> It(GetWorld()); It; ++It)
 		{
+			ACharacterBase* Character = *It;
 			if (!IsValid(Character)) continue;
 
 			Character->SetNavObstacleEnabled(true);
@@ -42,6 +42,8 @@ void ABattleGameMode::BeginPlay()
 			}
 		}
 
+		BuildTurnOrder();
+
 		if (turnOrder.Num() > 0)
 		{
 			//첫 라운드 RoundStart Conditional 패시브, 첫 턴 시작 전 발동
@@ -53,16 +55,22 @@ void ABattleGameMode::BeginPlay()
 
 void ABattleGameMode::BuildTurnOrder()
 {
-	//레벨 내 모든 ACharacterBase를 수집
+	//레벨 내 ACharacterBase 중 턴 대상만 수집
 	TArray<TPair<int32, ACharacterBase*>> scored;
 	for (TActorIterator<ACharacterBase> It(GetWorld()); It; ++It)
 	{
 		ACharacterBase* Character = *It;
-		if (IsValid(Character))
+		if (!IsValid(Character)) continue;
+
+		//비전투 적은 턴 순서 제외, 실시간 BT로 행동하다 전투 합류 시 다음 라운드부터 참여
+		if (AEnemyBase* Enemy = Cast<AEnemyBase>(Character))
 		{
-			//GetTurnOrder()는 RandRange를 포함하므로 한 번만 호출해 캐싱
-			scored.Add(TPair<int32, ACharacterBase*>(Character->GetTurnOrder(), Character));
+			AEnemyAIController* aic = Cast<AEnemyAIController>(Enemy->GetController());
+			if (!aic || !aic->IsInCombat()) continue;
 		}
+
+		//GetTurnOrder()는 RandRange를 포함하므로 한 번만 호출해 캐싱
+		scored.Add(TPair<int32, ACharacterBase*>(Character->GetTurnOrder(), Character));
 	}
 
 	//내림차순 정렬, 값이 높을수록 먼저 행동

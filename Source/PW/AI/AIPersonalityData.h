@@ -70,6 +70,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Cost")
 	float weightMoveAdvance = 0.005f;
 
+	//접근 가중치, 이동 후보의 최근접 플레이어 거리 감소량(cm)에 곱산
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Cost")
+	float weightApproach = 0.02f;
+
 	//자원 비용 페널티
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Cost")
 	float weightResourceCost = -1.0f;

@@ -103,6 +103,9 @@ protected:
 	//지정 위치의 예상 피격 피해 계산
 	float ComputeIncomingDangerAt(const FVector& AtLocation) const;
 
+	//최근접 생존 플레이어까지의 거리, 없으면 -1
+	float DistToNearestPlayer(const FVector& From) const;
+
 	//전장 평균 스탯 스냅샷, 극단성 배율의 분모
 	struct FBattlefieldStatAverages
 	{

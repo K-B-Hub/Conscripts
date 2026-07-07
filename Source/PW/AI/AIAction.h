@@ -40,6 +40,10 @@ struct FAIAction
 	UPROPERTY(BlueprintReadOnly)
 	float PathLengthCm = 0.f;
 
+	//최근접 플레이어와의 거리 감소량, 이동 후보 전용
+	UPROPERTY(BlueprintReadOnly)
+	float ApproachDeltaCm = 0.f;
+
 	//대표 대상의 피해 예측
 	UPROPERTY(BlueprintReadOnly)
 	FDamageResult Preview;

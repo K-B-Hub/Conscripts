@@ -75,8 +75,8 @@ public:
 	//몽타주 재생 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
 	float montagePlayRate = 1.0f;
-	//스킬 사용 가능 여부 검사
-	bool CanExecute() const;
+	//스킬 사용 가능 여부 검사, 파생에서 추가 조건 가능(알람 1회 제한 등)
+	virtual bool CanExecute() const;
 
 	void SetCalcedStats();
 
