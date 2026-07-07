@@ -250,7 +250,8 @@ public:
 
 	//데미지 적용 후 HealthWidget 갱신, 음수일시 회복
 	//bIsLethal=false 시 hp를 1까지만 깎고 사망 처리 안 함 (환경 데미지, 상태이상 등)
-	void ReceiveDamage(int32 Amount, bool bIsLethal);
+	//적은 override로 비전투 피격 시 전투 전환
+	virtual void ReceiveDamage(int32 Amount, bool bIsLethal);
 
 	//사망 시 호출, 파생 클래스에서 사전 처리 후 Super 호출
 	virtual void HandleDeath();

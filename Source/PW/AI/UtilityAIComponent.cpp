@@ -639,6 +639,9 @@ void UUtilityAIComponent::EnumerateMoveActions(TArray<FAIAction>& OutCandidates)
 
 	const FVector casterLoc = ownerCharacter->GetActorLocation();
 
+	//접근 축 기준 거리
+	const float baseDist = DistToNearestPlayer(casterLoc);
+
 	//잔여 이동력 비율별 링 샘플
 	static const float radiusRatios[] = { 0.1f, 0.3f, 0.5f, 0.7f, 1.0f };
 	const int32 numDirs = FMath::Max(1, moveDirectionsPerRing);
@@ -663,6 +666,7 @@ void UUtilityAIComponent::EnumerateMoveActions(TArray<FAIAction>& OutCandidates)
 			FAIAction action;
 			action.CastFrom = sample;
 			action.PathLengthCm = pathLenCm;
+			action.ApproachDeltaCm = (baseDist >= 0.f) ? baseDist - DistToNearestPlayer(sample) : 0.f;
 			action.IncomingDangerExpected = ComputeIncomingDangerAt(sample);
 			action.Type = EAIActionType::Move;
 			OutCandidates.Add(action);
@@ -758,6 +762,8 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 		//순수 이동 점수
 		score += Action.PathLengthCm * p->weightMoveAdvance;
 		score += Action.PathLengthCm * p->weightDistancePenalty;
+		//접근 축, 최근접 플레이어와의 거리 감소량 보상
+		score += Action.ApproachDeltaCm * p->weightApproach;
 	}
 	else
 	{
@@ -1109,6 +1115,23 @@ float UUtilityAIComponent::ComputeIncomingDangerAt(const FVector& AtLocation) co
 	return total;
 }
 
+//최근접 생존 플레이어까지의 거리, 없으면 -1
+float UUtilityAIComponent::DistToNearestPlayer(const FVector& From) const
+{
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gm) return -1.f;
+
+	float best = -1.f;
+	for (AAllyCharacterBase* a : gm->GetAllies())
+	{
+		if (!IsValid(a) || a->IsDead()) continue;
+		const float d = FVector::Dist(a->GetActorLocation(), From);
+		if (best < 0.f || d < best) best = d;
+	}
+	return best;
+}
+
 void UUtilityAIComponent::UpdateBattlefieldAverages()
 {
 	battlefieldAvg = FBattlefieldStatAverages();
@@ -1321,7 +1344,8 @@ float UUtilityAIComponent::BuffValueForTarget(const UBuffBase* BuffCDO, const AC
 		return delta * StatLeverage(stat, Target) * ExtremenessMultiplier(targetStat, avg, bSameTeam);
 	};
 
-	float value = 0.f;
+	//스탯 외 효과의 수동 환산치, 극단성 미적용
+	float value = BuffCDO->aiBaseValue;
 	value += term(BuffCDO->hp, EAIBuffStat::Hp, Target->GetMaxHp(), battlefieldAvg.hp);
 	value += term(BuffCDO->atk, EAIBuffStat::Atk, Target->GetAtk(), battlefieldAvg.atk);
 	value += term(BuffCDO->def, EAIBuffStat::Def, Target->GetDef(), battlefieldAvg.def);
@@ -1391,12 +1415,12 @@ void UUtilityAIComponent::DrawDebugCandidates(const TArray<FAIAction>& Candidate
 			const float s = Scores[order[k]];
 			const bool bIsBest = (Best && &c == Best);
 
-			UE_LOG(LogTemp, Log, TEXT("  %s%s %s>%s  %.1f | dmg %.1f ff %.1f heal %.1f buff %.1f ail %.1f dan %.1f path %.0f"),
+			UE_LOG(LogTemp, Log, TEXT("  %s%s %s>%s  %.1f | dmg %.1f ff %.1f heal %.1f buff %.1f ail %.1f dan %.1f app %.0f path %.0f"),
 				bIsBest ? TEXT(">> ") : TEXT("   "), ActionTypeStr(c.Type),
 				c.Skill ? *c.Skill->GetClass()->GetName() : TEXT("-"),
 				*GetNameSafe(c.GetPrimaryTarget()), s,
 				c.EnemyExpectedDamage, c.AllyExpectedDamage, c.HealExpectedTotal,
-				c.BuffValueTotal, c.AilmentValueTotal, c.IncomingDangerExpected, c.PathLengthCm);
+				c.BuffValueTotal, c.AilmentValueTotal, c.IncomingDangerExpected, c.ApproachDeltaCm, c.PathLengthCm);
 		}
 	}
 
@@ -1455,9 +1479,9 @@ void UUtilityAIComponent::DrawDebugCandidates(const TArray<FAIAction>& Candidate
 		if (bIsBest || CVarUtilityAIDebug.GetValueOnGameThread() >= 2)
 		{
 			const FString detail = FString::Printf(
-				TEXT("dmg %.1f ff %.1f heal %.1f buff %.1f ail %.1f dan %.1f path %.0f"),
+				TEXT("dmg %.1f ff %.1f heal %.1f buff %.1f ail %.1f dan %.1f app %.0f path %.0f"),
 				c.EnemyExpectedDamage, c.AllyExpectedDamage, c.HealExpectedTotal,
-				c.BuffValueTotal, c.AilmentValueTotal, c.IncomingDangerExpected, c.PathLengthCm);
+				c.BuffValueTotal, c.AilmentValueTotal, c.IncomingDangerExpected, c.ApproachDeltaCm, c.PathLengthCm);
 			DrawDebugString(world, c.CastFrom + textOffset - FVector(0.f, 0.f, 22.f), detail,
 				nullptr, color, duration, false, bIsBest ? 1.4f : 1.0f);
 		}

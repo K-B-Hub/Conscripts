@@ -1,9 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Characters/EnemyCharacters/EnemyTest.h"
+#include "Characters/EnemyCharacters/EnemyTestAlarm.h"
 
 #include "ActorComponent/SkillComponent.h"
+#include "Object/Skill/ActiveSkill/AlarmSkill.h"
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/TestDebuffSkill.h"
 #include "Object/Skill/ActiveSkill/test/TestHeal.h"
@@ -13,17 +14,12 @@
 #include "Object/Skill/ActiveSkill/test/SingleBuff.h"
 #include "Object/Skill/ActiveSkill/test/SingleAilment.h"
 
-AEnemyTest::AEnemyTest()
-{
-	atk = 12;
-	skill = 50;
-}
-
-void AEnemyTest::SetDefaultSkills()
+void AEnemyTestAlarm::SetDefaultSkills()
 {
 	Super::SetDefaultSkills();
 	if (skillComponent)
 	{
+		skillComponent->AddSkill(UAlarmSkill::StaticClass());
 		skillComponent->AddSkill(USingleRangeAttack::StaticClass());
 		skillComponent->AddSkill(UTestDebuffSkill::StaticClass());
 		skillComponent->AddSkill(UTestHeal::StaticClass());

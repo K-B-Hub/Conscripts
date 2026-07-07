@@ -8,6 +8,7 @@
 #include "Characters/AllyCharacterBase.h"
 #include "GameMode/BattleGameMode.h"
 #include "AI/UtilityAIComponent.h"
+#include "AI/AINavigationHelper.h"
 
 const FName AEnemyAIController::BBKey_TargetActor(TEXT("TargetActor"));
 const FName AEnemyAIController::BBKey_InCombat(TEXT("InCombat"));
@@ -26,6 +27,12 @@ void AEnemyAIController::OnPossess(APawn* InPawn)
 	{
 		UBlackboardComponent* bbComp = nullptr;
 		UseBlackboard(blackboardData, bbComp);
+	}
+
+	//비전투는 턴과 무관한 실시간 BT 루프로 행동 시작
+	if (!bIsInCombat)
+	{
+		RunCurrentBT();
 	}
 }
 
@@ -47,34 +54,52 @@ void AEnemyAIController::OnEnemyTurnStart()
 		pawnAsChar->SetNavObstacleEnabled(false);
 	}
 
-	//비전투 상태에서만 감지 평가
+	//턴은 전투 참여자만 배정되는 전제, 비전투로 들어오면 즉시 종료
 	if (!bIsInCombat)
 	{
-		EvaluateDetectionAndMaybeJoinCombat();
-	}
-
-	//전투 상태는 UtilityAI로 행동 결정
-	if (bIsInCombat)
-	{
-		if (APawn* pawn = GetPawn())
-		{
-			if (UUtilityAIComponent* ai = pawn->FindComponentByClass<UUtilityAIComponent>())
-			{
-				ai->OnTurnComplete.Clear();
-				ai->OnTurnComplete.AddUObject(this, &AEnemyAIController::OnUtilityAITurnComplete);
-				ai->ExecuteTurn();
-				return;
-			}
-		}
-		//컴포넌트 없으면 턴 즉시 종료
-		UE_LOG(LogTemp, Warning, TEXT("[EnemyAIController] %s UtilityAIComponent 미부착 — 턴 즉시 종료"),
+		UE_LOG(LogTemp, Warning, TEXT("[EnemyAIController] %s 비전투 상태로 턴 진입 — 턴 순서 필터 확인 필요"),
 			*GetNameSafe(GetPawn()));
 		OnEnemyTurnEnd();
 		return;
 	}
 
-	//비전투 BT 실행
-	RunCurrentBT();
+	//알람 합류자는 교전 게이트 밖이면 알람 지점 접근만 수행
+	if (bHasAlarmFocus)
+	{
+		if (APawn* pawnPtr = GetPawn())
+		{
+			if (FVector::Dist(pawnPtr->GetActorLocation(), alarmFocusLocation) <= engagementGateRadius)
+			{
+				//게이트 통과, 이번 턴부터 UtilityAI로 행동
+				bHasAlarmFocus = false;
+			}
+			else
+			{
+				//접근 이동 후 턴 종료, 이동 불가면 즉시 종료
+				if (!TryStartApproachToAlarm())
+				{
+					OnEnemyTurnEnd();
+				}
+				return;
+			}
+		}
+	}
+
+	//전투 상태는 UtilityAI로 행동 결정
+	if (APawn* pawn = GetPawn())
+	{
+		if (UUtilityAIComponent* ai = pawn->FindComponentByClass<UUtilityAIComponent>())
+		{
+			ai->OnTurnComplete.Clear();
+			ai->OnTurnComplete.AddUObject(this, &AEnemyAIController::OnUtilityAITurnComplete);
+			ai->ExecuteTurn();
+			return;
+		}
+	}
+	//컴포넌트 없으면 턴 즉시 종료
+	UE_LOG(LogTemp, Warning, TEXT("[EnemyAIController] %s UtilityAIComponent 미부착 — 턴 즉시 종료"),
+		*GetNameSafe(GetPawn()));
+	OnEnemyTurnEnd();
 }
 
 void AEnemyAIController::OnUtilityAITurnComplete()
@@ -126,42 +151,74 @@ void AEnemyAIController::EvaluateDetectionAndMaybeJoinCombat()
 	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	if (!gm) return;
 
+	//감지 대상은 전투 중인 캐릭터, 플레이어 진영은 항상 전투중 판정
+	TArray<ACharacterBase*> combatants;
+	for (AAllyCharacterBase* ally : gm->GetAllies())
+	{
+		if (IsValid(ally) && !ally->IsDead())
+		{
+			combatants.Add(ally);
+		}
+	}
+	//전투 중인 같은 진영을 목격해도 전투 합류
+	for (AEnemyBase* other : gm->GetEnemies())
+	{
+		if (!IsValid(other) || other == enemy || other->IsDead()) continue;
+		AEnemyAIController* otherAIC = Cast<AEnemyAIController>(other->GetController());
+		if (otherAIC && otherAIC->IsInCombat())
+		{
+			combatants.Add(other);
+		}
+	}
+
 	//적 눈높이에서 시야 검사
 	const FVector eyeFrom = enemy->GetPawnViewLocation();
 	FCollisionQueryParams params(SCENE_QUERY_STAT(EnemyDetection), false, enemy);
 
 	//한 명이라도 감지되면 전투로 전환
-	for (AAllyCharacterBase* ally : gm->GetAllies())
+	for (ACharacterBase* target : combatants)
 	{
-		if (!IsValid(ally) || ally->IsDead()) continue;
-
 		//부채꼴 감지 검사
-		if (!enemy->IsInDetectionFan(ally->GetActorLocation())) continue;
+		if (!enemy->IsInDetectionFan(target->GetActorLocation())) continue;
 
 		//시야 차단 검사
-		const FVector eyeTo = ally->GetPawnViewLocation();
+		const FVector eyeTo = target->GetPawnViewLocation();
 		FHitResult hit;
 		const bool bHit = world->LineTraceSingleByChannel(hit, eyeFrom, eyeTo, ECC_Visibility, params);
-		if (bHit && hit.GetActor() != ally) continue;
+		if (bHit && hit.GetActor() != target) continue;
 
 		//감지 성공 시 전투 전환
-		UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 감지 → 전투 전환 (트리거 아군: %s)"),
-			*enemy->GetName(), *ally->GetName());
+		UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 감지 → 전투 전환 (트리거: %s)"),
+			*enemy->GetName(), *target->GetName());
 		JoinCombat(EJoinCombatReason::Detection);
 		return;
 	}
 }
 
-void AEnemyAIController::JoinCombat(EJoinCombatReason Reason)
+void AEnemyAIController::JoinCombat(EJoinCombatReason Reason, const FVector& AlarmOrigin)
 {
 	//이미 전투면 무시
 	if (bIsInCombat) return;
 
 	bIsInCombat = true;
+
+	//알람 합류는 게이트 통과 전까지 알람 지점을 접근 목표로 저장
+	if (Reason == EJoinCombatReason::Alarm)
+	{
+		alarmFocusLocation = AlarmOrigin;
+		bHasAlarmFocus = true;
+	}
 	if (UBlackboardComponent* bb = GetBlackboardComponent())
 	{
 		bb->SetValueAsBool(BBKey_InCombat, true);
 	}
+
+	//실시간 비전투 BT와 진행 중 이동 중단, 턴은 다음 라운드부터 배정됨
+	if (UBehaviorTreeComponent* btComp = Cast<UBehaviorTreeComponent>(BrainComponent))
+	{
+		btComp->StopTree(EBTStopMode::Safe);
+	}
+	StopMovement();
 
 	//전투 그룹 등록 위치
 	//if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
@@ -171,6 +228,126 @@ void AEnemyAIController::JoinCombat(EJoinCombatReason Reason)
 
 	UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s JoinCombat (Reason=%d)"),
 		*GetNameSafe(GetPawn()), static_cast<int32>(Reason));
+
+	//감지·피격 전환만 근접 합류 파동 전파, 파동·알람 합류자는 재전파하지 않음
+	if (Reason == EJoinCombatReason::Detection || Reason == EJoinCombatReason::Attacked)
+	{
+		BroadcastProximityWave();
+	}
+}
+
+void AEnemyAIController::BroadcastProximityWave()
+{
+	AEnemyBase* enemy = Cast<AEnemyBase>(GetPawn());
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!enemy || !gm) return;
+
+	const FVector origin = enemy->GetActorLocation();
+	const float radius = enemy->GetProximityWaveRadius();
+	if (radius <= 0.f) return;
+
+	int32 joined = 0;
+	for (AEnemyBase* other : gm->GetEnemies())
+	{
+		if (!IsValid(other) || other == enemy || other->IsDead()) continue;
+		//파동은 소리라 시야 차단 무시, 거리로만 판정
+		if (FVector::Dist(other->GetActorLocation(), origin) > radius) continue;
+
+		if (AEnemyAIController* otherAIC = Cast<AEnemyAIController>(other->GetController()))
+		{
+			if (!otherAIC->IsInCombat())
+			{
+				otherAIC->JoinCombat(EJoinCombatReason::Proximity);
+				++joined;
+			}
+		}
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 근접 합류 파동 (반경 %.0f, 합류 %d명)"),
+		*enemy->GetName(), radius, joined);
+}
+
+bool AEnemyAIController::TryStartApproachToAlarm()
+{
+	ACharacterBase* pawnChar = Cast<ACharacterBase>(GetPawn());
+	if (!pawnChar) return false;
+
+	const float budgetCm = pawnChar->GetCurrentMovingPoint() * 100.f;
+	if (budgetCm <= 0.f) return false;
+
+	const FVector pawnLoc = pawnChar->GetActorLocation();
+	const FVector desired = ComputeApproachDestination(pawnLoc, budgetCm);
+	if (FVector::Dist(pawnLoc, desired) < 1.f) return false;
+
+	//직선 목적지가 막혀 있으면 비율 축소 재시도
+	static const float ratios[] = { 1.f, 0.7f, 0.4f };
+	FVector dest = pawnLoc;
+	float pathLenCm = 0.f;
+	bool bFound = false;
+	for (float ratio : ratios)
+	{
+		const FVector candidate = pawnLoc + (desired - pawnLoc) * ratio;
+		if (UAINavigationHelper::CanReach(pawnChar, candidate, pathLenCm) && pathLenCm <= budgetCm)
+		{
+			dest = candidate;
+			bFound = true;
+			break;
+		}
+	}
+	if (!bFound) return false;
+
+	//중복 콜백 방지
+	ReceiveMoveCompleted.RemoveDynamic(this, &AEnemyAIController::OnApproachMoveCompleted);
+	ReceiveMoveCompleted.AddUniqueDynamic(this, &AEnemyAIController::OnApproachMoveCompleted);
+
+	FAIMoveRequest req(dest);
+	req.SetUsePathfinding(true);
+	req.SetAcceptanceRadius(10.f);
+
+	if (MoveTo(req) != EPathFollowingRequestResult::RequestSuccessful)
+	{
+		ReceiveMoveCompleted.RemoveDynamic(this, &AEnemyAIController::OnApproachMoveCompleted);
+		return false;
+	}
+
+	//이동 상태 반영 및 이동력 차감
+	pawnChar->OnMoveStateChanged(true);
+	pawnChar->ConsumeMovingPoint(pathLenCm / 100.f);
+
+	UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 알람 지점 접근 이동 (잔여 거리 %.0f)"),
+		*GetNameSafe(pawnChar), FVector::Dist(dest, alarmFocusLocation));
+	return true;
+}
+
+FVector AEnemyAIController::ComputeApproachDestination(const FVector& PawnLoc, float BudgetCm) const
+{
+	//TODO: 알람 지점(alarmFocusLocation) 방향 목적지 결정
+	//선택지 1: 이동력(BudgetCm)만큼 최대 직진 — 게이트 안쪽 깊숙이 진입 가능
+	//선택지 2: 게이트 경계(engagementGateRadius) 근처에서 정지 — 경계에 도열 후 다음 턴부터 UtilityAI
+	//반환 Z는 PawnLoc.Z 유지, 도달 가능 여부는 호출부가 검증
+	FVector targetLoc = alarmFocusLocation;
+	targetLoc.Z = PawnLoc.Z;
+
+	const FVector direction = (targetLoc - PawnLoc).GetSafeNormal();
+	if (direction.IsNearlyZero()) return PawnLoc;
+
+	return PawnLoc + direction * BudgetCm;
+}
+
+void AEnemyAIController::OnApproachMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
+{
+	ReceiveMoveCompleted.RemoveDynamic(this, &AEnemyAIController::OnApproachMoveCompleted);
+
+	//이동 완료 패시브 발동
+	if (Result == EPathFollowingResult::Success)
+	{
+		if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+		{
+			gm->BroadcastMoveComplete();
+		}
+	}
+	OnEnemyTurnEnd();
 }
 
 void AEnemyAIController::RunCurrentBT()

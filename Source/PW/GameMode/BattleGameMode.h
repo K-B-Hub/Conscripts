@@ -56,6 +56,10 @@ public:
 	//AI 위험도·레버리지 계산 시 사용, 미관측 캐릭터면 디폴트 프로파일 반환
 	const FThreatProfile& GetThreatProfile(const ACharacterBase* Character) const;
 
+	//알람 스킬 전역 1회 제한, 한 명이 쓰면 모든 보유자가 재사용 불가
+	bool IsAlarmUsed() const { return bAlarmUsed; }
+	void MarkAlarmUsed() { bAlarmUsed = true; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -84,6 +88,9 @@ private:
 	//캐릭터 별 관측된 최대 위협 프로파일, 키가 없으면 디폴트 반환
 	UPROPERTY()
 	TMap<TObjectPtr<ACharacterBase>, FThreatProfile> threatProfiles;
+
+	//알람 스킬 사용 여부
+	bool bAlarmUsed = false;
 
 	//캐릭터 사망 시 turnOrder/아군/적군 배열 정리
 	UFUNCTION()

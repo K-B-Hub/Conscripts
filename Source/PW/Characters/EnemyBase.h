@@ -36,6 +36,10 @@ public:
 
 	float GetDetectionRadius() const { return detectionRadius; }
 	float GetDetectionAngle() const { return detectionAngle; }
+	float GetProximityWaveRadius() const { return proximityWaveRadius; }
+
+	//비전투 중 상대 진영 피격 시 즉시 전투 전환
+	virtual void ReceiveDamage(int32 Amount, bool bIsLethal) override;
 
 	//왕복 순찰 가능한지 — BeginPlay에서 원위치를 더하므로 입력 지점이 1개 이상이면 총 2개 이상
 	bool CanPatrol() const { return patrolPoints.Num() >= 2; }
@@ -71,6 +75,10 @@ protected:
 	//에디터에서 부채꼴 디버그 표시
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
 	bool bShowDetectionDebug = false;
+
+	//감지·피격 전환 시 근접 합류 파동 반경, 이 안의 같은 진영 캐릭터를 함께 전투로 전환
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
+	float proximityWaveRadius = 2000.f;
 
 	//전투 행동 결정, 전투 진입 후 자기 턴에 ExecuteTurn 호출
 	UPROPERTY(VisibleAnywhere, Category = "AI")

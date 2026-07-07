@@ -97,6 +97,26 @@ bool AEnemyBase::IsInDetectionFan(const FVector& worldPoint) const
 	return FVector::DotProduct(forward, dir) >= cosHalfAngle;
 }
 
+void AEnemyBase::ReceiveDamage(int32 Amount, bool bIsLethal)
+{
+	Super::ReceiveDamage(Amount, bIsLethal);
+
+	//사망(은밀 처치)이나 실피해 없음은 전환 없음
+	if (IsDead() || Amount <= 0) return;
+
+	//상대 진영에게 피격당한 경우만 전투 전환
+	ACharacterBase* attacker = GetLastAttacker().Get();
+	if (!attacker || attacker->IsAlly() == IsAlly()) return;
+
+	if (AEnemyAIController* aic = Cast<AEnemyAIController>(GetController()))
+	{
+		if (!aic->IsInCombat())
+		{
+			aic->JoinCombat(EJoinCombatReason::Attacked);
+		}
+	}
+}
+
 void AEnemyBase::HandleDeath()
 {
 	//lastAttacker를 Ally로 캐스팅, 경험치 분배는 아군 처치 한정

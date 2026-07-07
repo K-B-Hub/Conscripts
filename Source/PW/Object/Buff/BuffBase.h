@@ -67,6 +67,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Buff")
 	bool isStackable = false;
 
+	//AI 평가용 기본 가치(턴당, 기대 HP 환산), 스탯 델타로 표현 안 되는 효과(알람 등)의 수동 환산치
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+	float aiBaseValue = 0.f;
+
 	//적용 직후 1회 호출
 	virtual void OnApply(ACharacterBase* affected, ACharacterBase* caster);
 

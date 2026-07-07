@@ -114,7 +114,9 @@ private:
 	float currentCameraYaw = 0.f;
 
 	//true면 Tick에서 스프링암 위치를 캐릭터 위치로 고정, false면 자유 이동 모드
-	class USpringArmComponent* cachedSpringArm = nullptr;
+	//캐릭터 소유 컴포넌트라 소유자 사망 시 GC가 null 처리하도록 UPROPERTY 필수
+	UPROPERTY()
+	TObjectPtr<class USpringArmComponent> cachedSpringArm = nullptr;
 	bool bIsFollowingCharacter = true;
 
 	//Detach 후에도 Pitch를 복원하기 위해 초기값 캐싱
