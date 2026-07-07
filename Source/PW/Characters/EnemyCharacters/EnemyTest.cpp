@@ -9,6 +9,9 @@
 #include "Object/Skill/ActiveSkill/test/TestHeal.h"
 #include "Object/Skill/ActiveSkill/test/RangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/MultiPick.h"
+#include "Object/Skill/ActiveSkill/test/SelfBuffSkill.h"
+#include "Object/Skill/ActiveSkill/test/SingleBuff.h"
+#include "Object/Skill/ActiveSkill/test/SingleAilment.h"
 
 AEnemyTest::AEnemyTest()
 {
@@ -26,5 +29,9 @@ void AEnemyTest::SetDefaultSkills()
 		skillComponent->AddSkill(UTestHeal::StaticClass());
 		skillComponent->AddSkill(URangeAttack::StaticClass());
 		skillComponent->AddSkill(UMultiPick::StaticClass());
+		//UtilityAI 버프/상태이상 후보 검증용
+		skillComponent->AddSkill(USelfBuffSkill::StaticClass());
+		skillComponent->AddSkill(USingleBuff::StaticClass());
+		skillComponent->AddSkill(USingleAilment::StaticClass());
 	}
 }
