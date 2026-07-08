@@ -71,6 +71,9 @@ void AEnemyBase::InitTurn()
 
 void AEnemyBase::UpdatePlayerVisibility()
 {
+	//한번 관측된 적은 시야 밖으로 나가도 영구 가시
+	if (bVisibleToPlayers) return;
+
 	UWorld* world = GetWorld();
 	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	if (!gm) return;

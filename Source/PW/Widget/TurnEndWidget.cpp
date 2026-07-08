@@ -2,8 +2,7 @@
 
 #include "Widget/TurnEndWidget.h"
 
-#include "../../../../../UE_5.6/Engine/Source/Runtime/Engine/Classes/AI/NavigationSystemBase.h"
-#include "Components/Button.h"
+#include "Widget/CircularButtonWidget.h"
 #include "GameMode/BattleGameMode.h"
 #include "PlayerController/BattleController.h"
 

@@ -87,9 +87,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "AI")
 	TObjectPtr<UUtilityAIComponent> utilityAI;
 
-	//시야 판정 결과 캐시, 변화 시에만 숨김 상태 갱신
+	//관측 여부, 한번 관측되면 영구 유지
 	bool bVisibleToPlayers = false;
 
-	//아군 시야 스탯(XY 반경) 기준 가시성 갱신, Tick에서 호출
+	//아군 시야 스탯(XY 반경) 기준 가시성 갱신, Tick에서 호출, 미관측 상태에서만 판정
 	void UpdatePlayerVisibility();
 };

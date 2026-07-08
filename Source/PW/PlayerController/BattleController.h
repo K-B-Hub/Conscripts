@@ -15,6 +15,7 @@ class ACharacterBase;
 class UTurnEndWidget;
 class USkillWidget;
 class UMoveWidget;
+class UCircularGaugeWidget;
 class UActiveSkillBase;
 class AAttackRangeIndicator;
 
@@ -180,6 +181,25 @@ private:
 	//생성된 스킬 위젯 인스턴스
 	UPROPERTY()
 	TObjectPtr<USkillWidget> skillWidgetInstance = nullptr;
+
+	//HP 게이지 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UCircularGaugeWidget> hpGaugeWidgetClass;
+
+	//생성된 HP 게이지 인스턴스
+	UPROPERTY()
+	TObjectPtr<UCircularGaugeWidget> hpGaugeWidgetInstance = nullptr;
+
+	//스트레스 게이지 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UCircularGaugeWidget> stressGaugeWidgetClass;
+
+	//생성된 스트레스 게이지 인스턴스
+	UPROPERTY()
+	TObjectPtr<UCircularGaugeWidget> stressGaugeWidgetInstance = nullptr;
+
+	//activeUnit->OnVitalsChanged 수신, 게이지 수치 갱신
+	void RefreshGauges();
 
 	//스킬 실행, 타겟 검증 후 ReflectDamage + Execute
 	void ExecuteSkill();
