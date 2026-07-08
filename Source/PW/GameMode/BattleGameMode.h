@@ -26,6 +26,11 @@ struct FThreatProfile
 	UPROPERTY(BlueprintReadOnly) float RangeCm = 300.f;
 };
 
+//턴 순서 배열 재구성 시 통지 (배열, 현재 턴 인덱스)
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTurnOrderRebuilt, const TArray<ACharacterBase*>&, int32);
+//턴 전환 시 통지 (현재 턴 인덱스)
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnChanged, int32);
+
 UCLASS()
 class PW_API ABattleGameMode : public AGameModeBase
 {
@@ -33,6 +38,14 @@ class PW_API ABattleGameMode : public AGameModeBase
 
 public:
 	ABattleGameMode();
+
+	//턴 순서 UI 갱신용 델리게이트
+	FOnTurnOrderRebuilt OnTurnOrderRebuilt;
+	FOnTurnChanged OnTurnChanged;
+
+	//턴 순서 UI가 생성 시점의 상태를 당겨올 때 사용
+	const TArray<ACharacterBase*>& GetTurnOrder() const { return turnOrder; }
+	int32 GetCurrentTurnIndex() const { return currentTurnIndex; }
 
 	//현재 턴의 유닛이 행동을 마쳤을 때 BattleController에서 호출
 	void OnTurnEnd();

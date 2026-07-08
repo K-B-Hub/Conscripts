@@ -11,6 +11,7 @@
 #include "Widget/TurnEndWidget.h"
 #include "Widget/SkillWidget.h"
 #include "Widget/MoveWidget.h"
+#include "Widget/CircularGaugeWidget.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
@@ -119,6 +120,29 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 			skillWidgetInstance->AddToViewport();
 		}
 	}
+
+	//HP/스트레스 게이지 생성, 현재 턴 유닛 수치로 초기화
+	if (hpGaugeWidgetClass)
+	{
+		hpGaugeWidgetInstance = CreateWidget<UCircularGaugeWidget>(this, hpGaugeWidgetClass);
+		if (hpGaugeWidgetInstance)
+		{
+			hpGaugeWidgetInstance->AddToViewport();
+			hpGaugeWidgetInstance->InitGauge(activeUnit->GetMaxHp(), activeUnit->GetHp());
+		}
+	}
+	if (stressGaugeWidgetClass)
+	{
+		stressGaugeWidgetInstance = CreateWidget<UCircularGaugeWidget>(this, stressGaugeWidgetClass);
+		if (stressGaugeWidgetInstance)
+		{
+			stressGaugeWidgetInstance->AddToViewport();
+			stressGaugeWidgetInstance->InitGauge(activeUnit->GetMaxStress(), activeUnit->GetStress());
+		}
+	}
+
+	//턴 중 hp/스트레스 변동 반영, EndTurn에서 해제
+	activeUnit->OnVitalsChanged.AddUObject(this, &ABattleController::RefreshGauges);
 }
 
 void ABattleController::EndTurn()
@@ -127,6 +151,7 @@ void ABattleController::EndTurn()
 	{
 		//델리게이트 해제 후 이동 종료, 해제 먼저 해야 오발 방지
 		activeUnit->OnMovementCompleted.RemoveAll(this);
+		activeUnit->OnVitalsChanged.RemoveAll(this);
 		activeUnit->SetNavObstacleEnabled(true); //턴 종료 후 다시 장애물로 등록
 		ExitMoveMode();
 		DeactivateSkill();
@@ -147,7 +172,31 @@ void ABattleController::EndTurn()
 		skillWidgetInstance->RemoveFromParent();
 		skillWidgetInstance = nullptr;
 	}
+	if (IsValid(hpGaugeWidgetInstance))
+	{
+		hpGaugeWidgetInstance->RemoveFromParent();
+		hpGaugeWidgetInstance = nullptr;
+	}
+	if (IsValid(stressGaugeWidgetInstance))
+	{
+		stressGaugeWidgetInstance->RemoveFromParent();
+		stressGaugeWidgetInstance = nullptr;
+	}
 	activeUnit = nullptr;
+}
+
+void ABattleController::RefreshGauges()
+{
+	if (!IsValid(activeUnit)) return;
+
+	if (IsValid(hpGaugeWidgetInstance))
+	{
+		hpGaugeWidgetInstance->SetValue(activeUnit->GetHp());
+	}
+	if (IsValid(stressGaugeWidgetInstance))
+	{
+		stressGaugeWidgetInstance->SetValue(activeUnit->GetStress());
+	}
 }
 
 void ABattleController::SetupInputComponent()

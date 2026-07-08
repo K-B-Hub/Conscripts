@@ -6,11 +6,11 @@
 #include "Blueprint/UserWidget.h"
 #include "TurnEndWidget.generated.h"
 
-class UButton;
+class UCircularButtonWidget;
 class ABattleGameMode;
 class ABattleController;
 
-//턴 종료 버튼 위젯, BP에서 이름이 "TurnEndButton"인 버튼을 만들면 자동 바인딩됨
+//턴 종료 버튼 위젯, BP에서 CircularButton 파생 BP를 "turnEndButton" 이름으로 배치하면 자동 바인딩됨
 UCLASS()
 class PW_API UTurnEndWidget : public UUserWidget
 {
@@ -22,7 +22,7 @@ protected:
 private:
 	//BP의 버튼과 이름으로 자동 바인딩
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UButton> turnEndButton;
+	TObjectPtr<UCircularButtonWidget> turnEndButton;
 	
 	ABattleGameMode* cachedGameMode = nullptr;
 	ABattleController* cachedController = nullptr;

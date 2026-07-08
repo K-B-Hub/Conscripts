@@ -540,6 +540,12 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 데미지 %d 수신 → 잔여 체력 %d / %d"), *GetName(), Amount, hp, maxHp);
 
+	//HUD 게이지 갱신 통지
+	if (hp != hpBefore)
+	{
+		OnVitalsChanged.Broadcast();
+	}
+
 	//Damaged Conditional, hp 변화가 있었을 때 발동(회복 포함), 사망 처리 전
 	if (hp != hpBefore && passiveSkillComponent)
 	{

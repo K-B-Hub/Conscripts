@@ -96,6 +96,9 @@ void ABattleGameMode::BuildTurnOrder()
 	{
 		UE_LOG(LogTemp, Log, TEXT("  %d. %s"), i + 1, *turnOrder[i]->GetName());
 	}
+
+	//턴 순서 UI 재생성 통지
+	OnTurnOrderRebuilt.Broadcast(turnOrder, currentTurnIndex);
 }
 
 void ABattleGameMode::StartCurrentTurn()
@@ -112,6 +115,9 @@ void ABattleGameMode::StartCurrentTurn()
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 라운드 %d - %s 턴 시작"), currentRound, *TurnUnit->GetName());
+
+	//턴 순서 UI 상태 갱신 통지
+	OnTurnChanged.Broadcast(currentTurnIndex);
 
 	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
 	{
@@ -162,6 +168,9 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 			currentTurnIndex--;
 			bActiveUnitDied = true;
 		}
+
+		//턴 순서 UI 재생성 통지, 활성 턴 사망 시 인덱스는 다음 StartCurrentTurn에서 재보정
+		OnTurnOrderRebuilt.Broadcast(turnOrder, FMath::Max(currentTurnIndex, 0));
 	}
 
 	//위협 프로파일 정리, 진영 무관

@@ -19,6 +19,8 @@ class UPassiveSkillBase;
 class UActiveSkillBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
+//hp/스트레스 변동 시 HUD 게이지 등 외부 통지
+DECLARE_MULTICAST_DELEGATE(FOnVitalsChanged);
 
 //데미지 사전 계산 결과, PreviewDamage가 반환하는 RNG 적용 전 결정론적 값
 USTRUCT(BlueprintType)
@@ -198,6 +200,8 @@ public:
 	void ConsumeMovingPoint(float meters);
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
+	int32 GetStress() const { return stress; }
+	int32 GetMaxStress() const { return maxStress; }
 	bool IsDead() const { return hp <= 0; }
 	int32 GetCurrentActionPoint() const { return currentActionPoint; }
 	void ReduceActionPoint(int32 amount);
@@ -249,6 +253,9 @@ public:
 
 	//사망 시 GameMode 등 외부 시스템에 통보
 	FOnCharacterDeath OnCharacterDeath;
+
+	//hp/스트레스 변동 시 통보, HUD 게이지 갱신용
+	FOnVitalsChanged OnVitalsChanged;
 
 	//캡슐의 NavMesh 등록 여부 토글
 	void SetNavObstacleEnabled(bool bEnabled);
