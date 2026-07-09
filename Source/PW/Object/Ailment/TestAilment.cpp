@@ -11,7 +11,6 @@ UTestAilment::UTestAilment()
 	isEnd = false;
 	isStackable = false;
 
-	//순수 DoT, Execute의 고정 피해 2와 일치
 	aiDamagePerTurn = 2.f;
 	aiControlCoefficient = 0.f;
 }

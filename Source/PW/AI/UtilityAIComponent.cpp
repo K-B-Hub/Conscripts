@@ -218,13 +218,13 @@ float UUtilityAIComponent::ComputeRiderValue(const UActiveSkillBase* Skill, cons
 	const bool bSameTeam = (Target->IsAlly() == ownerCharacter->IsAlly());
 	const float teamSign = bSameTeam ? 1.f : -1.f;
 
-	//버프: 대상 입장 이로움 × 팀부호, 적에게 건 음수 델타(디버프)는 자동으로 양수 가치
+	//버프는 받는 대상 입장에서 이로운가를 팀 여부와 따져 - or + 점수
 	for (const TSubclassOf<UBuffBase>& buffClass : Skill->buffs)
 	{
 		const UBuffBase* cdo = buffClass ? buffClass.GetDefaultObject() : nullptr;
 		if (!cdo) continue;
 
-		//비중첩 버프가 이미 있고 잔여 2턴 이상이면 가치 0, 1턴 이하는 리필 허용
+		//비중첩 버프가 이미 있고 잔여 2턴 이상이면 리필 불가
 		if (!cdo->isStackable)
 		{
 			bool bBlocked = false;
@@ -245,7 +245,7 @@ float UUtilityAIComponent::ComputeRiderValue(const UActiveSkillBase* Skill, cons
 		OutBuffValue += HitP * teamSign * cdo->buffTurn * BuffValueForTarget(cdo, Target);
 	}
 
-	//상태이상: 해로운 효과라 상대 진영이 +, 아군 오염은 −
+	//상태이상은 아군 -, 적군 + 점수
 	for (const TSubclassOf<UAilmentBase>& ailmentClass : Skill->ailments)
 	{
 		const UAilmentBase* cdo = ailmentClass ? ailmentClass.GetDefaultObject() : nullptr;
