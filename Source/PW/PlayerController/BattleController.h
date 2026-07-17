@@ -12,10 +12,7 @@ class UInputAction;
 class ACursorIndicator;
 class AAllyCharacterBase;
 class ACharacterBase;
-class UTurnEndWidget;
-class USkillWidget;
-class UMoveWidget;
-class UCircularGaugeWidget;
+class UBattleTurnWidget;
 class UActiveSkillBase;
 class AAttackRangeIndicator;
 
@@ -49,7 +46,7 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaTime) override;
-
+	
 	//전투 씬 기본 입력 매핑 컨텍스트
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> battleInputMappingContext;
@@ -158,45 +155,13 @@ private:
 	UPROPERTY()
 	TObjectPtr<ACursorIndicator> cursorIndicatorInstance = nullptr;
 
-	//이동 버튼 위젯 클래스
+	//턴 HUD 위젯 클래스, 이동/스킬/턴종료/게이지 일괄 포함
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UMoveWidget> moveWidgetClass;
+	TSubclassOf<UBattleTurnWidget> turnHudWidgetClass;
 
-	//생성된 이동 위젯 인스턴스
+	//생성된 턴 HUD 인스턴스
 	UPROPERTY()
-	TObjectPtr<UMoveWidget> moveWidgetInstance = nullptr;
-
-	//턴 종료 버튼 위젯 클래스
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UTurnEndWidget> turnEndWidgetClass;
-
-	//생성된 턴 종료 위젯 인스턴스
-	UPROPERTY()
-	TObjectPtr<UTurnEndWidget> turnEndWidgetInstance = nullptr;
-
-	//스킬 위젯 클래스
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<USkillWidget> skillWidgetClass;
-
-	//생성된 스킬 위젯 인스턴스
-	UPROPERTY()
-	TObjectPtr<USkillWidget> skillWidgetInstance = nullptr;
-
-	//HP 게이지 위젯 클래스
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UCircularGaugeWidget> hpGaugeWidgetClass;
-
-	//생성된 HP 게이지 인스턴스
-	UPROPERTY()
-	TObjectPtr<UCircularGaugeWidget> hpGaugeWidgetInstance = nullptr;
-
-	//스트레스 게이지 위젯 클래스
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UCircularGaugeWidget> stressGaugeWidgetClass;
-
-	//생성된 스트레스 게이지 인스턴스
-	UPROPERTY()
-	TObjectPtr<UCircularGaugeWidget> stressGaugeWidgetInstance = nullptr;
+	TObjectPtr<UBattleTurnWidget> turnHudWidgetInstance = nullptr;
 
 	//activeUnit->OnVitalsChanged 수신, 게이지 수치 갱신
 	void RefreshGauges();

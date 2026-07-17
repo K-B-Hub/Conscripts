@@ -444,8 +444,8 @@ void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedCompon
 
 	if (caster.IsValid() && Character == caster.Get()) return;
 
-	//스킬 타입에 맞는 대상이 아닐시 return
-	if (!IsAreaTarget(Character)) return;
+	//스킬 모드에 맞는 필터 적용, 비범위 스킬은 pickTeam 기준
+	if (bIsAreaAttack ? !IsAreaTarget(Character) : !IsPickTarget(Character)) return;
 
 	overlappingTargets.AddUnique(Character);
 

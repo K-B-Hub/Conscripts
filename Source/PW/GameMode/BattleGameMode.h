@@ -73,8 +73,17 @@ public:
 	bool IsAlarmUsed() const { return bAlarmUsed; }
 	void MarkAlarmUsed() { bAlarmUsed = true; }
 
+	//스트레스 한계 도달 시 호출, 20% 긍정 / 80% 부정 풀에서 랜덤 이벤트를 대상에게 적용
+	void ApplyStressEvent(ACharacterBase* Target);
+
 protected:
 	virtual void BeginPlay() override;
+
+	//스트레스 이벤트 풀, 버프/상태이상/패시브 클래스를 담고 적용 시 계열별로 분기
+	UPROPERTY(EditDefaultsOnly, Category = "Stress")
+	TArray<TSubclassOf<UObject>> positiveStressEvents;
+	UPROPERTY(EditDefaultsOnly, Category = "Stress")
+	TArray<TSubclassOf<UObject>> negativeStressEvents;
 
 private:
 	//레벨 내 모든 캐릭터를 GetTurnOrder() 내림차순으로 정렬한 배열

@@ -22,6 +22,20 @@ void UPassiveSkillComponent::AddPassive(TSubclassOf<UPassiveSkillBase> passiveCl
 {
 	if (!passiveClass || !ownerCharacter) return;
 
+	//중복 불가 패시브는 동일 클래스 보유 시 등록 생략
+	if (!passiveClass->GetDefaultObject<UPassiveSkillBase>()->bAllowDuplicate)
+	{
+		for (const UPassiveSkillBase* passive : activePassives)
+		{
+			if (passive && passive->GetClass() == passiveClass)
+			{
+				UE_LOG(LogTemp, Log, TEXT("[PassiveSkillComponent] %s 중복 불가 패시브 '%s' 재등록 생략"),
+					*ownerCharacter->GetName(), *passiveClass->GetName());
+				return;
+			}
+		}
+	}
+
 	UPassiveSkillBase* instance = NewObject<UPassiveSkillBase>(this, passiveClass);
 	if (!instance) return;
 

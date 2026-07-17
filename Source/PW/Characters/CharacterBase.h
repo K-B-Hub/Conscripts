@@ -176,6 +176,11 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	float maxExp = 100;
 
+	//maxStress 도달 시 발동, 스트레스 0 초기화 후 호출됨 (20% 긍정 버프 / 80% 부정 버프·상태이상, 추후 구현)
+	void OnStressOverflow();
+	//체력 비율 경계(50%/30%) 하향 통과 시 스트레스 부여
+	void ApplyHpThresholdStress(int32 hpBefore);
+
 	//캐릭터의 기본 스킬, 파생 클래스에서 구현
 	virtual void SetDefaultSkills();
 	//캐릭터의 기본 패시브 스킬, 파생 클래스에서 구현
@@ -247,6 +252,13 @@ public:
 	//bIsLethal=false 시 hp를 1까지만 깎고 사망 처리 안 함 (환경 데미지, 상태이상 등)
 	//적은 override로 비전투 피격 시 전투 전환
 	virtual void ReceiveDamage(int32 Amount, bool bIsLethal);
+
+	//정신력 기반 스트레스 경감률(%), 50 * (1 - e^(-0.06 * mentality)), 최대 50 수렴
+	float GetStressMitigation() const;
+	//스트레스 획득, 경감률 적용·반올림 후 가산, maxStress 도달 시 0 초기화 후 OnStressOverflow 발동
+	void ReceiveStress(int32 Amount);
+	//스트레스 감소, 경감률 미적용, 0 미만 클램프
+	void RelieveStress(int32 Amount);
 
 	//사망 시 호출, 파생 클래스에서 사전 처리 후 Super 호출
 	virtual void HandleDeath();

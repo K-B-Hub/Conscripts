@@ -46,6 +46,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
 	float critical = 0.0;
 	
+	//동일 클래스 중복 획득 허용 여부, false면 이미 보유 시 재등록 생략
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
+	bool bAllowDuplicate = false;
+
 	//패시브 스킬의 타입, Stat일 경우에는 별도의 검사 필요x, Conditional이나 Reactive 면 EConditionalType이나 EReactiveType에 따라 검사 후 Execute 필요
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
 	EPassiveType passiveType = EPassiveType::Stat;
