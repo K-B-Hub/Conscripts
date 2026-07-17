@@ -67,7 +67,14 @@ void USkillInfoWidget::UpdateInfo(float Damage, float Accuracy, float Critical, 
 	if (DamageText)
 	{
 		DamageText->SetVisibility(ESlateVisibility::Visible);
-		DamageText->SetText(FText::FromString(FString::Printf(TEXT("Damage: %d"), FMath::RoundToInt(Damage))));
+		if (Damage < 0.f)
+		{
+			DamageText->SetText(FText::FromString(FString::Printf(TEXT("Heal: %d"), FMath::RoundToInt(Damage * -1))));
+		}
+		else
+		{
+			DamageText->SetText(FText::FromString(FString::Printf(TEXT("Damage: %d"), FMath::RoundToInt(Damage))));
+		}
 	}
 	if (AccuracyText)
 	{
@@ -76,8 +83,15 @@ void USkillInfoWidget::UpdateInfo(float Damage, float Accuracy, float Critical, 
 	}
 	if (CriticalText)
 	{
-		CriticalText->SetVisibility(ESlateVisibility::Visible);
-		CriticalText->SetText(FText::FromString(FString::Printf(TEXT("Critical: %d%%"), FMath::RoundToInt(Critical))));
+		if (Damage < 0.f)
+		{
+			CriticalText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else
+		{
+			CriticalText->SetVisibility(ESlateVisibility::Visible);
+			CriticalText->SetText(FText::FromString(FString::Printf(TEXT("Critical: %d%%"), FMath::RoundToInt(Critical))));
+		}
 	}
 	if (BuffText)
 	{

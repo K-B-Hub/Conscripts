@@ -8,10 +8,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Actors/CursorIndicator.h"
-#include "Widget/TurnEndWidget.h"
-#include "Widget/SkillWidget.h"
-#include "Widget/MoveWidget.h"
-#include "Widget/CircularGaugeWidget.h"
+#include "Widget/BattleTurnWidget.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
@@ -84,60 +81,14 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 	//이동 완료 델리게이트 바인딩, EndTurn에서 해제
 	activeUnit->OnMovementCompleted.AddUObject(this, &ABattleController::OnUnitMovementCompleted);
 
-	//이동 위젯 생성 및 뷰포트 추가
-	if (moveWidgetClass)
+	//턴 HUD 생성, 이동/스킬/턴종료/게이지 위젯 일괄 구성
+	if (turnHudWidgetClass)
 	{
-		moveWidgetInstance = CreateWidget<UMoveWidget>(this, moveWidgetClass);
-		if (moveWidgetInstance)
+		turnHudWidgetInstance = CreateWidget<UBattleTurnWidget>(this, turnHudWidgetClass);
+		if (turnHudWidgetInstance)
 		{
-			moveWidgetInstance->AddToViewport();
-			//턴 시작 시 이동력 상태로 버튼 즉시 동기화
-			moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
-		}
-	}
-
-	//턴 종료 위젯 생성 및 뷰포트 추가
-	if (turnEndWidgetClass)
-	{
-		turnEndWidgetInstance = CreateWidget<UTurnEndWidget>(this, turnEndWidgetClass);
-		if (turnEndWidgetInstance)
-		{
-			turnEndWidgetInstance->AddToViewport();
-		}
-	}
-
-	//스킬 위젯 생성, SkillComponent의 액티브 스킬로 버튼 배치
-	if (skillWidgetClass)
-	{
-		skillWidgetInstance = CreateWidget<USkillWidget>(this, skillWidgetClass);
-		if (skillWidgetInstance)
-		{
-			if (USkillComponent* SkillComp = activeUnit->GetSkillComponent())
-			{
-				SkillComp->CalcSkillStats();
-				skillWidgetInstance->InitSkills(SkillComp);
-			}
-			skillWidgetInstance->AddToViewport();
-		}
-	}
-
-	//HP/스트레스 게이지 생성, 현재 턴 유닛 수치로 초기화
-	if (hpGaugeWidgetClass)
-	{
-		hpGaugeWidgetInstance = CreateWidget<UCircularGaugeWidget>(this, hpGaugeWidgetClass);
-		if (hpGaugeWidgetInstance)
-		{
-			hpGaugeWidgetInstance->AddToViewport();
-			hpGaugeWidgetInstance->InitGauge(activeUnit->GetMaxHp(), activeUnit->GetHp());
-		}
-	}
-	if (stressGaugeWidgetClass)
-	{
-		stressGaugeWidgetInstance = CreateWidget<UCircularGaugeWidget>(this, stressGaugeWidgetClass);
-		if (stressGaugeWidgetInstance)
-		{
-			stressGaugeWidgetInstance->AddToViewport();
-			stressGaugeWidgetInstance->InitGauge(activeUnit->GetMaxStress(), activeUnit->GetStress());
+			turnHudWidgetInstance->AddToViewport();
+			turnHudWidgetInstance->InitTurnHUD(activeUnit);
 		}
 	}
 
@@ -157,46 +108,19 @@ void ABattleController::EndTurn()
 		DeactivateSkill();
 		activeUnit->EndTurn();
 	}
-	if (IsValid(moveWidgetInstance))
+	if (IsValid(turnHudWidgetInstance))
 	{
-		moveWidgetInstance->RemoveFromParent();
-		moveWidgetInstance = nullptr;
-	}
-	if (IsValid(turnEndWidgetInstance))
-	{
-		turnEndWidgetInstance->RemoveFromParent();
-		turnEndWidgetInstance = nullptr;
-	}
-	if (IsValid(skillWidgetInstance))
-	{
-		skillWidgetInstance->RemoveFromParent();
-		skillWidgetInstance = nullptr;
-	}
-	if (IsValid(hpGaugeWidgetInstance))
-	{
-		hpGaugeWidgetInstance->RemoveFromParent();
-		hpGaugeWidgetInstance = nullptr;
-	}
-	if (IsValid(stressGaugeWidgetInstance))
-	{
-		stressGaugeWidgetInstance->RemoveFromParent();
-		stressGaugeWidgetInstance = nullptr;
+		turnHudWidgetInstance->RemoveFromParent();
+		turnHudWidgetInstance = nullptr;
 	}
 	activeUnit = nullptr;
 }
 
 void ABattleController::RefreshGauges()
 {
-	if (!IsValid(activeUnit)) return;
+	if (!IsValid(activeUnit) || !IsValid(turnHudWidgetInstance)) return;
 
-	if (IsValid(hpGaugeWidgetInstance))
-	{
-		hpGaugeWidgetInstance->SetValue(activeUnit->GetHp());
-	}
-	if (IsValid(stressGaugeWidgetInstance))
-	{
-		stressGaugeWidgetInstance->SetValue(activeUnit->GetStress());
-	}
+	turnHudWidgetInstance->RefreshGauges(activeUnit->GetHp(), activeUnit->GetStress());
 }
 
 void ABattleController::SetupInputComponent()
@@ -525,9 +449,9 @@ void ABattleController::OnUnitMovementCompleted()
 		RefreshSkillButtons();
 
 		//자동이동으로 소비된 이동력 반영, Move 버튼 상태 갱신
-		if (IsValid(moveWidgetInstance))
+		if (IsValid(turnHudWidgetInstance))
 		{
-			moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
+			turnHudWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
 		}
 
 		UE_LOG(LogTemp, Log, TEXT("[BattleController] 자동이동 후 스킬 실행: %s → %d명 대상"),
@@ -536,9 +460,9 @@ void ABattleController::OnUnitMovementCompleted()
 	}
 
 	//이동 완료 후 이동력 잔여 여부로 버튼 상태 갱신
-	if (IsValid(moveWidgetInstance))
+	if (IsValid(turnHudWidgetInstance))
 	{
-		moveWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
+		turnHudWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
 	}
 
 	//이동 모드 처리
@@ -697,9 +621,9 @@ void ABattleController::ExecuteSkill()
 
 void ABattleController::RefreshSkillButtons()
 {
-	if (IsValid(skillWidgetInstance))
+	if (IsValid(turnHudWidgetInstance))
 	{
-		skillWidgetInstance->RefreshButtons();
+		turnHudWidgetInstance->RefreshSkillButtons();
 	}
 }
 

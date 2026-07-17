@@ -15,6 +15,7 @@
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
+#include "GameMode/BattleGameMode.h"
 
 //데미지 산식의 단일 출처, CalculateDamage와 PreviewDamage가 공유
 static void ComputeDamageNumbers(const ACharacterBase* Target,
@@ -278,6 +279,11 @@ bool ACharacterBase::ReflectDamage()
 		if (hitRoll > pendingAccuracy)
 		{
 			UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 버프 or 상태이상 회피"), *GetName());
+			//버프/상태이상이 빗나가도 공격자가 스트레스 1~3 획득
+			if (ACharacterBase* attacker = lastAttacker.Get())
+			{
+				attacker->ReceiveStress(FMath::RandRange(1, 3));
+			}
 			return false;
 		}
 		//치명타 굴림 없이 음수 데미지(pendingDMG)로 즉시 회복
@@ -292,12 +298,31 @@ bool ACharacterBase::ReflectDamage()
 	if (hitRoll > pendingAccuracy)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 공격 회피"), *GetName());
+		//회피자는 스트레스 3~5 감소
+		RelieveStress(FMath::RandRange(3, 5));
+		//공격이 빗나가면 공격자가 스트레스 1~3 획득
+		if (ACharacterBase* attacker = lastAttacker.Get())
+		{
+			attacker->ReceiveStress(FMath::RandRange(1, 3));
+		}
 		return false;
 	}
 	float critRoll = FMath::FRandRange(0.f, 100.f);
-	int32 finalDamage = (critRoll <= pendingCritical)
+	const bool bCrit = critRoll <= pendingCritical;
+	int32 finalDamage = bCrit
 		? FMath::RoundToInt(pendingDMG * 2.f)
 		: FMath::RoundToInt(pendingDMG);
+
+	//치명타 피격 스트레스 5~10, 사망(Destroy) 전에 적용되도록 데미지보다 먼저 부여
+	if (bCrit)
+	{
+		ReceiveStress(FMath::RandRange(5, 10));
+		//치명타를 맞춘 공격자는 스트레스 4~8 감소
+		if (ACharacterBase* attacker = lastAttacker.Get())
+		{
+			attacker->RelieveStress(FMath::RandRange(4, 8));
+		}
+	}
 
 	ReceiveDamage(finalDamage, true);
 
@@ -546,6 +571,17 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 		OnVitalsChanged.Broadcast();
 	}
 
+	//체력 비율 경계 하향 통과 스트레스, 사망 시 ReceiveStress 내부 가드로 무시됨
+	if (hp < hpBefore)
+	{
+		ApplyHpThresholdStress(hpBefore);
+	}
+	//회복 시 스트레스 감소, 100% 도달 시 10~15, 그 외 5~10
+	else if (hp > hpBefore)
+	{
+		RelieveStress(hp == maxHp ? FMath::RandRange(10, 15) : FMath::RandRange(5, 10));
+	}
+
 	//Damaged Conditional, hp 변화가 있었을 때 발동(회복 포함), 사망 처리 전
 	if (hp != hpBefore && passiveSkillComponent)
 	{
@@ -568,6 +604,82 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 	if (hp <= 0)
 	{
 		HandleDeath();
+	}
+}
+
+float ACharacterBase::GetStressMitigation() const
+{
+	//정신력 스트레스 경감 곡선, 정신력 0=0%, 35≈50%, 최대 50% 수렴
+	return 50.f * (1.f - FMath::Exp(-0.06f * mentality));
+}
+
+void ACharacterBase::ReceiveStress(int32 Amount)
+{
+	//스트레스는 플레이어(아군) 캐릭터만 받음
+	if (!IsAlly() || IsDead() || Amount <= 0) return;
+
+	//경감률 적용 후 반올림 (예: 정신력 5, 12% 경감 → 10 * 0.88 = 8.8 → 9)
+	const int32 finalAmount = FMath::RoundToInt(Amount * (1.f - GetStressMitigation() / 100.f));
+	if (finalAmount <= 0) return;
+
+	stress += finalAmount;
+
+	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 스트레스 %d 수신(원본 %d, 경감 %.1f%%) → %d / %d"),
+		*GetName(), finalAmount, Amount, GetStressMitigation(), stress, maxStress);
+
+	//maxStress 도달 시 0으로 초기화 후 스트레스 이벤트 발동
+	const bool bOverflow = stress >= maxStress;
+	if (bOverflow)
+	{
+		stress = 0;
+	}
+
+	//HUD 게이지 갱신 통지
+	OnVitalsChanged.Broadcast();
+
+	if (bOverflow)
+	{
+		OnStressOverflow();
+	}
+}
+
+void ACharacterBase::RelieveStress(int32 Amount)
+{
+	//스트레스는 플레이어(아군) 캐릭터만 보유
+	if (!IsAlly() || IsDead() || Amount <= 0) return;
+
+	const int32 stressBefore = stress;
+	stress = FMath::Max(0, stress - Amount);
+	if (stress == stressBefore) return;
+
+	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 스트레스 %d 감소 → %d / %d"),
+		*GetName(), Amount, stress, maxStress);
+
+	//HUD 게이지 갱신 통지
+	OnVitalsChanged.Broadcast();
+}
+
+void ACharacterBase::OnStressOverflow()
+{
+	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 스트레스 한계 도달, 스트레스 이벤트 발동"), *GetName());
+
+	//게임모드의 이벤트 풀에서 20% 긍정 / 80% 부정 이벤트 적용
+	if (ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		gameMode->ApplyStressEvent(this);
+	}
+}
+
+void ACharacterBase::ApplyHpThresholdStress(int32 hpBefore)
+{
+	//경계 하향 통과 판정, 두 경계 동시 통과 시 깊은 쪽(30%)만 발동
+	if (hpBefore * 10 > maxHp * 3 && hp * 10 <= maxHp * 3)
+	{
+		ReceiveStress(FMath::RandRange(20, 30));
+	}
+	else if (hpBefore * 2 > maxHp && hp * 2 <= maxHp)
+	{
+		ReceiveStress(FMath::RandRange(7, 13));
 	}
 }
 

@@ -24,6 +24,7 @@
 #include "Object/Skill/PassiveSkill/test/TestAllyDeath.h"
 #include "Object/Skill/PassiveSkill/test/TestEnemyDeath.h"
 #include "Object/Skill/PassiveSkill/test/TestRoundStart.h"
+#include "Object/Skill/ActiveSkill/test/TestHeal.h"
 
 AAllyTest::AAllyTest()
 {
@@ -47,6 +48,7 @@ void AAllyTest::SetDefaultSkills()
 		skillComponent->AddSkill(URangedMultiPick::StaticClass());
 		skillComponent->AddSkill(USingleBuff::StaticClass());
 		skillComponent->AddSkill(USingleAilment::StaticClass());
+		skillComponent->AddSkill(UTestHeal::StaticClass());
 	}
 }
 

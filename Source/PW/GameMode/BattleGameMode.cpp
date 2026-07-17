@@ -9,13 +9,24 @@
 #include "Pawn/CameraPawn.h"
 #include "AI/AIController/EnemyAIController.h"
 #include "ActorComponent/PassiveSkillComponent.h"
+#include "ActorComponent/BuffComponent.h"
+#include "ActorComponent/AilmentComponent.h"
 #include "Enum/SkillTypes.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "Object/Skill/PassiveSkillBase.h"
+#include "Object/Buff/BuffBase.h"
+#include "Object/Buff/test/TestAtkBuff.h"
+#include "Object/Buff/test/TestDebuff.h"
+#include "Object/Ailment/AilmentBase.h"
 
 ABattleGameMode::ABattleGameMode()
 {
 	//플레이어는 카메라 전용 폰을 상시 빙의, 캐릭터 빙의 전환 없음
 	DefaultPawnClass = ACameraPawn::StaticClass();
+
+	//스트레스 이벤트 임시 풀, 추후 전용 클래스로 교체
+	positiveStressEvents.Add(UTestAtkBuff::StaticClass());
+	negativeStressEvents.Add(UTestDebuff::StaticClass());
 }
 
 void ABattleGameMode::BeginPlay()
@@ -278,6 +289,11 @@ void ABattleGameMode::BroadcastUnitDeath(ACharacterBase* DeadCharacter)
 	for (AAllyCharacterBase* Ally : allies)
 	{
 		if (!IsValid(Ally) || Ally == DeadCharacter || Ally->IsDead()) continue;
+		//같은 팀 사망 시 스트레스 30~40, Conditional 패시브가 스트레스 반영 후 상태를 보도록 먼저 부여
+		if (bDeadIsAlly)
+		{
+			Ally->ReceiveStress(FMath::RandRange(30, 40));
+		}
 		if (UPassiveSkillComponent* PSC = Ally->GetPassiveSkillComponent())
 		{
 			PSC->DispatchConditional(bDeadIsAlly ? EConditionalType::AllyDeath : EConditionalType::EnemyDeath);
@@ -291,6 +307,49 @@ void ABattleGameMode::BroadcastUnitDeath(ACharacterBase* DeadCharacter)
 		{
 			PSC->DispatchConditional(bDeadIsAlly ? EConditionalType::EnemyDeath : EConditionalType::AllyDeath);
 		}
+	}
+}
+
+void ABattleGameMode::ApplyStressEvent(ACharacterBase* Target)
+{
+	if (!IsValid(Target)) return;
+
+	//20% 긍정, 80% 부정
+	const bool bPositive = FMath::RandRange(1, 100) <= 20;
+	const TArray<TSubclassOf<UObject>>& pool = bPositive ? positiveStressEvents : negativeStressEvents;
+	if (pool.Num() == 0) return;
+
+	UClass* picked = pool[FMath::RandRange(0, pool.Num() - 1)];
+	if (!picked) return;
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] %s 스트레스 이벤트 발동 → %s '%s' 적용"),
+		*Target->GetName(), bPositive ? TEXT("긍정") : TEXT("부정"), *picked->GetName());
+
+	//클래스 계열에 따라 버프/상태이상/패시브로 구분 적용, 시전자는 본인
+	if (picked->IsChildOf(UBuffBase::StaticClass()))
+	{
+		if (UBuffComponent* BC = Target->GetBuffComponent())
+		{
+			BC->AddBuff(picked, Target);
+		}
+	}
+	else if (picked->IsChildOf(UAilmentBase::StaticClass()))
+	{
+		if (UAilmentComponent* AC = Target->GetAilmentComponent())
+		{
+			AC->AddAilment(picked, Target);
+		}
+	}
+	else if (picked->IsChildOf(UPassiveSkillBase::StaticClass()))
+	{
+		if (UPassiveSkillComponent* PSC = Target->GetPassiveSkillComponent())
+		{
+			PSC->AddPassive(picked);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[BattleGameMode] 스트레스 이벤트 '%s'는 버프/상태이상/패시브 계열이 아님"), *picked->GetName());
 	}
 }
 
