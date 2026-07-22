@@ -32,6 +32,9 @@ public:
 	//클래스로 패시브 제거
 	void RemovePassiveByClass(TSubclassOf<UPassiveSkillBase> passiveClass);
 
+	//해당 클래스의 패시브를 이미 보유 중인지, 강화 후보 중복 필터용
+	bool HasPassiveClass(TSubclassOf<UPassiveSkillBase> passiveClass) const;
+
 	const TArray<TObjectPtr<UPassiveSkillBase>>& GetActivePassives() const { return activePassives; }
 
 	//피해 계산 전 패시브 실행

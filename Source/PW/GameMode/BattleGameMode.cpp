@@ -15,18 +15,14 @@
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Object/Skill/PassiveSkillBase.h"
 #include "Object/Buff/BuffBase.h"
-#include "Object/Buff/test/TestAtkBuff.h"
-#include "Object/Buff/test/TestDebuff.h"
 #include "Object/Ailment/AilmentBase.h"
+#include "GameInstance/PWGameInstance.h"
+#include "DataAsset/StressPoolData.h"
 
 ABattleGameMode::ABattleGameMode()
 {
 	//플레이어는 카메라 전용 폰을 상시 빙의, 캐릭터 빙의 전환 없음
 	DefaultPawnClass = ACameraPawn::StaticClass();
-
-	//스트레스 이벤트 임시 풀, 추후 전용 클래스로 교체
-	positiveStressEvents.Add(UTestAtkBuff::StaticClass());
-	negativeStressEvents.Add(UTestDebuff::StaticClass());
 }
 
 void ABattleGameMode::BeginPlay()
@@ -58,6 +54,9 @@ void ABattleGameMode::BeginPlay()
 				Enemy->OnEnemyDeath.AddDynamic(this, &ABattleGameMode::OnEnemyDeath);
 			}
 		}
+
+		//턴 순서 구성 전에 적 레벨 스케일링, 첫 턴부터 강화 반영
+		ApplyEnemyLevelScaling();
 
 		BuildTurnOrder();
 
@@ -110,6 +109,27 @@ void ABattleGameMode::BuildTurnOrder()
 
 	//턴 순서 UI 재생성 통지
 	OnTurnOrderRebuilt.Broadcast(turnOrder, currentTurnIndex);
+}
+
+void ABattleGameMode::ApplyEnemyLevelScaling()
+{
+	if (allies.Num() == 0) return;
+
+	//아군 평균 레벨 계산
+	int32 sum = 0;
+	for (const AAllyCharacterBase* Ally : allies)
+	{
+		if (IsValid(Ally)) sum += Ally->GetLevel();
+	}
+	const int32 targetLevel = sum / allies.Num() + 2;
+
+	UE_LOG(LogTemp, Log, TEXT("[Upgrade] 적 레벨 스케일링 → 아군 평균+2 = Lv.%d, 적 %d체"), targetLevel, enemies.Num());
+
+	//각 적을 목표 레벨까지 레벨업, 레벨당 랜덤 강화는 EnemyBase가 자동 습득
+	for (AEnemyBase* Enemy : enemies)
+	{
+		if (IsValid(Enemy)) Enemy->ForceLevelUpTo(targetLevel);
+	}
 }
 
 void ABattleGameMode::StartCurrentTurn()
@@ -217,14 +237,41 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 	}
 }
 
+//경험치 난이도 보정, 열 인덱스 = EGameDifficulty(스테이지/로그라이크/악몽)
+static constexpr float DifficultyExpMod[3] = { 2.f, 1.f, 0.27f };
+
+//레벨 차이(적-아군) 경험치 계수, 행 0=+4 이상 … 행 12=-8 이하, 열 = EGameDifficulty
+static constexpr float LevelDiffExpMod[13][3] = {
+	{ 2.5f,  1.9f,  1.9f  },	//+4 이상
+	{ 2.2f,  1.7f,  1.7f  },	//+3
+	{ 1.8f,  1.4f,  1.4f  },	//+2
+	{ 1.4f,  1.2f,  1.2f  },	//+1
+	{ 1.f,   1.f,   1.f   },	//0
+	{ 0.95f, 0.7f,  0.6f  },	//-1
+	{ 0.9f,  0.6f,  0.5f  },	//-2
+	{ 0.85f, 0.5f,  0.4f  },	//-3
+	{ 0.8f,  0.4f,  0.35f },	//-4
+	{ 0.7f,  0.35f, 0.3f  },	//-5
+	{ 0.65f, 0.3f,  0.25f },	//-6
+	{ 0.6f,  0.25f, 0.2f  },	//-7
+	{ 0.6f,  0.2f,  0.1f  },	//-8 이하
+};
+
 void ABattleGameMode::OnEnemyDeath(AEnemyBase* DeadEnemy, AAllyCharacterBase* Killer)
 {
+	//GameInstance 미설정 시 스테이지 모드로 간주
+	const UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
+	const int32 difficultyIndex = gameInstance ? static_cast<int32>(gameInstance->GetDifficulty()) : 0;
+	const float unitMod = DeadEnemy->IsBoss() ? 2.f : 1.f;
+
 	for (AAllyCharacterBase* Ally : allies)
 	{
 		if (!IsValid(Ally)) continue;
 
-		//처치자는 true, 나머지 아군은 false
-		Ally->GetEXP(Ally == Killer);
+		//처치자는 55, 나머지 아군은 20
+		const float baseExp = (Ally == Killer) ? 55.f : 20.f;
+		const int32 levelDiffRow = 4 - FMath::Clamp(DeadEnemy->GetLevel() - Ally->GetLevel(), -8, 4);
+		Ally->GainExp(DifficultyExpMod[difficultyIndex] * baseExp * unitMod * LevelDiffExpMod[levelDiffRow][difficultyIndex]);
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] %s 처치 → 처치자: %s, 아군 %d명 경험치 획득"),
@@ -314,9 +361,14 @@ void ABattleGameMode::ApplyStressEvent(ACharacterBase* Target)
 {
 	if (!IsValid(Target)) return;
 
+	//풀은 런 단위로 GameInstance에서 조회
+	const UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
+	const UStressPoolData* stressPool = gameInstance ? gameInstance->GetStressPool() : nullptr;
+	if (!stressPool) return;
+
 	//20% 긍정, 80% 부정
 	const bool bPositive = FMath::RandRange(1, 100) <= 20;
-	const TArray<TSubclassOf<UObject>>& pool = bPositive ? positiveStressEvents : negativeStressEvents;
+	const TArray<TSubclassOf<UObject>>& pool = bPositive ? stressPool->positiveEvents : stressPool->negativeEvents;
 	if (pool.Num() == 0) return;
 
 	UClass* picked = pool[FMath::RandRange(0, pool.Num() - 1)];

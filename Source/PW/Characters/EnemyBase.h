@@ -9,6 +9,7 @@
 class AAllyCharacterBase;
 class AEnemyAIController;
 class UUtilityAIComponent;
+class UUpgradeTableData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEnemyDeath, AEnemyBase*, DeadEnemy, AAllyCharacterBase*, Killer);
 
@@ -41,6 +42,9 @@ public:
 	//플레이어 진영 시야 내 여부, 시야 밖 적은 숨김·카메라 추적 제외
 	bool IsVisibleToPlayers() const { return bVisibleToPlayers; }
 
+	//보스 유닛 여부, 경험치 유닛 계수(보스 2 / 일반 1) 판정용
+	bool IsBoss() const { return bIsBoss; }
+
 	//비전투 중 상대 진영 피격 시 즉시 전투 전환
 	virtual void ReceiveDamage(int32 Amount, bool bIsLethal) override;
 
@@ -53,6 +57,17 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	//레벨업 시 선택 없이 랜덤 강화 1개를 자동 습득
+	virtual void GrantLevelUpUpgrade() override;
+
+	//직업 고유 강화 후보 풀, 적 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
+	TObjectPtr<UUpgradeTableData> classUpgradeTable;
+
+	//보스 유닛 여부
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
+	bool bIsBoss = false;
 
 	//비전투 순찰 지점 — 스폰 위치 기준 상대좌표. 배치한 각 적마다 개별 설정.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Patrol")

@@ -51,6 +51,20 @@ void USkillComponent::AddSkill(TSubclassOf<USkillBase> skillClass)
 	}
 }
 
+bool USkillComponent::HasSkillClass(TSubclassOf<USkillBase> skillClass) const
+{
+	if (!skillClass) return false;
+
+	for (const USkillBase* skill : skills)
+	{
+		if (skill && skill->GetClass() == skillClass)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void USkillComponent::RemoveSkill(USkillBase* Skill)
 {
 	if (!Skill) return;

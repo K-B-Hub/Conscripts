@@ -6,6 +6,8 @@
 #include "Characters/CharacterBase.h"
 #include "AllyCharacterBase.generated.h"
 
+class UUpgradeTableData;
+
 //플레이어가 조작하는 아군 캐릭터 베이스
 UCLASS()
 class PW_API AAllyCharacterBase : public ACharacterBase
@@ -15,10 +17,22 @@ class PW_API AAllyCharacterBase : public ACharacterBase
 public:
 	virtual bool IsAlly() const override { return true; }
 
+	//직업 고유 강화 후보 풀, 파생 직업 BP에서 지정
+	UUpgradeTableData* GetClassUpgradeTable() const { return classUpgradeTable; }
+
+	//대기 중인 강화 선택 횟수, 턴 시작 시 BattleController가 소비
+	int32 GetPendingUpgradeCount() const { return pendingUpgradeCount; }
+	void ConsumePendingUpgrade() { if (pendingUpgradeCount > 0) --pendingUpgradeCount; }
+
 	//경로 추종 이동 및 이동력 차감 처리
 	virtual void Tick(float DeltaTime) override;
+	//턴 시작 시 대기 강화가 있으면 OnUpgradeSelectRequested 브로드캐스트
+	virtual void InitTurn() override;
 	virtual void EndTurn() override;
 	virtual void HandleDeath() override;
+
+	//턴 시작 시 대기 중인 강화 선택을 알림, BattleController가 구독해 위젯 표시
+	FSimpleMulticastDelegate OnUpgradeSelectRequested;
 
 	//CursorIndicator에서 계산된 경유점 배열을 받아 순서대로 이동
 	void MoveAlongPath(const TArray<FVector>& Points);
@@ -35,7 +49,18 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
 	float moveDecelRadius = 80.f;
 
+protected:
+	//직업 고유 강화 후보 풀, 파생 직업 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
+	TObjectPtr<UUpgradeTableData> classUpgradeTable;
+
+	//레벨업 시 강화 선택을 큐에 누적, 다음 자기 턴 시작 시 소비
+	virtual void GrantLevelUpUpgrade() override { ++pendingUpgradeCount; }
+
 private:
+	//대기 중인 강화 선택 횟수
+	int32 pendingUpgradeCount = 0;
+
 	//NavMesh 경로 경유점 및 현재 인덱스
 	TArray<FVector> pathPoints;
 	int32 pathPointIndex = 0;

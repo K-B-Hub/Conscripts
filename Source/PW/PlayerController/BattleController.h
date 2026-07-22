@@ -15,6 +15,9 @@ class ACharacterBase;
 class UBattleTurnWidget;
 class UActiveSkillBase;
 class AAttackRangeIndicator;
+class UUpgradeSelectWidget;
+class USkillBase;
+class UDebugWidget;
 
 //전투 씬 플레이어 컨트롤러, EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
 UCLASS()
@@ -41,6 +44,11 @@ public:
 	//SkillButton에서 호출, 스킬 모드 진입/해제
 	void ActivateSkill(UActiveSkillBase* Skill);
 	void DeactivateSkill();
+
+	//디버그: 현재 턴 캐릭터 스트레스 +100
+	void DebugAddStress();
+	//디버그: 현재 턴 캐릭터 레벨 +1
+	void DebugLevelUp();
 
 protected:
 	virtual void BeginPlay() override;
@@ -163,7 +171,30 @@ private:
 	UPROPERTY()
 	TObjectPtr<UBattleTurnWidget> turnHudWidgetInstance = nullptr;
 
+	//레벨업 강화 선택 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUpgradeSelectWidget> upgradeSelectWidgetClass;
+
+	//생성된 강화 선택 위젯 인스턴스
+	UPROPERTY()
+	TObjectPtr<UUpgradeSelectWidget> upgradeSelectWidgetInstance = nullptr;
+
+	//디버그 조작 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UDebugWidget> debugWidgetClass;
+
+	//생성된 디버그 위젯 인스턴스
+	UPROPERTY()
+	TObjectPtr<UDebugWidget> debugWidgetInstance = nullptr;
+
+	//대기 중인 강화 선택을 하나 표시, 후보는 UUpgradeLibrary에서 추첨
+	void ShowUpgradeSelect();
+
+	//강화 선택 완료 핸들러, 습득 후 남은 큐가 있으면 이어서 표시
+	void OnUpgradeChosen(TSubclassOf<USkillBase> Chosen);
+
 	//activeUnit->OnVitalsChanged 수신, 게이지 수치 갱신
+	UFUNCTION()
 	void RefreshGauges();
 
 	//스킬 실행, 타겟 검증 후 ReflectDamage + Execute

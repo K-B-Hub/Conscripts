@@ -163,6 +163,20 @@ void UPassiveSkillComponent::DispatchConditional(EConditionalType type)
 	}
 }
 
+bool UPassiveSkillComponent::HasPassiveClass(TSubclassOf<UPassiveSkillBase> passiveClass) const
+{
+	if (!passiveClass) return false;
+
+	for (const UPassiveSkillBase* passive : activePassives)
+	{
+		if (passive && passive->GetClass() == passiveClass)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void UPassiveSkillComponent::RemovePassiveByClass(TSubclassOf<UPassiveSkillBase> passiveClass)
 {
 	if (!passiveClass) return;

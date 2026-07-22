@@ -165,23 +165,14 @@ int32 ACharacterBase::GetTurnOrder() const
 	return speed + FMath::RandRange(0, speed);
 }
 
-void ACharacterBase::GetEXP(bool bIsKill)
+void ACharacterBase::GainExp(float amount)
 {
-	if (bIsKill)
+	exp += amount;
+
+	while (exp >= maxExp)
 	{
-		exp += 55;			//추후 경험치 공식 적용 필요
-	}
-	else
-	{
-		exp += 20;
-	}
-	if (exp >= maxExp)
-	{
-		while (exp >= maxExp)
-		{
-			LevelUp();
-			exp -= 100;
-		}
+		LevelUp();
+		exp -= maxExp;
 	}
 }
 
@@ -204,7 +195,38 @@ void ACharacterBase::LevelUp()
 	//파생 스탯 재계산
 	SetDefaultStats();
 
+	//레벨당 강화효과 1회, 처리 방식은 파생 클래스가 결정
+	GrantLevelUpUpgrade();
+
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 레벨업 → Lv.%d"), *GetName(), level);
+}
+
+void ACharacterBase::ForceLevelUpTo(int32 targetLevel)
+{
+	while (level < targetLevel)
+	{
+		LevelUp();
+	}
+}
+
+void ACharacterBase::AcquireUpgrade(TSubclassOf<USkillBase> skillClass)
+{
+	if (!skillClass) return;
+
+	//액티브 계열은 SkillComponent, 패시브 계열은 PassiveSkillComponent에 등록
+	if (skillClass->IsChildOf(UActiveSkillBase::StaticClass()))
+	{
+		if (skillComponent) skillComponent->AddSkill(skillClass);
+		UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 습득(액티브): %s"), *GetName(), *skillClass->GetName());
+	}
+	else if (skillClass->IsChildOf(UPassiveSkillBase::StaticClass()))
+	{
+		if (passiveSkillComponent) passiveSkillComponent->AddPassive(TSubclassOf<UPassiveSkillBase>(skillClass));
+		UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 습득(패시브): %s"), *GetName(), *skillClass->GetName());
+	}
+
+	//강화 종류와 무관하게 파생 스탯·스킬 스탯을 전반 재계산
+	SetDefaultStats();
 }
 
 void ACharacterBase::ReduceActionPoint(int32 amount)

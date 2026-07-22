@@ -79,12 +79,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	//스트레스 이벤트 풀, 버프/상태이상/패시브 클래스를 담고 적용 시 계열별로 분기
-	UPROPERTY(EditDefaultsOnly, Category = "Stress")
-	TArray<TSubclassOf<UObject>> positiveStressEvents;
-	UPROPERTY(EditDefaultsOnly, Category = "Stress")
-	TArray<TSubclassOf<UObject>> negativeStressEvents;
-
 private:
 	//레벨 내 모든 캐릭터를 GetTurnOrder() 내림차순으로 정렬한 배열
 	TArray<ACharacterBase*> turnOrder;
@@ -97,6 +91,9 @@ private:
 
 	//레벨 내 CharacterBase를 수집하고 turnOrder 배열을 구성
 	void BuildTurnOrder();
+
+	//적 초기 레벨 스케일링, 아군 평균 레벨 +2까지 레벨업하며 랜덤 강화 자동 습득
+	void ApplyEnemyLevelScaling();
 
 	//turnOrder[currentTurnIndex] 유닛의 턴을 시작
 	void StartCurrentTurn();
