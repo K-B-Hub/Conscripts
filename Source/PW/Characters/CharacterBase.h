@@ -17,6 +17,7 @@ class UAilmentComponent;
 class UPassiveSkillComponent;
 class UPassiveSkillBase;
 class UActiveSkillBase;
+class USkillBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 //hp/스트레스 변동 시 HUD 게이지 등 외부 통지
@@ -189,13 +190,21 @@ protected:
 	void SetDefaultStats();
 	//레벨업
 	void LevelUp();
+	//레벨업 시 강화효과 처리, 파생 클래스에서 구현(아군=선택 큐, 적=자동 습득)
+	virtual void GrantLevelUpUpgrade() {}
 public:
 	virtual void Tick(float DeltaTime) override;
 
 	//턴 순서 계산
 	int32 GetTurnOrder() const;
-	//경험치 획득
-	void GetEXP(bool bIsKill);
+	//경험치 누적 및 레벨업, 획득량 계산은 호출자(BattleGameMode 등) 책임
+	void GainExp(float amount);
+
+	//강화효과 습득, 액티브/패시브 계열을 판별해 각 컴포넌트에 등록
+	void AcquireUpgrade(TSubclassOf<USkillBase> skillClass);
+
+	//목표 레벨까지 반복 레벨업, 레벨당 강화 훅 발동 (적 초기 스케일링용)
+	void ForceLevelUpTo(int32 targetLevel);
 	
 	//각종 스탯의 Getter
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
@@ -203,6 +212,7 @@ public:
 	bool IsMoved() const { return isMoved; }
 	//AI 이동 시 PathLength 기반으로 이동력 사전 차감
 	void ConsumeMovingPoint(float meters);
+	int32 GetLevel() const { return level; }
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
 	int32 GetStress() const { return stress; }

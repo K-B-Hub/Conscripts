@@ -46,6 +46,12 @@ void AAttackRangeIndicator::BeginPlay()
 
 void AAttackRangeIndicator::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	//Self 스킬은 overlap 종료 경로를 타지 않으므로 caster 정보 위젯을 수동 정리
+	if (bFixedAtCaster && caster.IsValid())
+	{
+		caster->HideSkillInfo();
+		caster->ClearPendingDamage();
+	}
 	DestroyMovePathIndicator();
 	Super::EndPlay(EndPlayReason);
 }
@@ -88,6 +94,16 @@ void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkill
 	{
 		areaDecal->SetVisibility(false);
 		overlapSphere->SetSphereRadius(10.f);
+	}
+
+	//Self 스킬은 커서·overlap 없이 caster 자신이 대상, 즉시 타겟 등록 및 예측·정보 위젯 표시
+	if (bFixedAtCaster && caster.IsValid())
+	{
+		if (USkillComponent* SkillComp = caster->GetSkillComponent())
+		{
+			SkillComp->AddTarget(caster.Get());
+		}
+		RecalculatePendingForTarget(caster.Get());
 	}
 }
 

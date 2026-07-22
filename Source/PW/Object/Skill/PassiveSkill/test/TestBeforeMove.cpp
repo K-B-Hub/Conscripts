@@ -6,6 +6,9 @@
 
 UTestBeforeMove::UTestBeforeMove()
 {
+	skillName = NSLOCTEXT("Skill", "TestBeforeMove_Name", "테스트");
+	skillDescription = NSLOCTEXT("Skill", "TestBeforeMove_Description", "123123");
+	
 	passiveType = EPassiveType::Reactive;
 	reactiveType = EReactiveType::BeforeMove;
 	conditionType = EConditionalType::None;

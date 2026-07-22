@@ -7,6 +7,10 @@
 
 UTestBeforeCalc::UTestBeforeCalc()
 {
+	skillName = NSLOCTEXT("Skill", "TestBeforeCalc_Name", "테스트");
+	skillDescription = NSLOCTEXT("Skill", "TestBeforeCalc_Description", "123123");
+	
+	
 	passiveType = EPassiveType::Reactive;
 	reactiveType = EReactiveType::BeforeDamageCalc;
 	conditionType = EConditionalType::None;

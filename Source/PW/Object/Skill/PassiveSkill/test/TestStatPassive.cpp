@@ -5,6 +5,9 @@
 
 UTestStatPassive::UTestStatPassive()
 {
+	skillName = NSLOCTEXT("Skill", "TestStatPassive_Name", "테스트");
+	skillDescription = NSLOCTEXT("Skill", "TestStatPassive_Description", "123123");
+	
 	passiveType = EPassiveType::Stat;
 	reactiveType = EReactiveType::None;
 	conditionType = EConditionalType::None;

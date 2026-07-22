@@ -100,10 +100,15 @@ void AEnemyAIController::BeginTurnAction()
 	{
 		if (APawn* pawnPtr = GetPawn())
 		{
-			if (FVector::Dist(pawnPtr->GetActorLocation(), alarmFocusLocation) <= engagementGateRadius)
+			//알람 지점 도달 전이라도 전투 대상을 시야에 포착하거나 근접하면 즉시 교전 전환
+			const bool bReachedGate = FVector::Dist(pawnPtr->GetActorLocation(), alarmFocusLocation) <= engagementGateRadius;
+			const bool bEngage = bReachedGate || FindVisibleCombatant() || HasNearbyCombatant(engagementDetectRadius);
+			if (bEngage)
 			{
 				//게이트 통과, 이번 턴부터 UtilityAI로 행동
 				bHasAlarmFocus = false;
+				UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 교전 게이트 통과 (알람도달=%d)"),
+					*GetNameSafe(pawnPtr), bReachedGate);
 			}
 			else
 			{
@@ -196,40 +201,46 @@ void AEnemyAIController::OnEnemyTurnEnd()
 	}
 }
 
-void AEnemyAIController::EvaluateDetectionAndMaybeJoinCombat()
+void AEnemyAIController::CollectCombatants(TArray<ACharacterBase*>& OutCombatants) const
 {
 	AEnemyBase* enemy = Cast<AEnemyBase>(GetPawn());
-	if (!enemy) return;
-
 	UWorld* world = GetWorld();
 	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
-	if (!gm) return;
+	if (!enemy || !gm) return;
 
-	//감지 대상은 전투 중인 캐릭터, 플레이어 진영은 항상 전투중 판정
-	TArray<ACharacterBase*> combatants;
+	//플레이어 진영은 항상 전투중 판정
 	for (AAllyCharacterBase* ally : gm->GetAllies())
 	{
 		if (IsValid(ally) && !ally->IsDead())
 		{
-			combatants.Add(ally);
+			OutCombatants.Add(ally);
 		}
 	}
-	//전투 중인 같은 진영을 목격해도 전투 합류
+	//전투 중인 같은 진영도 감지·근접 대상
 	for (AEnemyBase* other : gm->GetEnemies())
 	{
 		if (!IsValid(other) || other == enemy || other->IsDead()) continue;
 		AEnemyAIController* otherAIC = Cast<AEnemyAIController>(other->GetController());
 		if (otherAIC && otherAIC->IsInCombat())
 		{
-			combatants.Add(other);
+			OutCombatants.Add(other);
 		}
 	}
+}
+
+ACharacterBase* AEnemyAIController::FindVisibleCombatant() const
+{
+	AEnemyBase* enemy = Cast<AEnemyBase>(GetPawn());
+	UWorld* world = GetWorld();
+	if (!enemy || !world) return nullptr;
+
+	TArray<ACharacterBase*> combatants;
+	CollectCombatants(combatants);
 
 	//적 눈높이에서 시야 검사
 	const FVector eyeFrom = enemy->GetPawnViewLocation();
 	FCollisionQueryParams params(SCENE_QUERY_STAT(EnemyDetection), false, enemy);
 
-	//한 명이라도 감지되면 전투로 전환
 	for (ACharacterBase* target : combatants)
 	{
 		//부채꼴 감지 검사
@@ -241,11 +252,36 @@ void AEnemyAIController::EvaluateDetectionAndMaybeJoinCombat()
 		const bool bHit = world->LineTraceSingleByChannel(hit, eyeFrom, eyeTo, ECC_Visibility, params);
 		if (bHit && hit.GetActor() != target) continue;
 
-		//감지 성공 시 전투 전환
+		return target;
+	}
+	return nullptr;
+}
+
+bool AEnemyAIController::HasNearbyCombatant(float Radius) const
+{
+	if (Radius <= 0.f) return false;
+	APawn* pawn = GetPawn();
+	if (!pawn) return false;
+
+	TArray<ACharacterBase*> combatants;
+	CollectCombatants(combatants);
+
+	const FVector origin = pawn->GetActorLocation();
+	for (const ACharacterBase* target : combatants)
+	{
+		if (FVector::Dist(target->GetActorLocation(), origin) <= Radius) return true;
+	}
+	return false;
+}
+
+void AEnemyAIController::EvaluateDetectionAndMaybeJoinCombat()
+{
+	//한 명이라도 감지되면 전투로 전환
+	if (ACharacterBase* target = FindVisibleCombatant())
+	{
 		UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 감지 → 전투 전환 (트리거: %s)"),
-			*enemy->GetName(), *target->GetName());
+			*GetNameSafe(GetPawn()), *target->GetName());
 		JoinCombat(EJoinCombatReason::Detection);
-		return;
 	}
 }
 

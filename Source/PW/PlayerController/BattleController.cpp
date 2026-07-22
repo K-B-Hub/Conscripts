@@ -19,6 +19,10 @@
 #include "Components/CapsuleComponent.h"
 #include "Actors/AttackRangeIndicator.h"
 #include "Landscape.h"
+#include "Widget/UpgradeSelectWidget.h"
+#include "Widget/DebugWidget.h"
+#include "DataAsset/UpgradeLibrary.h"
+#include "GameInstance/PWGameInstance.h"
 
 ABattleController::ABattleController()
 {
@@ -48,6 +52,32 @@ void ABattleController::BeginPlay()
 		currentCameraYaw     = InitRot.Yaw;
 		cachedSpringArmPitch = InitRot.Pitch;
 	}
+
+	//디버그 조작 위젯 상시 표시
+	if (debugWidgetClass)
+	{
+		debugWidgetInstance = CreateWidget<UDebugWidget>(this, debugWidgetClass);
+		if (debugWidgetInstance)
+		{
+			debugWidgetInstance->AddToViewport();
+		}
+	}
+}
+
+void ABattleController::DebugAddStress()
+{
+	if (IsValid(activeUnit))
+	{
+		activeUnit->ReceiveStress(100);
+	}
+}
+
+void ABattleController::DebugLevelUp()
+{
+	if (IsValid(activeUnit))
+	{
+		activeUnit->ForceLevelUpTo(activeUnit->GetLevel() + 1);
+	}
 }
 
 USpringArmComponent* ABattleController::ResolveSpringArm()
@@ -74,26 +104,96 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 		UE_LOG(LogTemp, Warning, TEXT("[BattleController] InitTurn: 카메라 폰의 SpringArmComponent를 찾을 수 없습니다."));
 		return;
 	}
-	activeUnit->InitTurn();
 	activeUnit->SetNavObstacleEnabled(false); //본인 경로 계산 시 자신이 장애물이 되지 않도록
 	OnCameraReset(FInputActionValue()); //카메라 초기화 및 추적 모드 활성화
 
-	//이동 완료 델리게이트 바인딩, EndTurn에서 해제
+	//델리게이트 바인딩, EndTurn에서 해제
 	activeUnit->OnMovementCompleted.AddUObject(this, &ABattleController::OnUnitMovementCompleted);
+	activeUnit->OnVitalsChanged.AddUObject(this, &ABattleController::RefreshGauges);
+	//강화 선택 요청 구독, 캐릭터 InitTurn이 대기 강화 시 브로드캐스트
+	activeUnit->OnUpgradeSelectRequested.AddUObject(this, &ABattleController::ShowUpgradeSelect);
 
-	//턴 HUD 생성, 이동/스킬/턴종료/게이지 위젯 일괄 구성
+	//턴 HUD 생성, 강화 위젯이 잠글 대상이므로 InitTurn 전에 준비
 	if (turnHudWidgetClass)
 	{
 		turnHudWidgetInstance = CreateWidget<UBattleTurnWidget>(this, turnHudWidgetClass);
 		if (turnHudWidgetInstance)
 		{
 			turnHudWidgetInstance->AddToViewport();
+		}
+	}
+
+	//캐릭터 턴 시작, 대기 강화가 있으면 OnUpgradeSelectRequested로 ShowUpgradeSelect 유발
+	activeUnit->InitTurn();
+
+	//InitTurn 후 확정된 AP/이동력으로 HUD 값 초기화
+	if (IsValid(turnHudWidgetInstance))
+	{
+		turnHudWidgetInstance->InitTurnHUD(activeUnit);
+	}
+}
+
+void ABattleController::ShowUpgradeSelect()
+{
+	if (!IsValid(activeUnit) || !upgradeSelectWidgetClass) return;
+
+	//공용 풀은 런 단위로 GameInstance에서, 직업 풀은 캐릭터에서 조회
+	const UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
+	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
+
+	TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildChoices(
+		activeUnit, activeUnit->GetClassUpgradeTable(), commonTable, 3);
+
+	//후보가 하나도 없으면 큐만 소비하고 종료
+	if (choices.Num() == 0)
+	{
+		activeUnit->ConsumePendingUpgrade();
+		return;
+	}
+
+	upgradeSelectWidgetInstance = CreateWidget<UUpgradeSelectWidget>(this, upgradeSelectWidgetClass);
+	if (!upgradeSelectWidgetInstance) return;
+
+	upgradeSelectWidgetInstance->SetChoices(choices);
+	upgradeSelectWidgetInstance->OnUpgradeChosen.BindUObject(this, &ABattleController::OnUpgradeChosen);
+	upgradeSelectWidgetInstance->AddToViewport(10);
+
+	//선택 전까지 이동/스킬/턴종료 버튼 잠금, 카메라·마우스오버는 유지
+	if (IsValid(turnHudWidgetInstance))
+	{
+		turnHudWidgetInstance->SetIsEnabled(false);
+	}
+}
+
+void ABattleController::OnUpgradeChosen(TSubclassOf<USkillBase> Chosen)
+{
+	if (IsValid(activeUnit))
+	{
+		activeUnit->AcquireUpgrade(Chosen);
+		activeUnit->ConsumePendingUpgrade();
+
+		//강화 종류와 무관하게 턴 시작처럼 HUD 전체 재초기화(스킬 버튼 재구성·게이지·이동력)
+		if (IsValid(turnHudWidgetInstance))
+		{
 			turnHudWidgetInstance->InitTurnHUD(activeUnit);
 		}
 	}
 
-	//턴 중 hp/스트레스 변동 반영, EndTurn에서 해제
-	activeUnit->OnVitalsChanged.AddUObject(this, &ABattleController::RefreshGauges);
+	if (IsValid(upgradeSelectWidgetInstance))
+	{
+		upgradeSelectWidgetInstance->RemoveFromParent();
+		upgradeSelectWidgetInstance = nullptr;
+	}
+
+	//남은 강화 선택이 있으면 이어서 표시, 없으면 HUD 잠금 해제
+	if (IsValid(activeUnit) && activeUnit->GetPendingUpgradeCount() > 0)
+	{
+		ShowUpgradeSelect();
+	}
+	else if (IsValid(turnHudWidgetInstance))
+	{
+		turnHudWidgetInstance->SetIsEnabled(true);
+	}
 }
 
 void ABattleController::EndTurn()
@@ -103,6 +203,7 @@ void ABattleController::EndTurn()
 		//델리게이트 해제 후 이동 종료, 해제 먼저 해야 오발 방지
 		activeUnit->OnMovementCompleted.RemoveAll(this);
 		activeUnit->OnVitalsChanged.RemoveAll(this);
+		activeUnit->OnUpgradeSelectRequested.RemoveAll(this);
 		activeUnit->SetNavObstacleEnabled(true); //턴 종료 후 다시 장애물로 등록
 		ExitMoveMode();
 		DeactivateSkill();

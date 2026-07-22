@@ -6,6 +6,10 @@
 
 UTestEnemyDeath::UTestEnemyDeath()
 {
+	
+	skillName = NSLOCTEXT("Skill", "TestEnemyDeath_Name", "테스트");
+	skillDescription = NSLOCTEXT("Skill", "TestEnemyDeath_Description", "123123");
+	
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;
 	conditionType = EConditionalType::EnemyDeath;

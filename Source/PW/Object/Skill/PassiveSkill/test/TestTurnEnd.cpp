@@ -6,6 +6,9 @@
 
 UTestTurnEnd::UTestTurnEnd()
 {
+	skillName = NSLOCTEXT("Skill", "TestTurnEnd_Name", "테스트");
+	skillDescription = NSLOCTEXT("Skill", "TestTurnEnd_Description", "123123");	
+	
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;
 	conditionType = EConditionalType::TurnEnd;

@@ -6,6 +6,9 @@
 
 UTestRoundStart::UTestRoundStart()
 {
+	skillName = NSLOCTEXT("Skill", "TestRoundStart_Name", "테스트");
+	skillDescription = NSLOCTEXT("Skill", "TestRoundStart_Description", "123123");
+	
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;
 	conditionType = EConditionalType::RoundStart;

@@ -10,6 +10,7 @@
 class UBehaviorTree;
 class UBlackboardData;
 class AEnemyBase;
+class ACharacterBase;
 
 //전투 합류 사유
 UENUM(BlueprintType)
@@ -44,6 +45,15 @@ public:
 	//전투 중인 캐릭터(플레이어 진영은 항상 전투중 판정) 감지 시 전투로 전환, 비전투 BT의 감지 태스크에서 호출
 	void EvaluateDetectionAndMaybeJoinCombat();
 
+	//전투 대상(플레이어 + 교전 중 적) 수집, 플레이어 진영은 항상 전투중 판정
+	void CollectCombatants(TArray<ACharacterBase*>& OutCombatants) const;
+
+	//부채꼴+시야로 감지되는 전투 대상 반환, 없으면 nullptr
+	ACharacterBase* FindVisibleCombatant() const;
+
+	//반경 내 전투 대상 존재 여부, 시야 무관 거리 판정
+	bool HasNearbyCombatant(float Radius) const;
+
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
@@ -62,6 +72,10 @@ protected:
 	//교전 게이트 반경, 알람 발생 지점 기준
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Combat")
 	float engagementGateRadius = 1000.f;
+
+	//알람 접근 중 근접 교전 전환 반경, 이 안에 전투 대상이 있으면 시야 무관 즉시 교전
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Combat")
+	float engagementDetectRadius = 800.f;
 
 	//턴 시작 후 첫 행동까지의 연출 딜레이
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Pacing")

@@ -8,6 +8,9 @@
 
 UTestAfterSlay::UTestAfterSlay()
 {
+	skillName = NSLOCTEXT("Skill", "TestAfterSlay_Name", "테스트");
+	skillDescription = NSLOCTEXT("Skill", "TestAfterSlay_Description", "123123");
+	
 	passiveType = EPassiveType::Reactive;
 	reactiveType = EReactiveType::AfterSlay;
 	conditionType = EConditionalType::None;

@@ -32,6 +32,9 @@ public:
 	//스킬 제거
 	void RemoveSkill(USkillBase* Skill);
 
+	//해당 클래스의 스킬을 이미 보유 중인지, 강화 후보 중복 필터용
+	bool HasSkillClass(TSubclassOf<USkillBase> skillClass) const;
+
 	//액티브 스킬 목록 반환
 	TArray<UActiveSkillBase*> GetActiveSkills() const;
 	const TArray<TObjectPtr<USkillBase>>& GetAllSkills() const { return skills; }

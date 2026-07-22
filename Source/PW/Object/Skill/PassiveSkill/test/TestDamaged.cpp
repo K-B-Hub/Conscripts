@@ -6,6 +6,9 @@
 
 UTestDamaged::UTestDamaged()
 {
+	skillName = NSLOCTEXT("Skill", "TestDamaged_Name", "테스트");
+	skillDescription = NSLOCTEXT("Skill", "TestDamaged_Description", "123123");
+	
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;
 	conditionType = EConditionalType::Damaged;

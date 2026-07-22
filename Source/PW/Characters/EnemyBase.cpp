@@ -7,6 +7,9 @@
 #include "GameMode/BattleGameMode.h"
 #include "Components/WidgetComponent.h"
 #include "DrawDebugHelpers.h"
+#include "DataAsset/UpgradeLibrary.h"
+#include "GameInstance/PWGameInstance.h"
+#include "Object/Skill/SkillBase.h"
 
 AEnemyBase::AEnemyBase()
 {
@@ -15,6 +18,20 @@ AEnemyBase::AEnemyBase()
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
 	utilityAI = CreateDefaultSubobject<UUtilityAIComponent>(TEXT("UtilityAI"));
+}
+
+void AEnemyBase::GrantLevelUpUpgrade()
+{
+	//공용 풀은 GameInstance, 직업 풀은 자기 것
+	const UPWGameInstance* gameInstance = GetWorld() ? GetWorld()->GetGameInstance<UPWGameInstance>() : nullptr;
+	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
+
+	//적은 선택지 없이 랜덤 1개를 자동 습득
+	TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildChoices(this, classUpgradeTable, commonTable, 1);
+	if (choices.Num() > 0)
+	{
+		AcquireUpgrade(choices[0]);
+	}
 }
 
 void AEnemyBase::BeginPlay()

@@ -4,6 +4,17 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameMode/BattleGameMode.h"
 
+void AAllyCharacterBase::InitTurn()
+{
+	Super::InitTurn();
+
+	//대기 중인 레벨업 강화가 있으면 알림, 위젯 생성·잠금은 컨트롤러 책임
+	if (pendingUpgradeCount > 0)
+	{
+		OnUpgradeSelectRequested.Broadcast();
+	}
+}
+
 void AAllyCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
