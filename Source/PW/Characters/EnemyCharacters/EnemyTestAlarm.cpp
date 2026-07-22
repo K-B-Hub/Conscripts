@@ -21,13 +21,5 @@ void AEnemyTestAlarm::SetDefaultSkills()
 	{
 		skillComponent->AddSkill(UAlarmSkill::StaticClass());
 		skillComponent->AddSkill(USingleRangeAttack::StaticClass());
-		skillComponent->AddSkill(UTestDebuffSkill::StaticClass());
-		skillComponent->AddSkill(UTestHeal::StaticClass());
-		skillComponent->AddSkill(URangeAttack::StaticClass());
-		skillComponent->AddSkill(UMultiPick::StaticClass());
-		//UtilityAI 버프/상태이상 후보 검증용
-		skillComponent->AddSkill(USelfBuffSkill::StaticClass());
-		skillComponent->AddSkill(USingleBuff::StaticClass());
-		skillComponent->AddSkill(USingleAilment::StaticClass());
 	}
 }
