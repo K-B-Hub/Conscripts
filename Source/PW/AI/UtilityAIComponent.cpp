@@ -2,6 +2,7 @@
 
 #include "AI/UtilityAIComponent.h"
 #include "AI/AINavigationHelper.h"
+#include "Actors/Terrain/TerrainBase.h"
 #include "AI/AIPersonalityData.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/AllyCharacterBase.h"
@@ -165,7 +166,7 @@ bool UUtilityAIComponent::HasLOSToLocation(const FVector& FromLoc, const FVector
 }
 
 void UUtilityAIComponent::GatherCastPositions(const FVector& AimLoc, float PickRangeCm, bool bAssumeMoved,
-                                              TArray<TPair<FVector, float>>& Out, bool bGateAimRange) const
+                                              TArray<FAIAction>& Out, bool bGateAimRange) const
 {
 	Out.Reset();
 	if (!ownerCharacter) return;
@@ -197,15 +198,71 @@ void UUtilityAIComponent::GatherCastPositions(const FVector& AimLoc, float PickR
 		//사거리 밖 후보 제외, 멀티픽은 픽별 검사에 위임하므로 게이트 생략
 		if (bGateAimRange && PickRangeCm > 0.f && FVector::Dist(s, AimLoc) > PickRangeCm) continue;
 
-		float pathLenCm = 0.f;
+		FAIAction pos;
+		pos.CastFrom = s;
+
 		if (bAssumeMoved)
 		{
-			//잔여 이동력 내 도달 가능 여부
+			//잔여 이동력 내 도달 가능 여부, 지형 배율은 CanReach가 반영
 			if (FVector::Dist(casterLoc, s) > budgetCm) continue;
-			if (!UAINavigationHelper::CanReach(ownerCharacter, s, pathLenCm)) continue;
+
+			FTerrainPathInfo terrainInfo;
+			if (!UAINavigationHelper::CanReach(ownerCharacter, s, pos.PathLengthCm, &terrainInfo)) continue;
+
+			pos.TerrainWeightedCostCm = terrainInfo.WeightedCostCm;
+			pos.TerrainValueAtDest = SumTerrainStayValue(terrainInfo.DestTerrains);
+			pos.TerrainPassThroughValue = SumTerrainPassValue(terrainInfo.PassedTerrains);
 		}
-		Out.Emplace(s, pathLenCm);
+		else
+		{
+			//제자리 후보는 경로가 없으므로 현재 서 있는 지형만 평가, 이동 후보와 같은 저울에 오르도록
+			TArray<TObjectPtr<ATerrainBase>> here;
+			UAINavigationHelper::GetTerrainsAt(GetWorld(), s, here);
+			pos.TerrainValueAtDest = SumTerrainStayValue(here);
+		}
+
+		Out.Add(pos);
 	}
+}
+
+float UUtilityAIComponent::ScoreTerrain(const FAIAction& Action) const
+{
+	const UAIPersonalityData* p = personalityData
+		? personalityData.Get()
+		: GetDefault<UAIPersonalityData>();
+
+	//지형이 기술한 객관적 손익, 기대 HP 환산이라 기대 피해와 같은 저울
+	const float rawValue = Action.TerrainValueAtDest + Action.TerrainPassThroughValue;
+	if (FMath::IsNearlyZero(rawValue) || !ownerCharacter) return 0.f;
+
+	//잃은 체력 비율만큼 손익을 증폭, 만피 1.0 ~ 빈사 2.0에 수렴
+	const int32 maxHp = ownerCharacter->GetMaxHp();
+	const float missingRatio = (maxHp > 0)
+		? 1.f - static_cast<float>(ownerCharacter->GetHp()) / static_cast<float>(maxHp)
+		: 0.f;
+	const float survivalScale = 1.f + missingRatio;
+
+	return rawValue * survivalScale * p->weightTerrainValue;
+}
+
+float UUtilityAIComponent::SumTerrainStayValue(const TArray<TObjectPtr<ATerrainBase>>& Terrains) const
+{
+	float total = 0.f;
+	for (ATerrainBase* terrain : Terrains)
+	{
+		if (terrain) total += terrain->aiBaseValue;
+	}
+	return total;
+}
+
+float UUtilityAIComponent::SumTerrainPassValue(const TArray<TObjectPtr<ATerrainBase>>& Terrains) const
+{
+	float total = 0.f;
+	for (ATerrainBase* terrain : Terrains)
+	{
+		if (terrain) total += terrain->aiPassThroughValue;
+	}
+	return total;
 }
 
 float UUtilityAIComponent::ComputeRiderValue(const UActiveSkillBase* Skill, const ACharacterBase* Target, float HitP,
@@ -274,12 +331,13 @@ float UUtilityAIComponent::ComputeRiderValue(const UActiveSkillBase* Skill, cons
 	return OutBuffValue + OutAilmentValue;
 }
 
-void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FVector& CastFrom, float PathLenCm,
+void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FAIAction& Pos,
                                               const TArray<ACharacterBase*>& Affected,
                                               TArray<FAIAction>& OutCandidates) const
 {
 	if (!Skill || !ownerCharacter || Affected.Num() == 0) return;
 
+	const FVector& CastFrom = Pos.CastFrom;
 	const bool casterIsAlly = ownerCharacter->IsAlly();
 
 	//데미지 집계
@@ -400,10 +458,9 @@ void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FVe
 	if (!primary) return;
 	const FDamageResult& primaryPreview = bestEnemy ? bestEnemyPreview : (bestHeal ? bestHealPreview : bestRiderPreview);
 
-	FAIAction action;
+	//위치·경로·지형 값은 GatherCastPositions가 채운 것을 그대로 승계
+	FAIAction action = Pos;
 	action.Skill = Skill;
-	action.CastFrom = CastFrom;
-	action.PathLengthCm = PathLenCm;
 	action.Preview = primaryPreview;
 	action.IncomingDangerExpected = ComputeIncomingDangerAt(CastFrom);
 
@@ -441,13 +498,13 @@ void UUtilityAIComponent::EnumerateSingleTarget(UActiveSkillBase* Skill, ACharac
 
 	const FVector aimLoc = Target->GetActorLocation();
 
-	TArray<TPair<FVector, float>> positions;
+	TArray<FAIAction> positions;
 	GatherCastPositions(aimLoc, Skill->pickRange, bAssumeMoved, positions);
 
-	for (const TPair<FVector, float>& pos : positions)
+	for (const FAIAction& pos : positions)
 	{
 		//대표 대상에 대한 시야선 필요
-		if (!UAINavigationHelper::HasLineOfSightFrom(ownerCharacter, pos.Key, Target)) continue;
+		if (!UAINavigationHelper::HasLineOfSightFrom(ownerCharacter, pos.CastFrom, Target)) continue;
 
 		TArray<ACharacterBase*> affected;
 		if (Skill->areaTarget != EAreaTarget::None)
@@ -461,7 +518,7 @@ void UUtilityAIComponent::EnumerateSingleTarget(UActiveSkillBase* Skill, ACharac
 			affected.Add(Target);
 		}
 
-		BuildActionFromCast(Skill, pos.Key, pos.Value, affected, OutCandidates);
+		BuildActionFromCast(Skill, pos, affected, OutCandidates);
 	}
 }
 
@@ -479,20 +536,20 @@ void UUtilityAIComponent::EnumerateMultiPick(UActiveSkillBase* Skill, const TArr
 	centroid /= static_cast<float>(PickTargets.Num());
 
 	//centroid는 위치 샘플 중심일 뿐이라 aim-사거리 게이트는 끄고, 픽별 사거리로 유효성 판정
-	TArray<TPair<FVector, float>> positions;
+	TArray<FAIAction> positions;
 	GatherCastPositions(centroid, Skill->pickRange, bAssumeMoved, positions, false);
 
-	for (const TPair<FVector, float>& pos : positions)
+	for (const FAIAction& pos : positions)
 	{
 		//시전 위치에서 사거리·시야선 확보된 픽 후보를 효용(회복량 또는 피해)으로 정렬
 		TArray<TPair<ACharacterBase*, float>> cands;
 		for (ACharacterBase* t : PickTargets)
 		{
 			if (!IsValid(t) || t->IsDead()) continue;
-			if (Skill->pickRange > 0.f && FVector::Dist(pos.Key, t->GetActorLocation()) > Skill->pickRange) continue;
-			if (!UAINavigationHelper::HasLineOfSightFrom(ownerCharacter, pos.Key, t)) continue;
+			if (Skill->pickRange > 0.f && FVector::Dist(pos.CastFrom, t->GetActorLocation()) > Skill->pickRange) continue;
+			if (!UAINavigationHelper::HasLineOfSightFrom(ownerCharacter, pos.CastFrom, t)) continue;
 
-			const FDamageResult pr = t->PreviewDamage(Skill, ownerCharacter, pos.Key);
+			const FDamageResult pr = t->PreviewDamage(Skill, ownerCharacter, pos.CastFrom);
 			const float hitP  = pr.HitChance / 100.f;
 
 			//픽 효용 = 유효 회복(음수 데미지) 또는 기대 피해(양수) + rider 가치
@@ -540,7 +597,7 @@ void UUtilityAIComponent::EnumerateMultiPick(UActiveSkillBase* Skill, const TArr
 			}
 		}
 
-		BuildActionFromCast(Skill, pos.Key, pos.Value, affected, OutCandidates);
+		BuildActionFromCast(Skill, pos, affected, OutCandidates);
 	}
 }
 
@@ -578,16 +635,16 @@ void UUtilityAIComponent::EnumerateGroundPoint(UActiveSkillBase* Skill, bool bAs
 
 	for (const FVector& aim : aimPoints)
 	{
-		TArray<TPair<FVector, float>> positions;
+		TArray<FAIAction> positions;
 		GatherCastPositions(aim, Skill->pickRange, bAssumeMoved, positions);
 
-		for (const TPair<FVector, float>& pos : positions)
+		for (const FAIAction& pos : positions)
 		{
-			if (!HasLOSToLocation(pos.Key, aim)) continue;
+			if (!HasLOSToLocation(pos.CastFrom, aim)) continue;
 
 			TArray<ACharacterBase*> affected;
 			CollectAreaAffected(Skill, aim, affected);
-			BuildActionFromCast(Skill, pos.Key, pos.Value, affected, OutCandidates);
+			BuildActionFromCast(Skill, pos, affected, OutCandidates);
 		}
 	}
 }
@@ -603,7 +660,15 @@ void UUtilityAIComponent::EnumerateSkillActions(UActiveSkillBase* Skill, bool bA
 		if (bAssumeMoved) return;
 		TArray<ACharacterBase*> selfOnly;
 		selfOnly.Add(ownerCharacter);
-		BuildActionFromCast(Skill, ownerCharacter->GetActorLocation(), 0.f, selfOnly, OutCandidates);
+
+		//제자리 시전이므로 경로는 없고, 현재 서 있는 지형의 체류 가치만 반영
+		FAIAction selfPos;
+		selfPos.CastFrom = ownerCharacter->GetActorLocation();
+		TArray<TObjectPtr<ATerrainBase>> here;
+		UAINavigationHelper::GetTerrainsAt(GetWorld(), selfPos.CastFrom, here);
+		selfPos.TerrainValueAtDest = SumTerrainStayValue(here);
+
+		BuildActionFromCast(Skill, selfPos, selfOnly, OutCandidates);
 		return;
 	}
 
@@ -661,11 +726,15 @@ void UUtilityAIComponent::EnumerateMoveActions(TArray<FAIAction>& OutCandidates)
 				casterLoc.Z);
 
 			float pathLenCm = 0.f;
-			if (!UAINavigationHelper::CanReach(ownerCharacter, sample, pathLenCm)) continue;
+			FTerrainPathInfo terrainInfo;
+			if (!UAINavigationHelper::CanReach(ownerCharacter, sample, pathLenCm, &terrainInfo)) continue;
 
 			FAIAction action;
 			action.CastFrom = sample;
 			action.PathLengthCm = pathLenCm;
+			action.TerrainWeightedCostCm = terrainInfo.WeightedCostCm;
+			action.TerrainValueAtDest = SumTerrainStayValue(terrainInfo.DestTerrains);
+			action.TerrainPassThroughValue = SumTerrainPassValue(terrainInfo.PassedTerrains);
 			action.ApproachDeltaCm = (baseDist >= 0.f) ? baseDist - DistToNearestPlayer(sample) : 0.f;
 			action.IncomingDangerExpected = ComputeIncomingDangerAt(sample);
 			action.Type = EAIActionType::Move;
@@ -764,6 +833,9 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 		score += Action.PathLengthCm * p->weightDistancePenalty;
 		//접근 축, 최근접 플레이어와의 거리 감소량 보상
 		score += Action.ApproachDeltaCm * p->weightApproach;
+
+		//지형 점수
+		score += ScoreTerrain(Action);
 	}
 	else
 	{
@@ -795,6 +867,9 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 
 		//이동 거리 페널티
 		score += Action.PathLengthCm * p->weightDistancePenalty;
+
+		//지형 점수, 시전 위치의 체류 가치와 경로 통과 손익
+		score += ScoreTerrain(Action);
 
 		//자원 비용 페널티
 		if (Action.Skill)
@@ -906,7 +981,8 @@ void UUtilityAIComponent::StepNext()
 		//순수 이동 후 이동 후보 제외
 		lastWasMove = true;
 		bHasPendingAfterMove = false;
-		StartMoveTo(best->CastFrom, best->PathLengthCm);
+		//차감은 지형 배율을 반영한 실질 비용 기준, 실제 경로 길이가 아님
+		StartMoveTo(best->CastFrom, best->TerrainWeightedCostCm);
 		return;
 	}
 
@@ -916,7 +992,8 @@ void UUtilityAIComponent::StepNext()
 		lastWasMove = false;
 		pendingActionAfterMove = *best;
 		bHasPendingAfterMove = true;
-		StartMoveTo(best->CastFrom, best->PathLengthCm);
+		//차감은 지형 배율을 반영한 실질 비용 기준, 실제 경로 길이가 아님
+		StartMoveTo(best->CastFrom, best->TerrainWeightedCostCm);
 		return;
 	}
 
@@ -983,7 +1060,7 @@ void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
 	}
 }
 
-void UUtilityAIComponent::StartMoveTo(const FVector& Dest, float PathLengthCm)
+void UUtilityAIComponent::StartMoveTo(const FVector& Dest, float MoveCostCm)
 {
 	if (!ownerCharacter) { FinishTurn(); return; }
 
@@ -1018,7 +1095,7 @@ void UUtilityAIComponent::StartMoveTo(const FVector& Dest, float PathLengthCm)
 
 	//실제 이동 요청이 접수된 경우에만 이동 상태 반영 및 이동력 차감
 	ownerCharacter->OnMoveStateChanged(true);
-	ownerCharacter->ConsumeMovingPoint(PathLengthCm / 100.f);
+	ownerCharacter->ConsumeMovingPoint(MoveCostCm / 100.f);
 }
 
 void UUtilityAIComponent::OnAIMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)

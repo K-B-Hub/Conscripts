@@ -60,6 +60,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
 	TObjectPtr<UMaterialInterface> pathMaterialUnreachable;
 
+	//지형 통과 구간 머티리얼, 미지정 시 일반 구간과 같은 색으로 표시
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
+	TObjectPtr<UMaterialInterface> pathMaterialTerrain;
+
 	//경로 메쉬 단면 스케일
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Visual|Path")
 	FVector2D pathMeshScale = FVector2D(1.f, 0.05f);
@@ -104,6 +108,9 @@ private:
 	FVector cachedSplitPoint = FVector::ZeroVector;
 	int32 cachedSplitSegIndex = -1;
 
+	//시작점부터 분기점까지의 실제 이동 거리(cm), 지형 배율이 걸리면 소모 이동력과 다름
+	float cachedSplitDistanceCm = 0.f;
+
 	//이동 중 커서 고정 모드
 	bool bIsLocked = false;
 	FVector lockedIndicatorPos = FVector::ZeroVector;
@@ -127,4 +134,8 @@ private:
 
 	//월드 좌표를 지면에 스냅
 	FVector SnapToGround(const FVector& WorldPoint) const;
+
+	//지정 지점의 지형 이동력 소모 배율, 지형 밖이면 1.0
+	//bOutInTerrain은 배율과 무관하게 지형 내부인지 여부
+	float GetTerrainCostMultiplierAt(const FVector& WorldPoint, bool& bOutInTerrain) const;
 };

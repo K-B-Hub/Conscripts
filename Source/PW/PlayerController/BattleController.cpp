@@ -22,6 +22,7 @@
 #include "Widget/UpgradeSelectWidget.h"
 #include "Widget/DebugWidget.h"
 #include "DataAsset/UpgradeLibrary.h"
+#include "DataAsset/FixedUpgradeTableData.h"
 #include "GameInstance/PWGameInstance.h"
 
 ABattleController::ABattleController()
@@ -141,8 +142,31 @@ void ABattleController::ShowUpgradeSelect()
 	const UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
 	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
 
-	TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildChoices(
-		activeUnit, activeUnit->GetClassUpgradeTable(), commonTable, 3);
+	//가장 앞 대기 강화의 부여 레벨로 종류를 복원해 분기
+	const int32 pendingLevel = activeUnit->PeekPendingUpgradeLevel();
+	const ELevelUpUpgradeKind kind = UUpgradeLibrary::ClassifyLevelUpUpgrade(pendingLevel);
+
+	TArray<TSubclassOf<USkillBase>> choices;
+	switch (kind)
+	{
+	case ELevelUpUpgradeKind::ClassFixed:
+	{
+		//직업별 레벨 고정 강화, 단일 카드로 제시
+		const UFixedUpgradeTableData* fixedTable = activeUnit->GetFixedUpgradeTable();
+		const TSubclassOf<USkillBase> fixed = fixedTable ? fixedTable->GetFixedUpgrade(pendingLevel) : nullptr;
+		if (fixed) choices.Add(fixed);
+		break;
+	}
+	case ELevelUpUpgradeKind::HighRandom:
+		//하급 풀 제외 고급 랜덤
+		choices = UUpgradeLibrary::BuildChoices(
+			activeUnit, activeUnit->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Mid);
+		break;
+	default:
+		choices = UUpgradeLibrary::BuildChoices(
+			activeUnit, activeUnit->GetClassUpgradeTable(), commonTable, 3);
+		break;
+	}
 
 	//후보가 하나도 없으면 큐만 소비하고 종료
 	if (choices.Num() == 0)

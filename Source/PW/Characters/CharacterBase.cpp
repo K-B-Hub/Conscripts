@@ -16,6 +16,8 @@
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
 #include "GameMode/BattleGameMode.h"
+#include "ActorComponent/TerrainComponent.h"
+#include "Actors/Terrain/TerrainBase.h"
 
 //데미지 산식의 단일 출처, CalculateDamage와 PreviewDamage가 공유
 static void ComputeDamageNumbers(const ACharacterBase* Target,
@@ -93,6 +95,7 @@ ACharacterBase::ACharacterBase()
 	buffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
 	ailmentComponent = CreateDefaultSubobject<UAilmentComponent>(TEXT("AilmentComponent"));
 	passiveSkillComponent = CreateDefaultSubobject<UPassiveSkillComponent>(TEXT("PassiveSkillComponent"));
+	terrainComponent = CreateDefaultSubobject<UTerrainComponent>(TEXT("TerrainComponent"));
 
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
 
@@ -148,6 +151,12 @@ void ACharacterBase::SetDefaultStats()
 		accuracy += passiveSkillComponent->GetAccuracyBonus();
 		evasion += passiveSkillComponent->GetEvasionBonus();
 		critical += passiveSkillComponent->GetCriticalBonus();
+	}
+	if (terrainComponent)
+	{
+		accuracy += terrainComponent->GetAccuracyBonus();
+		evasion += terrainComponent->GetEvasionBonus();
+		critical += terrainComponent->GetCriticalBonus();
 	}
 	if (skillComponent)
 	{
@@ -241,7 +250,13 @@ void ACharacterBase::ReduceBattleResource(int32 amount)
 
 void ACharacterBase::ConsumeMovingPoint(float meters)
 {
+	//지형 배율은 호출자가 적용, AI는 경로 전체 가중 비용을, 아군은 프레임별 현재 지형 배율을 반영
 	currentMovingPoint = FMath::Max(0.f, currentMovingPoint - meters);
+}
+
+float ACharacterBase::GetTerrainMoveCostMultiplier() const
+{
+	return terrainComponent ? terrainComponent->GetMovingPointCostMultiplier() : 1.f;
 }
 
 void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication,
@@ -401,6 +416,12 @@ void ACharacterBase::InitTurn()
 	{
 		passiveSkillComponent->DispatchConditional(EConditionalType::TurnStart);
 	}
+
+	//체류 지형의 턴 시작 효과, 패시브 이후에 적용해 환경 피해가 마지막에 오도록
+	if (terrainComponent)
+	{
+		terrainComponent->DispatchTurnStart();
+	}
 }
 
 void ACharacterBase::EndTurn()
@@ -409,6 +430,12 @@ void ACharacterBase::EndTurn()
 	if (passiveSkillComponent)
 	{
 		passiveSkillComponent->DispatchConditional(EConditionalType::TurnEnd);
+	}
+
+	//체류 지형의 턴 종료 효과, 버프/상태이상 차감 전 상태에서 적용
+	if (terrainComponent)
+	{
+		terrainComponent->DispatchTurnEnd();
 	}
 
 	if (buffComponent)
@@ -570,6 +597,53 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 		UE_LOG(LogTemp, Log, TEXT("  evasion: %.2f -> %.2f"), beforeEvasion, evasion);
 	if (!FMath::IsNearlyEqual(beforeCritical, critical))
 		UE_LOG(LogTemp, Log, TEXT("  critical: %.2f -> %.2f"), beforeCritical, critical);
+}
+
+void ACharacterBase::ApplyTerrainStatDelta(const ATerrainBase* terrain, int32 sign)
+{
+	if (!terrain || (sign != 1 && sign != -1)) return;
+
+	//최대 체력 변경, 현재 체력은 새 max에 클램프
+	maxHp += terrain->hp * sign;
+	if (maxHp <= 0) maxHp = 1;
+	hp = FMath::Clamp(hp, 1, maxHp);
+	if (healthWidget)
+	{
+		healthWidget->InitHealth(maxHp, hp);
+	}
+
+	//기본 능력치
+	atk += terrain->atk * sign;
+	speed += terrain->speed * sign;
+	skill += terrain->skill * sign;
+	def += terrain->def * sign;
+	movingPoint += terrain->movingPoint * sign;
+	currentMovingPoint += terrain->movingPoint * sign;
+	currentMovingPoint = FMath::Clamp(currentMovingPoint, 0, movingPoint);
+	mentality += terrain->mentality * sign;
+
+	//행동력 최대치 변경, 현재치는 새 max에 클램프
+	actionPoint += terrain->actionPoint * sign;
+	currentActionPoint += terrain->actionPoint * sign;
+	currentActionPoint = FMath::Clamp(currentActionPoint, 0, actionPoint);
+
+	//피해 보정
+	damageReduction += terrain->damageReduction * sign;
+	damageAmplification += terrain->damageAmplification * sign;
+	penetration += terrain->penetration * sign;
+	sight += terrain->sight * sign;
+
+	//전투 파생 스탯은 직접 가감하지 않고 TerrainComponent 보너스에 저장, 재계산 시 가산
+	if (terrainComponent)
+	{
+		terrainComponent->AddCombatStatBonus(terrain->accuracy * sign, terrain->evasion * sign, terrain->critical * sign);
+	}
+
+	//파생 스탯 재계산(보너스 포함), 사망 상태에서는 owner가 stale weak ptr이라 스킵
+	if (!IsDead())
+	{
+		SetDefaultStats();
+	}
 }
 
 void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)

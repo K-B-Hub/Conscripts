@@ -8,6 +8,19 @@
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Object/Skill/PassiveSkillBase.h"
 
+ELevelUpUpgradeKind UUpgradeLibrary::ClassifyLevelUpUpgrade(int32 level)
+{
+	if (level <= 80 && level % 5 == 0)
+	{
+		return ELevelUpUpgradeKind::ClassFixed;
+	}
+	if (level > 80 && level % 10 == 0)
+	{
+		return ELevelUpUpgradeKind::HighRandom;
+	}
+	return ELevelUpUpgradeKind::Random;
+}
+
 EUpgradeGrade UUpgradeLibrary::RollGrade()
 {
 	const int32 r = FMath::RandRange(1, 100);
@@ -82,17 +95,19 @@ TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildChoices(
 	const ACharacterBase* character,
 	const UUpgradeTableData* classTable,
 	const UUpgradeTableData* commonTable,
-	int32 count)
+	int32 count,
+	EUpgradeGrade minGrade)
 {
 	TArray<TSubclassOf<USkillBase>> result;
 	if (!character || count <= 0) return result;
 
-	//뽑힌 등급부터 하위 등급까지 내려가며 count를 채움
-	const EUpgradeGrade rolled = RollGrade();
-	UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 추첨 시작 → 등급: %s (요청 %d개)"),
-		*character->GetName(), *UEnum::GetValueAsString(rolled), count);
+	//뽑힌 등급부터 하위 등급까지 내려가며 count를 채움, minGrade 미만은 배제
+	const EUpgradeGrade rolledRaw = RollGrade();
+	const EUpgradeGrade rolled = (rolledRaw < minGrade) ? minGrade : rolledRaw;
+	UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 추첨 시작 → 등급: %s (요청 %d개, 하한 %s)"),
+		*character->GetName(), *UEnum::GetValueAsString(rolled), count, *UEnum::GetValueAsString(minGrade));
 
-	for (int32 g = static_cast<int32>(rolled); g >= 0 && result.Num() < count; --g)
+	for (int32 g = static_cast<int32>(rolled); g >= static_cast<int32>(minGrade) && result.Num() < count; --g)
 	{
 		const EUpgradeGrade grade = static_cast<EUpgradeGrade>(g);
 

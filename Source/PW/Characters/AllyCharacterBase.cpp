@@ -9,7 +9,7 @@ void AAllyCharacterBase::InitTurn()
 	Super::InitTurn();
 
 	//대기 중인 레벨업 강화가 있으면 알림, 위젯 생성·잠금은 컨트롤러 책임
-	if (pendingUpgradeCount > 0)
+	if (pendingUpgradeLevels.Num() > 0)
 	{
 		OnUpgradeSelectRequested.Broadcast();
 	}
@@ -23,9 +23,9 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 
 	const FVector CurrentLoc = GetActorLocation();
 
-	//이전 프레임 대비 이동한 거리를 미터로 변환해 이동력 차감
+	//이전 프레임 대비 이동한 거리를 미터로 변환해 이동력 차감, 현재 서 있는 지형의 소모 배율 반영
 	const float MovedCm = FVector::Dist(CurrentLoc, lastFrameLocation);
-	currentMovingPoint = FMath::Max(0.f, currentMovingPoint - MovedCm / 100.f);
+	ConsumeMovingPoint(MovedCm / 100.f * GetTerrainMoveCostMultiplier());
 	lastFrameLocation = CurrentLoc;
 
 	//이동력 소진 시 즉시 정지 후 자연 종료 알림
