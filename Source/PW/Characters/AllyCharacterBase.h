@@ -7,6 +7,7 @@
 #include "AllyCharacterBase.generated.h"
 
 class UUpgradeTableData;
+class UFixedUpgradeTableData;
 
 //플레이어가 조작하는 아군 캐릭터 베이스
 UCLASS()
@@ -20,9 +21,15 @@ public:
 	//직업 고유 강화 후보 풀, 파생 직업 BP에서 지정
 	UUpgradeTableData* GetClassUpgradeTable() const { return classUpgradeTable; }
 
-	//대기 중인 강화 선택 횟수, 턴 시작 시 BattleController가 소비
-	int32 GetPendingUpgradeCount() const { return pendingUpgradeCount; }
-	void ConsumePendingUpgrade() { if (pendingUpgradeCount > 0) --pendingUpgradeCount; }
+	//직업별 레벨 고정 강화 매핑, 파생 직업 BP에서 지정
+	UFixedUpgradeTableData* GetFixedUpgradeTable() const { return fixedUpgradeTable; }
+
+	//대기 중인 강화 개수, 턴 시작 시 BattleController가 소비
+	int32 GetPendingUpgradeCount() const { return pendingUpgradeLevels.Num(); }
+	void ConsumePendingUpgrade() { if (pendingUpgradeLevels.Num() > 0) pendingUpgradeLevels.RemoveAt(0); }
+
+	//가장 앞 대기 강화가 부여된 레벨, 소비 측이 종류·고정 스킬을 복원하는 데 사용
+	int32 PeekPendingUpgradeLevel() const { return pendingUpgradeLevels.Num() > 0 ? pendingUpgradeLevels[0] : 0; }
 
 	//경로 추종 이동 및 이동력 차감 처리
 	virtual void Tick(float DeltaTime) override;
@@ -54,12 +61,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
 	TObjectPtr<UUpgradeTableData> classUpgradeTable;
 
-	//레벨업 시 강화 선택을 큐에 누적, 다음 자기 턴 시작 시 소비
-	virtual void GrantLevelUpUpgrade() override { ++pendingUpgradeCount; }
+	//직업별 레벨 고정 강화 매핑, 파생 직업 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
+	TObjectPtr<UFixedUpgradeTableData> fixedUpgradeTable;
+
+	//레벨업 시 부여 레벨을 큐에 누적, 다음 자기 턴 시작 시 소비. 종류는 소비 시점에 레벨로 분류
+	virtual void GrantLevelUpUpgrade() override { pendingUpgradeLevels.Add(level); }
 
 private:
-	//대기 중인 강화 선택 횟수
-	int32 pendingUpgradeCount = 0;
+	//대기 중인 강화가 부여된 레벨들(FIFO)
+	TArray<int32> pendingUpgradeLevels;
 
 	//NavMesh 경로 경유점 및 현재 인덱스
 	TArray<FVector> pathPoints;

@@ -14,6 +14,7 @@ class ACharacterBase;
 class UAIPersonalityData;
 class UBuffBase;
 class UAilmentBase;
+class ATerrainBase;
 
 //버프가 가감하는 스탯 식별자, StatLeverage 환산용
 enum class EAIBuffStat : uint8
@@ -54,10 +55,19 @@ protected:
 	//지정 위치에서 aim 지점까지 시야선 확보 여부
 	bool HasLOSToLocation(const FVector& FromLoc, const FVector& AimLoc) const;
 
-	//유효 시전 위치 후보 수집, TPair는 위치와 경로 길이
+	//유효 시전 위치 후보 수집, CastFrom·PathLengthCm·지형 필드만 채운 미완성 FAIAction을 반환
 	//bGateAimRange: aim까지의 사거리로 위치를 필터할지, 멀티픽은 픽별 검사에 위임하려 false 사용
 	void GatherCastPositions(const FVector& AimLoc, float PickRangeCm, bool bAssumeMoved,
-	                         TArray<TPair<FVector, float>>& Out, bool bGateAimRange = true) const;
+	                         TArray<FAIAction>& Out, bool bGateAimRange = true) const;
+
+	//후보의 지형 손익을 자기 상태에 비춰 해석한 점수, 지형은 객관값만 주고 해석은 여기서
+	float ScoreTerrain(const FAIAction& Action) const;
+
+	//지형 목록의 체류 가치 합산, 기대 HP 환산
+	float SumTerrainStayValue(const TArray<TObjectPtr<ATerrainBase>>& Terrains) const;
+
+	//지형 목록의 통과 손익 합산, 기대 HP 환산
+	float SumTerrainPassValue(const TArray<TObjectPtr<ATerrainBase>>& Terrains) const;
 
 	//스킬 하나에 대한 모든 후보 열거, selectMode별 분기 (버프/상태이상 스킬 포함)
 	void EnumerateSkillActions(UActiveSkillBase* Skill, bool bAssumeMoved,
@@ -78,7 +88,8 @@ protected:
 	//영향 대상 집합으로 후보 하나 구성, 단일 패스로 피해/회복/rider 가치 동시 집계
 	//대표는 Targets[0], 우선순위 = 최대 피해 적군 > 최대 부상 아군 > 최대 rider 가치 대상
 	//유효 가치가 전혀 없으면 후보 미생성
-	void BuildActionFromCast(UActiveSkillBase* Skill, const FVector& CastFrom, float PathLenCm,
+	//Pos는 GatherCastPositions가 채운 미완성 후보, 위치·경로·지형 값을 그대로 승계
+	void BuildActionFromCast(UActiveSkillBase* Skill, const FAIAction& Pos,
 	                         const TArray<ACharacterBase*>& Affected,
 	                         TArray<FAIAction>& OutCandidates) const;
 
@@ -218,7 +229,8 @@ protected:
 	bool bFastForward = false;
 
 	//AI 이동 시작
-	void StartMoveTo(const FVector& Dest, float PathLengthCm);
+	//MoveCostCm은 지형 배율을 반영한 실질 이동 비용, 실제 경로 길이가 아님
+	void StartMoveTo(const FVector& Dest, float MoveCostCm);
 
 	//AI 이동 완료 콜백
 	UFUNCTION()

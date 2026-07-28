@@ -9,6 +9,8 @@
 #include "Components/SplineMeshComponent.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
+#include "AI/AINavigationHelper.h"
+#include "Actors/Terrain/TerrainBase.h"
 
 ACursorIndicator::ACursorIndicator()
 {
@@ -165,10 +167,11 @@ void ACursorIndicator::UpdatePathDistance()
 		//경로 스플라인 메쉬 재구성
 		RebuildPathMeshes();
 
-		//범위 내는 실제 경로 거리, 범위 초과는 이동력 예산 그대로 표시
+		//양쪽 모두 실제 이동 거리, 범위 초과 시에는 분기점까지의 거리
+		//지형 배율이 걸리면 소모 이동력과 값이 달라지므로 거리만 표시
 		const float displayMeters = (cachedSplitSegIndex == -1)
 			? Path->GetPathLength() / 100.f
-			: activeUnit->GetCurrentMovingPoint();
+			: cachedSplitDistanceCm / 100.f;
 
 		if (UMoveIndicatorWidget* Widget = Cast<UMoveIndicatorWidget>(distanceWidget->GetWidget()))
 		{
@@ -209,7 +212,7 @@ void ACursorIndicator::RebuildPathMeshes()
 	}
 	densePoints.Add(SnapToGround(cachedPathPoints.Last()));
 
-	//누적 거리로 이동력 예산 소진 지점을 찾아 densePoints에 삽입
+	//지형 배율을 반영한 누적 비용으로 이동력 예산 소진 지점을 찾아 densePoints에 삽입
 	int32 visualUnreachableStart = -1;
 	if (activeUnit.IsValid())
 	{
@@ -218,14 +221,20 @@ void ACursorIndicator::RebuildPathMeshes()
 		for (int32 i = 0; i + 1 < densePoints.Num(); ++i)
 		{
 			const float segLen = FVector::Dist(densePoints[i], densePoints[i + 1]);
-			if (accumulated + segLen >= budgetCm)
+
+			bool bInTerrain = false;
+			const float multiplier = GetTerrainCostMultiplierAt(
+				(densePoints[i] + densePoints[i + 1]) * 0.5f, bInTerrain);
+			const float segCost = segLen * multiplier;
+
+			if (accumulated + segCost >= budgetCm)
 			{
-				const float t = (budgetCm - accumulated) / segLen;
+				const float t = (budgetCm - accumulated) / segCost;
 				densePoints.Insert(SnapToGround(FMath::Lerp(densePoints[i], densePoints[i + 1], t)), i + 1);
 				visualUnreachableStart = i + 1; //이 인덱스부터 빨간색
 				break;
 			}
-			accumulated += segLen;
+			accumulated += segCost;
 		}
 	}
 
@@ -252,12 +261,41 @@ void ACursorIndicator::RebuildPathMeshes()
 		SplineMesh->SetStartScale(pathMeshScale, false);
 		SplineMesh->SetEndScale(pathMeshScale, true);
 
+		//우선순위: 이동 불가 > 지형 통과 > 일반
 		const bool bUnreachable = (visualUnreachableStart != -1) && (i >= visualUnreachableStart);
-		UMaterialInterface* Mat = bUnreachable ? pathMaterialUnreachable : pathMaterialReachable;
+
+		UMaterialInterface* Mat = pathMaterialReachable;
+		if (bUnreachable)
+		{
+			Mat = pathMaterialUnreachable;
+		}
+		else if (pathMaterialTerrain)
+		{
+			bool bInTerrain = false;
+			GetTerrainCostMultiplierAt((densePoints[i] + densePoints[i + 1]) * 0.5f, bInTerrain);
+			if (bInTerrain) Mat = pathMaterialTerrain;
+		}
+
 		if (Mat) SplineMesh->SetMaterial(0, Mat);
 
 		pathMeshes.Add(SplineMesh);
 	}
+}
+
+float ACursorIndicator::GetTerrainCostMultiplierAt(const FVector& WorldPoint, bool& bOutInTerrain) const
+{
+	TArray<TObjectPtr<ATerrainBase>> here;
+	UAINavigationHelper::GetTerrainsAt(GetWorld(), WorldPoint, here);
+
+	bOutInTerrain = here.Num() > 0;
+
+	//겹친 지형은 배율을 곱산, TerrainComponent와 동일한 규칙
+	float multiplier = 1.f;
+	for (ATerrainBase* terrain : here)
+	{
+		if (terrain) multiplier *= terrain->movingPointCostMultiplier;
+	}
+	return multiplier;
 }
 
 FVector ACursorIndicator::SnapToGround(const FVector& WorldPoint) const
@@ -276,6 +314,7 @@ FVector ACursorIndicator::SnapToGround(const FVector& WorldPoint) const
 void ACursorIndicator::UpdateSplitPoint()
 {
 	cachedSplitSegIndex = -1;
+	cachedSplitDistanceCm = 0.f;
 
 	if (!activeUnit.IsValid() || cachedPathPoints.Num() < 2) return;
 
@@ -283,19 +322,41 @@ void ACursorIndicator::UpdateSplitPoint()
 	const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
 	float accumulated = 0.f;
 
+	//소모 이동력과 별개로 실제 이동 거리도 누적, 거리 위젯 표시용
+	float accumulatedDistCm = 0.f;
+
 	for (int32 i = 0; i + 1 < cachedPathPoints.Num(); ++i)
 	{
-		const float segLen = FVector::Dist(cachedPathPoints[i], cachedPathPoints[i + 1]);
+		const FVector& A = cachedPathPoints[i];
+		const FVector& B = cachedPathPoints[i + 1];
+		const float segLen = FVector::Dist(A, B);
+		if (segLen <= KINDA_SMALL_NUMBER) continue;
 
-		if (accumulated + segLen >= budgetCm)
+		//RebuildPathMeshes와 같은 세분화 간격을 써야 데칼 위치와 색 경계가 일치
+		const int32 stepCount = FMath::Max(1, FMath::CeilToInt(segLen / pathSubdivisionLength));
+		const float stepLen = segLen / stepCount;
+
+		for (int32 s = 0; s < stepCount; ++s)
 		{
-			//이 세그먼트 안에서 이동력 소진, Lerp로 분기점 보간
-			const float t = (budgetCm - accumulated) / segLen;
-			cachedSplitPoint = FMath::Lerp(cachedPathPoints[i], cachedPathPoints[i + 1], t);
-			cachedSplitSegIndex = i;
-			return;
+			const FVector subA = FMath::Lerp(A, B, static_cast<float>(s) / stepCount);
+			const FVector subB = FMath::Lerp(A, B, static_cast<float>(s + 1) / stepCount);
+
+			bool bInTerrain = false;
+			const float stepCost = stepLen * GetTerrainCostMultiplierAt((subA + subB) * 0.5f, bInTerrain);
+
+			if (accumulated + stepCost >= budgetCm)
+			{
+				//이 조각 안에서 이동력 소진, 비용 비율로 분기점 보간
+				const float t = (budgetCm - accumulated) / stepCost;
+				cachedSplitPoint = FMath::Lerp(subA, subB, t);
+				cachedSplitSegIndex = i;
+				//배율이 걸린 조각이라 남은 예산이 곧 거리가 아님, 보간 비율로 실제 거리 산출
+				cachedSplitDistanceCm = accumulatedDistCm + stepLen * t;
+				return;
+			}
+			accumulated += stepCost;
+			accumulatedDistCm += stepLen;
 		}
-		accumulated += segLen;
 	}
 	//누적 거리가 예산 미만이면 경로 전체가 이동 가능
 }

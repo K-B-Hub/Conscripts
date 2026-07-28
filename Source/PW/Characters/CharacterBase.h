@@ -18,6 +18,8 @@ class UPassiveSkillComponent;
 class UPassiveSkillBase;
 class UActiveSkillBase;
 class USkillBase;
+class UTerrainComponent;
+class ATerrainBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 //hp/스트레스 변동 시 HUD 게이지 등 외부 통지
@@ -96,6 +98,10 @@ protected:
 	//패시브 스킬 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Skill")
 	TObjectPtr<UPassiveSkillComponent> passiveSkillComponent;
+
+	//지형 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Terrain")
+	TObjectPtr<UTerrainComponent> terrainComponent;
 
 	//캐릭터 스탯
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
@@ -210,8 +216,10 @@ public:
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
 	float GetMovingPoint() const { return movingPoint; }
 	bool IsMoved() const { return isMoved; }
-	//AI 이동 시 PathLength 기반으로 이동력 사전 차감
+	//이동력 차감, 지형 배율은 호출자가 미리 반영해서 넘김
 	void ConsumeMovingPoint(float meters);
+	//현재 체류 지형의 이동력 소모 배율, 지형 밖이면 1.0
+	float GetTerrainMoveCostMultiplier() const;
 	int32 GetLevel() const { return level; }
 	int32 GetHp() const { return hp; }
 	int32 GetMaxHp() const { return maxHp; }
@@ -300,6 +308,7 @@ public:
 	UBuffComponent* GetBuffComponent() const { return buffComponent; }
 	UAilmentComponent* GetAilmentComponent() const { return ailmentComponent; }
 	UPassiveSkillComponent* GetPassiveSkillComponent() const { return passiveSkillComponent; }
+	UTerrainComponent* GetTerrainComponent() const { return terrainComponent; }
 
 	//버프 적용/해제 시 스탯 델타 일괄 가감 — sign: +1=적용, -1=해제
 	//파생 스탯(accuracy/evasion/critical)은 BuffComponent 보너스에 저장 후 재계산으로 반영
@@ -308,4 +317,8 @@ public:
 	//패시브(Stat) 등록/해제 시 스탯 델타 일괄 가감 — sign: +1=등록, -1=해제
 	//ApplyBuffDelta와 동일한 가역성 원칙 (음수 sign 허용, 0 클램프 금지)
 	void ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int32 sign);
+
+	//지형 진입/이탈 시 스탯 델타 일괄 가감 — sign: +1=진입, -1=이탈
+	//ApplyBuffDelta와 동일한 가역성 원칙
+	void ApplyTerrainStatDelta(const ATerrainBase* terrain, int32 sign);
 };

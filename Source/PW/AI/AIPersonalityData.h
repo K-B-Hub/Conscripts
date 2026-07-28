@@ -90,6 +90,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
 	float weightAilmentValue = 1.0f;
 
+	//지형 가치 가중치, 기대 HP 환산치에 곱산
+	//1.0이면 손익을 액면 그대로 저울에 올림, 높이면 위험 지형을 더 기피
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Terrain")
+	float weightTerrainValue = 1.0f;
+
 	//아군의 높은 스탯 강화 선호
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
 	float weightPreferHighStatAlly = 0.f;

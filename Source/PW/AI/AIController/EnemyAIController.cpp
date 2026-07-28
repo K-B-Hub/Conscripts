@@ -380,13 +380,18 @@ bool AEnemyAIController::TryStartApproachToAlarm()
 	static const float ratios[] = { 1.f, 0.7f, 0.4f };
 	FVector dest = pawnLoc;
 	float pathLenCm = 0.f;
+	float moveCostCm = 0.f;
 	bool bFound = false;
 	for (float ratio : ratios)
 	{
 		const FVector candidate = pawnLoc + (desired - pawnLoc) * ratio;
-		if (UAINavigationHelper::CanReach(pawnChar, candidate, pathLenCm) && pathLenCm <= budgetCm)
+		FTerrainPathInfo terrainInfo;
+		//도달 판정과 이동력 차감 모두 지형 배율을 반영한 실질 비용 기준
+		if (UAINavigationHelper::CanReach(pawnChar, candidate, pathLenCm, &terrainInfo)
+			&& terrainInfo.WeightedCostCm <= budgetCm)
 		{
 			dest = candidate;
+			moveCostCm = terrainInfo.WeightedCostCm;
 			bFound = true;
 			break;
 		}
@@ -409,7 +414,7 @@ bool AEnemyAIController::TryStartApproachToAlarm()
 
 	//이동 상태 반영 및 이동력 차감
 	pawnChar->OnMoveStateChanged(true);
-	pawnChar->ConsumeMovingPoint(pathLenCm / 100.f);
+	pawnChar->ConsumeMovingPoint(moveCostCm / 100.f);
 
 	UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 알람 지점 접근 이동 (잔여 거리 %.0f)"),
 		*GetNameSafe(pawnChar), FVector::Dist(dest, alarmFocusLocation));

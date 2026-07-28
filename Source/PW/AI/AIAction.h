@@ -96,6 +96,18 @@ struct FAIAction
 	UPROPERTY(BlueprintReadOnly)
 	float IncomingDangerExpected = 0.f;
 
+	//도착 지점 지형의 체류 가치 합산, 기대 HP 환산이라 기대 피해와 같은 저울
+	UPROPERTY(BlueprintReadOnly)
+	float TerrainValueAtDest = 0.f;
+
+	//경로가 통과한 지형의 1회 손익 합산, 기대 HP 환산
+	UPROPERTY(BlueprintReadOnly)
+	float TerrainPassThroughValue = 0.f;
+
+	//지형 배율을 반영한 실질 이동 비용(cm), 이동력 차감에 사용
+	UPROPERTY(BlueprintReadOnly)
+	float TerrainWeightedCostCm = 0.f;
+
 	UPROPERTY(BlueprintReadOnly)
 	EAIActionType Type = EAIActionType::Wait;
 

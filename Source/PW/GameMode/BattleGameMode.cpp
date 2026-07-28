@@ -11,6 +11,7 @@
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "ActorComponent/BuffComponent.h"
 #include "ActorComponent/AilmentComponent.h"
+#include "Actors/Terrain/TerrainBase.h"
 #include "Enum/SkillTypes.h"
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Object/Skill/PassiveSkillBase.h"
@@ -300,6 +301,19 @@ void ABattleGameMode::OnTurnEnd()
 	}
 
 	StartCurrentTurn();
+}
+
+void ABattleGameMode::RegisterTerrain(ATerrainBase* Terrain)
+{
+	if (Terrain)
+	{
+		terrains.AddUnique(Terrain);
+	}
+}
+
+void ABattleGameMode::UnregisterTerrain(ATerrainBase* Terrain)
+{
+	terrains.Remove(Terrain);
 }
 
 void ABattleGameMode::BroadcastRoundStart()
