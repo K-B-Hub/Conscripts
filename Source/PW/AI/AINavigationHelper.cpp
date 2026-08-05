@@ -130,14 +130,16 @@ bool UAINavigationHelper::HasLineOfSightFrom(const ACharacterBase* Caster, const
 	UWorld* world = Caster->GetWorld();
 	if (!world) return false;
 
-	const FVector eye(0.f, 0.f, 80.f);
+	//caster·target 각자의 자세 눈높이 적용, 포복이면 낮은 엄폐물에 트레이스가 막힘
+	const FVector casterEye(0.f, 0.f, Caster->GetEyeHeightZ());
+	const FVector targetEye(0.f, 0.f, Target->GetEyeHeightZ());
 	FCollisionQueryParams params(SCENE_QUERY_STAT(AI_LineOfSight), false, Caster);
 
 	FHitResult hit;
 	const bool bHit = world->LineTraceSingleByChannel(
 		hit,
-		FromLocation + eye,
-		Target->GetActorLocation() + eye,
+		FromLocation + casterEye,
+		Target->GetActorLocation() + targetEye,
 		ECC_Visibility,
 		params);
 

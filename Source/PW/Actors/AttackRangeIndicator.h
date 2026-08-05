@@ -12,6 +12,10 @@ class ACharacterBase;
 class AAllyCharacterBase;
 class UActiveSkillBase;
 class ACursorIndicator;
+class USplineMeshComponent;
+class UStaticMesh;
+class UMaterialInterface;
+class UWidgetComponent;
 
 //마우스를 따라다니며 스킬 영향 범위를 표시하는 액터
 UCLASS()
@@ -37,6 +41,12 @@ public:
 	//자동이동용 NavMesh 경로 반환
 	const TArray<FVector>& GetMovePath() const;
 
+	//시작→끝 포물선 궤적 폴리라인 생성, 정점은 중간 위 ApexHeight (점프·투척 공용, 무상태)
+	static TArray<FVector> BuildArcPath(const FVector& From, const FVector& To, float ApexHeight, int32 Samples);
+
+	//조준 중 계산해둔 포물선 궤적 반환, 실행 시 캐릭터 이동·투척물에 사용
+	const TArray<FVector>& GetArcPath() const { return arcPath; }
+
 	//자동이동 중 위치 고정
 	void LockAtCurrentPosition();
 	//위치 고정 해제
@@ -47,6 +57,22 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	//아치(점프·투척) 궤적 세그먼트 메쉬
+	UPROPERTY(EditDefaultsOnly, Category = "Visual|Arc")
+	TObjectPtr<UStaticMesh> arcSegmentMesh;
+	//도달 가능 궤적 재질
+	UPROPERTY(EditDefaultsOnly, Category = "Visual|Arc")
+	TObjectPtr<UMaterialInterface> arcMaterialReachable;
+	//도달 불가 궤적 재질
+	UPROPERTY(EditDefaultsOnly, Category = "Visual|Arc")
+	TObjectPtr<UMaterialInterface> arcMaterialUnreachable;
+	//궤적 메쉬 단면 스케일
+	UPROPERTY(EditDefaultsOnly, Category = "Visual|Arc")
+	FVector2D arcMeshScale = FVector2D(1.f, 0.05f);
+	//비용 위젯 위치 오프셋
+	UPROPERTY(EditDefaultsOnly, Category = "Visual|Arc")
+	FVector arcWidgetOffset = FVector(0.f, 0.f, 100.f);
+	
 private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USceneComponent> rootScene;
@@ -59,6 +85,14 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USphereComponent> overlapSphere;
 
+	//아치 궤적 메쉬 부모, 절대 월드 좌표 고정
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<USceneComponent> arcMeshRoot;
+
+	//아치 이동력 비용 표시 위젯
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UWidgetComponent> arcCostWidget;
+
 	//범위 공격 데칼 머티리얼
 	UPROPERTY(EditDefaultsOnly, Category = "Decal")
 	TObjectPtr<UMaterialInterface> areaDecalMaterial;
@@ -66,6 +100,10 @@ private:
 	//데칼 투영 깊이
 	UPROPERTY(EditDefaultsOnly, Category = "Decal")
 	float decalProjectionDepth = 500.f;
+
+	//런타임 생성 아치 궤적 세그먼트 메쉬 풀
+	UPROPERTY()
+	TArray<TObjectPtr<USplineMeshComponent>> arcMeshes;
 
 	//시전자
 	TWeakObjectPtr<ACharacterBase> caster;
@@ -117,6 +155,13 @@ private:
 	bool bIsOutOfRange = false;
 	FVector moveToPoint = FVector::ZeroVector;
 
+	//조준 중 계산된 포물선 궤적 폴리라인 (arcApexRatio > 0 스킬)
+	TArray<FVector> arcPath;
+
+	//포물선 궤적 샘플 개수
+	UPROPERTY(EditDefaultsOnly, Category = "Arc")
+	int32 arcSampleCount = 24;
+
 	//직전 프레임의 자동이동 필요 여부
 	bool bPrevAutoMoveNeeded = false;
 
@@ -125,6 +170,9 @@ private:
 
 	//NavMesh 경로 위에서 사거리 내 최적 이동 지점 계산
 	void ComputeOptimalMovePoint();
+
+	//아치 궤적 폴리라인(arcPath)을 풀링 스플라인 메쉬로 렌더, 도달 여부로 재질 선택
+	void RebuildArcMeshes(bool bReachable);
 
 	//최적 이동 지점 계산 쓰로틀링 타이머
 	float optimalPointUpdateTimer = 0.f;

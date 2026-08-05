@@ -44,6 +44,9 @@ public:
 	//CursorIndicator에서 계산된 경유점 배열을 받아 순서대로 이동
 	void MoveAlongPath(const TArray<FVector>& Points);
 
+	//인디케이터가 계산한 포물선 궤적을 3D로 따라 이동(점프), 비용은 호출자가 미리 차감
+	void MoveAlongArc(const TArray<FVector>& ArcPoints);
+
 	//이동 중단
 	void StopMovement();
 
@@ -83,4 +86,16 @@ private:
 
 	//이전 프레임 위치, 이동 거리 실시간 차감용
 	FVector lastFrameLocation = FVector::ZeroVector;
+
+	//점프 궤적 폴리라인 및 현재 인덱스
+	TArray<FVector> arcPoints;
+	int32 arcIndex = 0;
+	bool bIsJumping = false;
+
+	//점프 궤적 추종 속도(cm/s)
+	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	float jumpSpeed = 800.f;
+
+	//점프 궤적 한 프레임 진행, 완료 시 이동 종료 알림
+	void UpdateArcMovement(float DeltaTime);
 };

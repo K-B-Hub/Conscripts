@@ -254,6 +254,12 @@ void ACharacterBase::ConsumeMovingPoint(float meters)
 	currentMovingPoint = FMath::Max(0.f, currentMovingPoint - meters);
 }
 
+void ACharacterBase::GainMovingPoint(float meters)
+{
+	//달리기 등으로 얻는 추가 이동력, 기본 최대치 초과 허용이라 상한 클램프 없음
+	currentMovingPoint += meters;
+}
+
 float ACharacterBase::GetTerrainMoveCostMultiplier() const
 {
 	return terrainComponent ? terrainComponent->GetMovingPointCostMultiplier() : 1.f;

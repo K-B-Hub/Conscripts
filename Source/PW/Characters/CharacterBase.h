@@ -175,6 +175,9 @@ protected:
 	//본인 이동 상태, 턴 시작 시 false로 초기화, 첫 이동 시 true로 전이
 	bool isMoved = false;
 
+	//포복 자세, 행동력 1로 진입하는 토글 상태 (일어서기는 무료), 턴이 넘어가도 유지
+	bool bIsProne = false;
+
 	//레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	int32 level = 1;
@@ -216,8 +219,23 @@ public:
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
 	float GetMovingPoint() const { return movingPoint; }
 	bool IsMoved() const { return isMoved; }
+
+	//서있는 자세 기준 시야 눈높이(cm), LOS 매직넘버의 단일 출처·지면 타겟 기본값
+	static constexpr float StandingEyeHeightZ = 80.f;
+	//포복 자세 시야 눈높이(cm), 낮을수록 낮은 엄폐물로도 은폐 (튜닝값)
+	static constexpr float ProneEyeHeightZ = 35.f;
+
+	bool IsProne() const { return bIsProne; }
+	//LOS 라인트레이스 양 끝점에 쓰는 자세별 눈높이(cm)
+	float GetEyeHeightZ() const { return bIsProne ? ProneEyeHeightZ : StandingEyeHeightZ; }
+	//포복 시 이동력 소모 배율, 지형 배율과 별개로 곱함
+	float GetStanceMoveCostMultiplier() const { return bIsProne ? 2.f : 1.f; }
+	//포복 자세 순수 토글, 행동력 소모는 스킬 계층(ProneSkill)에서 처리
+	void ToggleProne() { bIsProne = !bIsProne; }
 	//이동력 차감, 지형 배율은 호출자가 미리 반영해서 넘김
 	void ConsumeMovingPoint(float meters);
+	//이동력 증가(달리기 등), 상한 클램프 없음 — 기본 최대치를 초과해 얻을 수 있음
+	void GainMovingPoint(float meters);
 	//현재 체류 지형의 이동력 소모 배율, 지형 밖이면 1.0
 	float GetTerrainMoveCostMultiplier() const;
 	int32 GetLevel() const { return level; }

@@ -237,14 +237,14 @@ void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 
 	const FVector CasterLocation = ownerCharacter->GetActorLocation();
 
-	//시전 가능 범위 인디케이터 생성
+	//시전 가능 범위 인디케이터 생성, 점프는 현재 이동력으로 갈 수 있는 범위로 사거리 원 표시
 	if (skillRangeIndicatorClass && Skill->pickRange > 0.f && Skill->selectMode != ESelectMode::Self)
 	{
 		skillRangeIndicator = World->SpawnActor<ASkillRangeIndicator>(
 			skillRangeIndicatorClass, FTransform(CasterLocation));
 		if (skillRangeIndicator)
 		{
-			skillRangeIndicator->InitRange(Skill->pickRange);
+			skillRangeIndicator->InitRange(Skill->GetEffectivePickRange());
 		}
 	}
 

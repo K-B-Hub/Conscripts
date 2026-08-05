@@ -75,8 +75,20 @@ public:
 	//몽타주 재생 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
 	float montagePlayRate = 1.0f;
+	//포물선 궤적 정점 비율, >0이면 인디케이터가 수평거리×비율 높이의 아치를 계산 (점프·투척 공용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Arc")
+	float arcApexRatio = 0.f;
+	//아치 이동(점프) 시 수평거리 대비 이동력 소모 배율
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Arc")
+	float arcMoveCostMultiplier = 1.5f;
 	//스킬 사용 가능 여부 검사, 파생에서 추가 조건 가능(알람 1회 제한 등)
 	virtual bool CanExecute() const;
+	//실행 시 시전자를 궤적을 따라 이동시키는가(점프), 기본은 아님(투척물 등 다른 소비)
+	virtual bool UsesArcMovement() const { return false; }
+	//투척 스킬 여부, 궤적 표시/비용 분기에 사용
+	bool IsThrow() const { return skillType == ESkillType::Throw; }
+	//현재 이동력 기준 실제 사용 가능 사거리(cm), 점프는 이동력 예산으로 제한, 그 외는 pickRange
+	float GetEffectivePickRange() const;
 
 	void SetCalcedStats();
 

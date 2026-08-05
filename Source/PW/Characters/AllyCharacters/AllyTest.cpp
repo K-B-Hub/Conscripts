@@ -3,15 +3,14 @@
 
 #include "Characters/AllyCharacters/AllyTest.h"
 
-#include "ActorComponent/PassiveSkillComponent.h"
-#include "Object/Skill/PassiveSkill/test/TestStatPassive.h"
-#include "Object/Skill/PassiveSkill/test/TestBeforeCalc.h"
-#include "Object/Skill/PassiveSkill/test/TestAfterSlay.h"
-
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkill/test/RangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/TestHeal.h"
+#include "Object/Skill/ActiveSkill/test/TestThrowSkill.h"
+#include "Object/Skill/ActiveSkill/ProneSkill.h"
+#include "Object/Skill/ActiveSkill/JumpSkill.h"
+#include "Object/Skill/ActiveSkill/RunSkill.h"
 
 AAllyTest::AAllyTest()
 {
@@ -32,6 +31,10 @@ void AAllyTest::SetDefaultSkills()
 		skillComponent->AddSkill(USingleRangeAttack::StaticClass());
 		skillComponent->AddSkill(URangeAttack::StaticClass());
 		skillComponent->AddSkill(UTestHeal::StaticClass());
+		skillComponent->AddSkill(UProneSkill::StaticClass());
+		skillComponent->AddSkill(URunSkill::StaticClass());
+		skillComponent->AddSkill(UJumpSkill::StaticClass());
+		skillComponent->AddSkill(UTestThrowSkill::StaticClass());
 	}
 }
 
