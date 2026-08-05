@@ -22,6 +22,18 @@ bool UActiveSkillBase::CanExecute() const
 	return true;
 }
 
+float UActiveSkillBase::GetEffectivePickRange() const
+{
+	//점프처럼 궤적 이동에 이동력을 쓰는 스킬은 사거리가 곧 현재 이동력으로 갈 수 있는 거리
+	//(별도 pickRange 상한 없음 — 이동력이 상한 역할)
+	ACharacterBase* ownerPtr = GetOwner();
+	if (UsesArcMovement() && ownerPtr && arcMoveCostMultiplier > 0.f)
+	{
+		return ownerPtr->GetCurrentMovingPoint() * 100.f / arcMoveCostMultiplier;
+	}
+	return pickRange;
+}
+
 void UActiveSkillBase::SetCalcedStats()
 {
 	if (owner == nullptr)

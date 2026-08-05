@@ -189,14 +189,16 @@ void ACursorIndicator::UpdatePathDistance()
 
 void ACursorIndicator::RebuildPathMeshes()
 {
-	//기존 메쉬 제거
-	for (USplineMeshComponent* Mesh : pathMeshes)
+	//메쉬 에셋 없거나 경로 없음 → 풀 비우고 종료
+	if (!pathSegmentMesh || cachedPathPoints.Num() < 2)
 	{
-		if (IsValid(Mesh)) Mesh->DestroyComponent();
+		for (USplineMeshComponent* Mesh : pathMeshes)
+		{
+			if (IsValid(Mesh)) Mesh->DestroyComponent();
+		}
+		pathMeshes.Empty();
+		return;
 	}
-	pathMeshes.Empty();
-
-	if (!pathSegmentMesh || cachedPathPoints.Num() < 2) return;
 
 	//경유점 사이를 일정 간격으로 세분화하고 각 점을 지면에 스냅
 	TArray<FVector> densePoints;
@@ -216,7 +218,7 @@ void ACursorIndicator::RebuildPathMeshes()
 	int32 visualUnreachableStart = -1;
 	if (activeUnit.IsValid())
 	{
-		const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
+		const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f / activeUnit->GetStanceMoveCostMultiplier(); //자세 배율(포복 등) 반영
 		float accumulated = 0.f;
 		for (int32 i = 0; i + 1 < densePoints.Num(); ++i)
 		{
@@ -238,6 +240,27 @@ void ACursorIndicator::RebuildPathMeshes()
 		}
 	}
 
+	const int32 neededSegments = densePoints.Num() - 1;
+
+	//세그먼트 수가 바뀔 때만 컴포넌트 생성/파괴, 평소엔 트랜스폼만 갱신
+	while (pathMeshes.Num() < neededSegments)
+	{
+		USplineMeshComponent* SplineMesh = NewObject<USplineMeshComponent>(this);
+		SplineMesh->SetStaticMesh(pathSegmentMesh);
+		SplineMesh->SetMobility(EComponentMobility::Movable);
+		SplineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		SplineMesh->SetupAttachment(pathMeshRoot); //절대 좌표 루트에 부착해 월드 좌표 직접 사용
+		SplineMesh->RegisterComponent();
+		pathMeshes.Add(SplineMesh);
+	}
+	while (pathMeshes.Num() > neededSegments)
+	{
+		if (USplineMeshComponent* Mesh = pathMeshes.Pop())
+		{
+			if (IsValid(Mesh)) Mesh->DestroyComponent();
+		}
+	}
+
 	//Catmull-Rom 접선 계산, 이전/다음 점 방향의 평균
 	auto GetTangent = [&](int32 idx) -> FVector
 	{
@@ -247,17 +270,13 @@ void ACursorIndicator::RebuildPathMeshes()
 		return (densePoints[idx + 1] - densePoints[idx - 1]) * 0.5f;
 	};
 
-	//세그먼트마다 SplineMeshComponent 생성
-	for (int32 i = 0; i + 1 < densePoints.Num(); ++i)
+	//풀링된 세그먼트마다 트랜스폼·재질만 갱신
+	for (int32 i = 0; i < neededSegments; ++i)
 	{
-		USplineMeshComponent* SplineMesh = NewObject<USplineMeshComponent>(this);
-		SplineMesh->SetStaticMesh(pathSegmentMesh);
-		SplineMesh->SetMobility(EComponentMobility::Movable);
-		SplineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		SplineMesh->SetupAttachment(pathMeshRoot); //절대 좌표 루트에 부착해 월드 좌표 직접 사용
-		SplineMesh->RegisterComponent();
+		USplineMeshComponent* SplineMesh = pathMeshes[i];
+		if (!IsValid(SplineMesh)) continue;
 
-		SplineMesh->SetStartAndEnd(densePoints[i], GetTangent(i), densePoints[i + 1], GetTangent(i + 1), false);
+		SplineMesh->SetStartAndEnd(densePoints[i], GetTangent(i), densePoints[i + 1], GetTangent(i + 1), true);
 		SplineMesh->SetStartScale(pathMeshScale, false);
 		SplineMesh->SetEndScale(pathMeshScale, true);
 
@@ -277,8 +296,6 @@ void ACursorIndicator::RebuildPathMeshes()
 		}
 
 		if (Mat) SplineMesh->SetMaterial(0, Mat);
-
-		pathMeshes.Add(SplineMesh);
 	}
 }
 
@@ -319,7 +336,7 @@ void ACursorIndicator::UpdateSplitPoint()
 	if (!activeUnit.IsValid() || cachedPathPoints.Num() < 2) return;
 
 	//현재 이동력을 cm으로 변환
-	const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
+	const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f / activeUnit->GetStanceMoveCostMultiplier(); //자세 배율(포복 등) 반영
 	float accumulated = 0.f;
 
 	//소모 이동력과 별개로 실제 이동 거리도 누적, 거리 위젯 표시용

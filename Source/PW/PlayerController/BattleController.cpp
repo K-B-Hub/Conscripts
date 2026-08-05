@@ -291,17 +291,19 @@ void ABattleController::Tick(float DeltaTime)
 		AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
 		if (!followUnit) followUnit = IsValid(aiFollowTarget) ? static_cast<AActor*>(aiFollowTarget) : nullptr;
 
-		//카메라 추적 모드, 스프링암 위치를 캐릭터 위치로 고정
+		//카메라 추적 모드, 스프링암을 캐릭터 x,y,z에 그대로 고정 (지면 스냅 없음 — 점프 궤적을 그대로 따라감)
 		if (bIsFollowingCharacter && followUnit)
 		{
 			SpringArm->SetWorldLocation(followUnit->GetActorLocation());
-			SnapSpringArmToGround(SpringArm);
 		}
-		//자유 이동 모드, 입력이 없으면 관성으로 감속
-		else if (!bCameraInputActive && !cameraVelocity.IsNearlyZero(1.f))
+		//자유 이동 모드, 입력 없으면 관성 감속, 항상 지면 스냅
+		else
 		{
-			cameraVelocity = FMath::VInterpTo(cameraVelocity, FVector::ZeroVector, DeltaTime, cameraMoveSmoothing);
-			SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
+			if (!bCameraInputActive && !cameraVelocity.IsNearlyZero(1.f))
+			{
+				cameraVelocity = FMath::VInterpTo(cameraVelocity, FVector::ZeroVector, DeltaTime, cameraMoveSmoothing);
+				SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
+			}
 			SnapSpringArmToGround(SpringArm);
 		}
 	}
@@ -419,9 +421,8 @@ void ABattleController::OnCameraReset(const FInputActionValue& Value)
 	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm || !followUnit) return;
 
-	//스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화
+	//스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화 (추적 모드는 지면 스냅 안 함)
 	SpringArm->SetWorldLocation(followUnit->GetActorLocation());
-	SnapSpringArmToGround(SpringArm);
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = true;
 
@@ -439,9 +440,8 @@ void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
 	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm) return;
 
-	//즉시 AI 위치로 스냅 후 추적 모드 활성화
+	//즉시 AI 위치로 이동 후 추적 모드 활성화 (추적 모드는 지면 스냅 안 함)
 	SpringArm->SetWorldLocation(AIUnit->GetActorLocation());
-	SnapSpringArmToGround(SpringArm);
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = true;
 }
@@ -614,6 +614,41 @@ void ABattleController::ExecuteSkill()
 	if (!Skill) return;
 
 	AAttackRangeIndicator* Indicator = SkillComp->GetAttackRangeIndicator();
+
+	//아치 이동 스킬(점프): 인디케이터가 계산한 포물선으로 시전자를 이동, 이동력 배율만큼 소모
+	if (Skill->UsesArcMovement())
+	{
+		if (!Indicator) return;
+
+		const TArray<FVector>& Arc = Indicator->GetArcPath();
+		if (Arc.Num() < 2) return;
+
+		//수평거리(m) * 배율 = 이동력 비용
+		const FVector From = activeUnit->GetActorLocation();
+		const FVector To = Indicator->GetActorLocation();
+		const float HorizCm = FVector2D(To.X - From.X, To.Y - From.Y).Size();
+		const float HorizM = HorizCm / 100.f;
+		const float CostM = HorizM * Skill->arcMoveCostMultiplier;
+
+		//이동력 부족 시 도약 불가, 이 검사가 곧 사거리 제한 (미리보기 빨강과 일치)
+		if (CostM > activeUnit->GetCurrentMovingPoint()) return;
+
+		//도약 방향으로 회전
+		FVector Dir = To - From;
+		Dir.Z = 0.f;
+		if (!Dir.IsNearlyZero())
+		{
+			activeUnit->SetActorRotation(Dir.Rotation());
+		}
+
+		Skill->BeginUse();  //행동력(0)·몽타주
+		activeUnit->ConsumeMovingPoint(CostM);
+		activeUnit->MoveAlongArc(Arc);
+
+		SkillComp->DeactivateSkill();
+		RefreshSkillButtons();
+		return;
+	}
 
 	//SinglePick은 스냅 상태 검증
 	if (Skill->selectMode == ESelectMode::SinglePick)

@@ -19,13 +19,20 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	//점프 중이면 아치 궤적 추종을 우선 처리
+	if (bIsJumping)
+	{
+		UpdateArcMovement(DeltaTime);
+		return;
+	}
+
 	if (!bIsMovingToTarget || pathPoints.Num() == 0) return;
 
 	const FVector CurrentLoc = GetActorLocation();
 
-	//이전 프레임 대비 이동한 거리를 미터로 변환해 이동력 차감, 현재 서 있는 지형의 소모 배율 반영
+	//이전 프레임 대비 이동한 거리를 미터로 변환해 이동력 차감, 지형 배율·포복 자세 배율 반영
 	const float MovedCm = FVector::Dist(CurrentLoc, lastFrameLocation);
-	ConsumeMovingPoint(MovedCm / 100.f * GetTerrainMoveCostMultiplier());
+	ConsumeMovingPoint(MovedCm / 100.f * GetTerrainMoveCostMultiplier() * GetStanceMoveCostMultiplier());
 	lastFrameLocation = CurrentLoc;
 
 	//이동력 소진 시 즉시 정지 후 자연 종료 알림
@@ -108,6 +115,63 @@ void AAllyCharacterBase::MoveAlongPath(const TArray<FVector>& Points)
 	moveDestination = Points.Last();
 	lastFrameLocation = GetActorLocation(); //첫 프레임 거리 오차 방지
 	bIsMovingToTarget = true;
+}
+
+void AAllyCharacterBase::MoveAlongArc(const TArray<FVector>& ArcPoints)
+{
+	//점프는 시작되면 취소·재시작 불가
+	if (bIsJumping) return;
+	if (ArcPoints.Num() < 2) return;
+
+	//진행 중이던 걷기 이동은 정리
+	bIsMovingToTarget = false;
+	pathPoints.Empty();
+
+	//점프도 이동이므로 BeforeMove 전이
+	OnMoveStateChanged(true);
+
+	arcPoints = ArcPoints;
+	arcIndex = 1; //0은 시작점
+	moveDestination = ArcPoints.Last();
+	bIsJumping = true;
+
+	//중력·바닥스냅이 궤적을 방해하지 않도록 비행 모드로 전환, 착지 시 복구
+	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+	GetCharacterMovement()->StopMovementImmediately();
+}
+
+void AAllyCharacterBase::UpdateArcMovement(float DeltaTime)
+{
+	const FVector Cur = GetActorLocation();
+	const FVector Target = arcPoints[arcIndex];
+	const FVector Delta = Target - Cur;
+	const float Step = jumpSpeed * DeltaTime;
+
+	//현재 목표 샘플 도달 시 다음 샘플로, 마지막이면 착지 종료
+	if (Delta.Size() <= Step)
+	{
+		SetActorLocation(Target);
+		arcIndex++;
+		if (arcIndex >= arcPoints.Num())
+		{
+			SetActorLocation(moveDestination);
+			bIsJumping = false;
+			arcPoints.Empty();
+			GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+			GetCharacterMovement()->StopMovementImmediately();
+
+			//MoveComplete 패시브를 OnMovementCompleted 브로드캐스트 전에 처리
+			if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+			{
+				GM->BroadcastMoveComplete();
+			}
+			OnMovementCompleted.Broadcast();
+		}
+		return;
+	}
+
+	//샘플 방향으로 등속 전진
+	SetActorLocation(Cur + Delta.GetSafeNormal() * Step);
 }
 
 void AAllyCharacterBase::StopMovement()

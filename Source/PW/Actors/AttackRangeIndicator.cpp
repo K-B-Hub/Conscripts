@@ -4,6 +4,9 @@
 #include "Actors/CursorIndicator.h"
 #include "Components/DecalComponent.h"
 #include "Components/SphereComponent.h"
+#include "Components/SplineMeshComponent.h"
+#include "Components/WidgetComponent.h"
+#include "Widget/MoveIndicatorWidget.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
@@ -34,6 +37,17 @@ AAttackRangeIndicator::AAttackRangeIndicator()
 	areaDecal->SetupAttachment(RootComponent);
 	areaDecal->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
 	areaDecal->SetVisibility(false);
+
+	//아치 궤적 메쉬는 월드 좌표를 직접 쓰도록 절대 좌표 루트에 부착
+	arcMeshRoot = CreateDefaultSubobject<USceneComponent>(TEXT("ArcMeshRoot"));
+	arcMeshRoot->SetupAttachment(RootComponent);
+	arcMeshRoot->SetAbsolute(true, true, true);
+
+	arcCostWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("ArcCostWidget"));
+	arcCostWidget->SetupAttachment(RootComponent);
+	arcCostWidget->SetDrawSize(FVector2D(300, 100));
+	arcCostWidget->SetWidgetSpace(EWidgetSpace::Screen);
+	arcCostWidget->SetVisibility(false);
 }
 
 void AAttackRangeIndicator::BeginPlay()
@@ -60,7 +74,8 @@ void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkill
 {
 	caster = InCaster;
 	cachedSkill = Skill;
-	pickRange = Skill->pickRange;
+	//점프는 현재 이동력으로 갈 수 있는 거리로 사거리 제한, 그 외는 pickRange 그대로
+	pickRange = Skill->GetEffectivePickRange();
 	bIsAreaAttack = (Skill->areaTarget != EAreaTarget::None);
 	bFixedAtCaster = (Skill->selectMode == ESelectMode::Self);
 
@@ -175,15 +190,16 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 		}
 		else
 		{
-			//사거리 내지만 시야선 차단 시에도 자동이동 필요
+			//사거리 내지만 시야선 차단 시에도 자동이동 필요, caster·target 자세 눈높이 적용
 			FCollisionQueryParams LOSParams;
 			LOSParams.AddIgnoredActor(caster.Get());
-			const FVector EyeHeight(0.f, 0.f, 80.f);
+			const FVector CasterEye(0.f, 0.f, caster->GetEyeHeightZ());
+			const FVector TargetEye(0.f, 0.f, NewSnappedTarget ? NewSnappedTarget->GetEyeHeightZ() : ACharacterBase::StandingEyeHeightZ);
 			FHitResult LOSHit;
 			bNeedsAutoMove = GetWorld()->LineTraceSingleByChannel(
 				LOSHit,
-				CasterLoc + EyeHeight,
-				TargetLocation + EyeHeight,
+				CasterLoc + CasterEye,
+				TargetLocation + TargetEye,
 				ECC_Visibility,
 				LOSParams);
 		}
@@ -209,8 +225,10 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 		bPrevAutoMoveNeeded = bNeedsAutoMove;
 	}
 
+	//아치 스킬(점프·투척)은 자동이동 경로 인디케이터를 쓰지 않음
+	const bool bArc = cachedSkill && cachedSkill->arcApexRatio > 0.f;
 	const bool bIsMultiPick = cachedSkill && cachedSkill->pickCount > 1;
-	if (bNeedsAutoMove && !bIsMultiPick)
+	if (bNeedsAutoMove && !bIsMultiPick && !bArc)
 	{
 		//쓰로틀링된 최적 이동 지점 계산
 		optimalPointUpdateTimer += DeltaTime;
@@ -229,9 +247,127 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 		DestroyMovePathIndicator();
 	}
 
-	const FColor DebugColor = bNeedsAutoMove ? FColor::Red : FColor::Green;
-	DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
-		overlapSphere->GetScaledSphereRadius(), 24, DebugColor, false, 0.f);
+	//아치 스킬은 자체 궤적 메쉬로 표시하므로 디버그 구체 생략
+	if (!bArc)
+	{
+		const FColor DebugColor = bNeedsAutoMove ? FColor::Red : FColor::Green;
+		DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
+			overlapSphere->GetScaledSphereRadius(), 24, DebugColor, false, 0.f);
+	}
+
+	//아치 스킬(점프·투척): 시전자→커서 지점 포물선 궤적을 메쉬로, 착지 데칼·비용 위젯 표시
+	if (bArc && caster.IsValid())
+	{
+		const FVector ArcFrom = caster->GetActorLocation();
+		//끝점은 지면 위치이므로 캡슐 half-height만큼 올려 착지 시 캡슐 중심 높이를 맞춤
+		FVector ArcTo = GetActorLocation();
+		ArcTo.Z += caster->GetSimpleCollisionHalfHeight();
+		const float HorizDist = FVector2D(ArcTo.X - ArcFrom.X, ArcTo.Y - ArcFrom.Y).Size();
+		arcPath = BuildArcPath(ArcFrom, ArcTo, HorizDist * cachedSkill->arcApexRatio, arcSampleCount);
+
+		//도달 가능 여부: pickRange가 점프의 이동력 예산을 이미 반영(GetEffectivePickRange)
+		const bool bReachable = HorizDist <= pickRange;
+
+		//궤적 메쉬(도달=흰/불가=빨강 재질)
+		RebuildArcMeshes(bReachable);
+
+		//착지 데칼 표시, 기존 areaDecal(BP 지정 재질) 그대로 재사용
+		areaDecal->DecalSize = FVector(decalProjectionDepth, cachedSkill->areaParameter1, cachedSkill->areaParameter1);
+		areaDecal->SetVisibility(true);
+
+		//이동력 비용 위젯: 투척이 아닌 아치 스킬(점프)만 표시
+		if (!cachedSkill->IsThrow())
+		{
+			const float CostM = (HorizDist / 100.f) * cachedSkill->arcMoveCostMultiplier;
+			arcCostWidget->SetVisibility(true);
+			arcCostWidget->SetWorldLocation(GetActorLocation() + arcWidgetOffset);
+			if (UMoveIndicatorWidget* W = Cast<UMoveIndicatorWidget>(arcCostWidget->GetWidget()))
+			{
+				W->UpdateDistance(CostM);
+			}
+		}
+		else
+		{
+			arcCostWidget->SetVisibility(false);
+		}
+	}
+}
+
+TArray<FVector> AAttackRangeIndicator::BuildArcPath(const FVector& From, const FVector& To, float ApexHeight, int32 Samples)
+{
+	if (Samples < 2) Samples = 2;
+
+	TArray<FVector> Points;
+	Points.Reserve(Samples + 1);
+
+	//수평은 선형 보간, 수직은 정점이 중간에 오는 포물선 z += apex*4t(1-t)
+	for (int32 i = 0; i <= Samples; ++i)
+	{
+		const float t = static_cast<float>(i) / Samples;
+		FVector p = FMath::Lerp(From, To, t);
+		p.Z += ApexHeight * 4.f * t * (1.f - t);
+		Points.Add(p);
+	}
+	return Points;
+}
+
+void AAttackRangeIndicator::RebuildArcMeshes(bool bReachable)
+{
+	//메쉬 에셋 없거나 궤적 없음 → 풀 비우고 종료
+	if (!arcSegmentMesh || arcPath.Num() < 2)
+	{
+		for (USplineMeshComponent* Mesh : arcMeshes)
+		{
+			if (IsValid(Mesh)) Mesh->DestroyComponent();
+		}
+		arcMeshes.Empty();
+		return;
+	}
+
+	const int32 neededSegments = arcPath.Num() - 1;
+
+	//세그먼트 수가 바뀔 때만 컴포넌트 생성/파괴, 평소엔 트랜스폼만 갱신
+	while (arcMeshes.Num() < neededSegments)
+	{
+		USplineMeshComponent* SplineMesh = NewObject<USplineMeshComponent>(this);
+		SplineMesh->SetStaticMesh(arcSegmentMesh);
+		SplineMesh->SetMobility(EComponentMobility::Movable);
+		SplineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		SplineMesh->SetupAttachment(arcMeshRoot);
+		SplineMesh->RegisterComponent();
+		arcMeshes.Add(SplineMesh);
+	}
+	while (arcMeshes.Num() > neededSegments)
+	{
+		if (USplineMeshComponent* Mesh = arcMeshes.Pop())
+		{
+			if (IsValid(Mesh)) Mesh->DestroyComponent();
+		}
+	}
+
+	//Catmull-Rom 접선 계산, 이전/다음 점 방향의 평균
+	auto GetTangent = [&](int32 idx) -> FVector
+	{
+		const int32 last = arcPath.Num() - 1;
+		if (idx <= 0)    return arcPath[1] - arcPath[0];
+		if (idx >= last) return arcPath[last] - arcPath[last - 1];
+		return (arcPath[idx + 1] - arcPath[idx - 1]) * 0.5f;
+	};
+
+	UMaterialInterface* Mat = bReachable ? arcMaterialReachable : arcMaterialUnreachable;
+
+	//풀링된 세그먼트마다 트랜스폼·재질만 갱신
+	for (int32 i = 0; i < neededSegments; ++i)
+	{
+		USplineMeshComponent* SplineMesh = arcMeshes[i];
+		if (!IsValid(SplineMesh)) continue;
+
+		SplineMesh->SetStartAndEnd(arcPath[i], GetTangent(i), arcPath[i + 1], GetTangent(i + 1), true);
+		SplineMesh->SetStartScale(arcMeshScale, false);
+		SplineMesh->SetEndScale(arcMeshScale, true);
+
+		if (Mat) SplineMesh->SetMaterial(0, Mat);
+	}
 }
 
 bool AAttackRangeIndicator::ComputeOutOfRange() const
@@ -246,15 +382,16 @@ bool AAttackRangeIndicator::ComputeOutOfRange() const
 	Offset.Z = 0.f;
 	if (Offset.SizeSquared() > pickRange * pickRange) return true;
 
-	//시야선 체크
+	//시야선 체크, caster·target 자세 눈높이 적용
 	FCollisionQueryParams LOSParams;
 	LOSParams.AddIgnoredActor(caster.Get());
-	const FVector EyeHeight(0.f, 0.f, 80.f);
+	const FVector CasterEye(0.f, 0.f, caster->GetEyeHeightZ());
+	const FVector TargetEye(0.f, 0.f, snappedTarget.IsValid() ? snappedTarget->GetEyeHeightZ() : ACharacterBase::StandingEyeHeightZ);
 	FHitResult LOSHit;
 	return GetWorld()->LineTraceSingleByChannel(
 		LOSHit,
-		CasterLoc + EyeHeight,
-		TargetLoc + EyeHeight,
+		CasterLoc + CasterEye,
+		TargetLoc + TargetEye,
 		ECC_Visibility,
 		LOSParams);
 }
@@ -305,7 +442,9 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 	//경로를 순회하며 사거리 내 + 시야선 확보된 첫 지점을 자동이동 지점으로 선택
 	FCollisionQueryParams TraceParams;
 	TraceParams.AddIgnoredActor(caster.Get());
-	const FVector EyeHeight(0.f, 0.f, 80.f);
+	//후보 지점은 시전자(이동 후) 눈높이, 타겟은 대상 자세 눈높이 적용
+	const FVector CasterEye(0.f, 0.f, caster.IsValid() ? caster->GetEyeHeightZ() : ACharacterBase::StandingEyeHeightZ);
+	const FVector TargetEye(0.f, 0.f, snappedTarget.IsValid() ? snappedTarget->GetEyeHeightZ() : ACharacterBase::StandingEyeHeightZ);
 
 	auto Dist2DToTarget = [&](const FVector& Point) -> float
 	{
@@ -342,8 +481,8 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 		FHitResult LOSHit;
 		bool bBlocked = GetWorld()->LineTraceSingleByChannel(
 			LOSHit,
-			Candidate + EyeHeight,
-			TargetLocation + EyeHeight,
+			Candidate + CasterEye,
+			TargetLocation + TargetEye,
 			ECC_Visibility,
 			TraceParams);
 
@@ -361,8 +500,8 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 		FHitResult LOSHit;
 		bool bBlocked = GetWorld()->LineTraceSingleByChannel(
 			LOSHit,
-			LastPoint + EyeHeight,
-			TargetLocation + EyeHeight,
+			LastPoint + CasterEye,
+			TargetLocation + TargetEye,
 			ECC_Visibility,
 			TraceParams);
 
