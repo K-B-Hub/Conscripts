@@ -32,6 +32,14 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float speed;
 
+	//점프 궤적 추종 중 여부, 애님BP 공중 스테이트 전이 조건
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|State")
+	bool bIsAirborne = false;
+
+	//포복 자세 여부, 애님BP 포복 스테이트 전이 조건
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|State")
+	bool bIsProne = false;
+
 	//감속 부드러움 조절
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation")
 	float InterpSpeed = 8.0f;

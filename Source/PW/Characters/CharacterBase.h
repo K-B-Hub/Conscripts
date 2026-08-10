@@ -226,6 +226,8 @@ public:
 	static constexpr float ProneEyeHeightZ = 35.f;
 
 	bool IsProne() const { return bIsProne; }
+	//점프 궤적 추종 중 여부, 아치 이동을 가진 파생에서 오버라이드
+	virtual bool IsAirborne() const { return false; }
 	//LOS 라인트레이스 양 끝점에 쓰는 자세별 눈높이(cm)
 	float GetEyeHeightZ() const { return bIsProne ? ProneEyeHeightZ : StandingEyeHeightZ; }
 	//포복 시 이동력 소모 배율, 지형 배율과 별개로 곱함

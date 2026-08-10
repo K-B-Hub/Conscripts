@@ -29,14 +29,6 @@ UProneSkill::UProneSkill()
 	baseDamage = 0;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
-
-	//플레이스홀더 몽타주, 실제 엎드리기/일어서기 전환 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire_Montage"));
-	if (MontageAsset.Succeeded())
-	{
-		lieDownMontage = MontageAsset.Object;
-		standUpMontage = MontageAsset.Object;
-	}
 }
 
 bool UProneSkill::CanExecute() const

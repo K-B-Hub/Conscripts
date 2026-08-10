@@ -37,10 +37,5 @@ UJumpSkill::UJumpSkill()
 	arcApexRatio = 0.5f;
 	arcMoveCostMultiplier = 1.5f;
 
-	//플레이스홀더 몽타주, 실제 점프 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire_Montage"));
-	if (MontageAsset.Succeeded())
-	{
-		skillMontage = MontageAsset.Object;
-	}
+	//점프 애니메이션은 애님BP 스테이트머신이 bIsAirborne을 보고 처리, skillMontage 미사용
 }

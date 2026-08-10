@@ -52,6 +52,9 @@ public:
 
 	bool IsMoving() const { return bIsMovingToTarget; }
 
+	//점프 궤적 추종 중이면 공중, 애니메이션 상태 판정용
+	virtual bool IsAirborne() const override { return bIsJumping; }
+
 	//이동 자연 종료 시 브로드캐스트, 취소/턴종료 시에는 발생하지 않음
 	FSimpleMulticastDelegate OnMovementCompleted;
 
