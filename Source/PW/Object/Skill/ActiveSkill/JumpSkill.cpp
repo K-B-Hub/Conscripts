@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/JumpSkill.h"
+#include "Characters/CharacterBase.h"
 #include "Animation/AnimMontage.h"
 
 UJumpSkill::UJumpSkill()
@@ -18,7 +19,8 @@ UJumpSkill::UJumpSkill()
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 100.f;
 
-	//도약 최대 사거리(cm), 실제 가능 여부는 이동력 예산으로 실행 시 재검증
+	//기본 이동력(9m) 기준 도약 사거리(cm), 상한이 아니라 표시용 기준값
+	//실제 사거리는 항상 현재 이동력이 결정 (GetEffectivePickRange)
 	pickRange = 600.f;
 	pickCount = 1;
 
@@ -37,10 +39,19 @@ UJumpSkill::UJumpSkill()
 	arcApexRatio = 0.5f;
 	arcMoveCostMultiplier = 1.5f;
 
-	//플레이스홀더 몽타주, 실제 점프 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire_Montage"));
+	//플레이스홀더 몽타주, 실제  점프 준비 애니메이션으로 교체 예정
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_JumpUp"));
 	if (MontageAsset.Succeeded())
 	{
 		skillMontage = MontageAsset.Object;
 	}
+}
+
+bool UJumpSkill::CanExecute() const
+{
+	//포복 자세에서는 도약 불가
+	ACharacterBase* ownerPtr = GetOwner();
+	if (ownerPtr && ownerPtr->IsProne()) return false;
+
+	return Super::CanExecute();
 }

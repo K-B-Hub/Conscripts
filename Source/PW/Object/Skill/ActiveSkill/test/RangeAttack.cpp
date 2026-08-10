@@ -30,7 +30,11 @@ URangeAttack::URangeAttack()
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 	
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire_Montage"));
+	knockbackForce = 100.f;
+	knockbackAngle = 30.f;
+	knockbackOrigin = EKnockbackOrigin::SkillPoint;
+	
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire"));
 	if (MontageAsset.Succeeded())
 	{
 		skillMontage = MontageAsset.Object;

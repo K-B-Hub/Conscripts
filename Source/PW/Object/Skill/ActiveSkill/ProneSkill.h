@@ -21,8 +21,14 @@ public:
 	//일어서기(이미 포복 중)는 행동력 검사 없이 항상 가능
 	virtual bool CanExecute() const override;
 
-	//진입 시에만 행동력 소모 후 자세 토글, 방향별 전환 몽타주 재생, 일어서기는 무료
+	//진입 시에만 행동력 소모, 일어서기는 무료
 	virtual void BeginUse() override;
+
+	//전환 방향에 맞는 몽타주 선택, 커밋 전 호출이라 IsProne은 토글 이전 상태
+	virtual UAnimMontage* GetCommitMontage() const override;
+
+	//임팩트 프레임에 자세 토글, 이후 애님BP 스테이트머신이 bIsProne을 보고 유지 자세 처리
+	virtual void OnCommit() override;
 
 protected:
 	//서있음→포복 전환(엎드리기) 몽타주

@@ -332,7 +332,7 @@ float UUtilityAIComponent::ComputeRiderValue(const UActiveSkillBase* Skill, cons
 }
 
 void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FAIAction& Pos,
-                                              const TArray<ACharacterBase*>& Affected,
+                                              const TArray<ACharacterBase*>& Affected, const FVector& AimPoint,
                                               TArray<FAIAction>& OutCandidates) const
 {
 	if (!Skill || !ownerCharacter || Affected.Num() == 0) return;
@@ -461,6 +461,7 @@ void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FAI
 	//위치·경로·지형 값은 GatherCastPositions가 채운 것을 그대로 승계
 	FAIAction action = Pos;
 	action.Skill = Skill;
+	action.AimPoint = AimPoint;
 	action.Preview = primaryPreview;
 	action.IncomingDangerExpected = ComputeIncomingDangerAt(CastFrom);
 
@@ -518,7 +519,7 @@ void UUtilityAIComponent::EnumerateSingleTarget(UActiveSkillBase* Skill, ACharac
 			affected.Add(Target);
 		}
 
-		BuildActionFromCast(Skill, pos, affected, OutCandidates);
+		BuildActionFromCast(Skill, pos, affected, aimLoc, OutCandidates);
 	}
 }
 
@@ -597,7 +598,8 @@ void UUtilityAIComponent::EnumerateMultiPick(UActiveSkillBase* Skill, const TArr
 			}
 		}
 
-		BuildActionFromCast(Skill, pos, affected, OutCandidates);
+		//조준점은 최고 효용 픽의 위치
+		BuildActionFromCast(Skill, pos, affected, cands[0].Key->GetActorLocation(), OutCandidates);
 	}
 }
 
@@ -644,7 +646,7 @@ void UUtilityAIComponent::EnumerateGroundPoint(UActiveSkillBase* Skill, bool bAs
 
 			TArray<ACharacterBase*> affected;
 			CollectAreaAffected(Skill, aim, affected);
-			BuildActionFromCast(Skill, pos, affected, OutCandidates);
+			BuildActionFromCast(Skill, pos, affected, aim, OutCandidates);
 		}
 	}
 }
@@ -668,7 +670,7 @@ void UUtilityAIComponent::EnumerateSkillActions(UActiveSkillBase* Skill, bool bA
 		UAINavigationHelper::GetTerrainsAt(GetWorld(), selfPos.CastFrom, here);
 		selfPos.TerrainValueAtDest = SumTerrainStayValue(here);
 
-		BuildActionFromCast(Skill, selfPos, selfOnly, OutCandidates);
+		BuildActionFromCast(Skill, selfPos, selfOnly, selfPos.CastFrom, OutCandidates);
 		return;
 	}
 
@@ -1056,7 +1058,7 @@ void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
 				*GetNameSafe(primary), targets.Num(), Action.EnemyExpectedDamage);
 		}
 
-		sc->DirectExecute(Action.Skill, targets);
+		sc->DirectExecute(Action.Skill, targets, Action.AimPoint);
 	}
 }
 

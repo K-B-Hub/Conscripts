@@ -16,6 +16,9 @@ class PW_API UJumpSkill : public UActiveSkillBase
 public:
 	UJumpSkill();
 
+	//포복 중에는 점프 불가
+	virtual bool CanExecute() const override;
+
 	//실행 시 시전자를 궤적을 따라 이동시킴
 	virtual bool UsesArcMovement() const override { return true; }
 };

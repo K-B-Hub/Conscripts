@@ -8,6 +8,9 @@
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "GameMode/BattleGameMode.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
+#include "Components/SkeletalMeshComponent.h"
 
 USkillComponent::USkillComponent()
 {
@@ -93,6 +96,9 @@ void USkillComponent::ActivateSkill(UActiveSkillBase* Skill)
 {
 	if (!Skill || !Skill->CanExecute()) return;
 
+	//이전 스킬 커밋 대기 중 신규 활성화 차단
+	if (HasPendingExecution()) return;
+
 	if (currentSkill)
 	{
 		DeactivateSkill();
@@ -116,11 +122,11 @@ void USkillComponent::DeactivateSkill()
 	ClearAccumulatedTargets();
 	currentSkill = nullptr;
 
-	//실제 이동력 차감 여부로 이동 상태 복구
+	//인디케이터가 자동이동 예상으로 켜둔 투기적 이동 상태를 실제 이동 여부로 복구
+	//최대치 비교는 달리기 보너스·이동력 버프에 흔들리므로 소모 플래그를 사용
 	if (ownerCharacter)
 	{
-		const bool actuallyMoved = ownerCharacter->GetCurrentMovingPoint() < ownerCharacter->GetMovingPoint();
-		ownerCharacter->OnMoveStateChanged(actuallyMoved);
+		ownerCharacter->OnMoveStateChanged(ownerCharacter->HasConsumedMovingPoint());
 	}
 }
 
@@ -168,19 +174,24 @@ void USkillComponent::CalcSkillStats()
 
 void USkillComponent::RecalculatePending(ACharacterBase* Target)
 {
-	if (!Target || !currentSkill || !ownerCharacter) return;
+	RecalculatePending(currentSkill, Target);
+}
+
+void USkillComponent::RecalculatePending(UActiveSkillBase* Skill, ACharacterBase* Target)
+{
+	if (!Target || !Skill || !ownerCharacter) return;
 
 	//스킬 계산값을 로컬 값으로 복사
-	float dmg  = currentSkill->calcDamage;
-	int32 amp  = currentSkill->calcDamageAmplfication;
-	int32 pen  = currentSkill->calcPenetration;
-	float acc  = currentSkill->calcAccuracy;
-	float crit = currentSkill->calcCritical;
+	float dmg  = Skill->calcDamage;
+	int32 amp  = Skill->calcDamageAmplfication;
+	int32 pen  = Skill->calcPenetration;
+	float acc  = Skill->calcAccuracy;
+	float crit = Skill->calcCritical;
 
 	//공격자 패시브 보너스 반영
 	if (UPassiveSkillComponent* PSC = ownerCharacter->GetPassiveSkillComponent())
 	{
-		PSC->DispatchBeforeDamageCalc(Target, currentSkill->skillType, currentSkill->damageType,
+		PSC->DispatchBeforeDamageCalc(Target, Skill->skillType, Skill->damageType,
 			dmg, amp, pen, acc, crit);
 	}
 
@@ -190,21 +201,20 @@ void USkillComponent::RecalculatePending(ACharacterBase* Target)
 		crit,
 		amp,
 		pen,
-		currentSkill->skillType,
+		Skill->skillType,
 		ownerCharacter
 	);
 }
 
-void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets)
+void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, const FVector& SkillPoint)
 {
 	if (!Skill || Targets.Num() == 0 || !ownerCharacter) return;
 	if (!Skill->CanExecute()) return;
 
-	//currentSkill을 임시 지정해 예측 계산 경로 재사용
-	UActiveSkillBase* saved = currentSkill;
-	currentSkill = Skill;
+	//AI가 조준한 실제 지점을 밀치기 기준점으로 기록, Caster 기준 스킬은 Execute가 시전자 위치를 직접 사용
+	Skill->skillPointLocation = SkillPoint;
 
-	//자원 차감은 1회만
+	//자원 차감은 1회만, 확정 시점 즉시
 	Skill->BeginUse();
 
 	//위협 프로파일에 기록
@@ -213,19 +223,98 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<AChara
 		gm->RecordSkillUse(ownerCharacter, Skill);
 	}
 
-	//대상별로 예측 계산 후 명중 시 효과 실행
+	//커밋 시점까지 대상 생존 불확실, 약참조 스냅샷
+	TArray<TWeakObjectPtr<ACharacterBase>> pendingTargets;
 	for (ACharacterBase* Target : Targets)
 	{
-		if (!IsValid(Target)) continue;
-		RecalculatePending(Target);
-		Target->SetLastAttacker(ownerCharacter);
-		if (Target->ReflectDamage() && IsValid(Target))
+		pendingTargets.Add(Target);
+	}
+
+	//대상별 예측 계산·명중 판정·효과 적용은 커밋 시점에 실행
+	StartPendingExecution(Skill, [this, Skill, pendingTargets]()
+	{
+		for (const TWeakObjectPtr<ACharacterBase>& Weak : pendingTargets)
 		{
-			Skill->Execute(Target);
+			ACharacterBase* Target = Weak.Get();
+			if (!IsValid(Target)) continue;
+			RecalculatePending(Skill, Target);
+			Target->SetLastAttacker(ownerCharacter);
+			if (Target->ReflectDamage() && IsValid(Target))
+			{
+				Skill->Execute(Target);
+			}
+		}
+	});
+}
+
+void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, TFunction<void()>&& Action)
+{
+	//이전 pending이 남아있으면 먼저 커밋해 유실 방지
+	CommitPendingExecution();
+
+	pendingSkill = Skill;
+	pendingAction = MoveTemp(Action);
+
+	float duration = 0.f;
+	UAnimMontage* montage = Skill ? Skill->GetCommitMontage() : nullptr;
+	if (montage && ownerCharacter)
+	{
+		pendingMontage = montage;
+		duration = ownerCharacter->PlayAnimMontage(montage, Skill->montagePlayRate);
+		if (duration > 0.f)
+		{
+			//노티파이 누락·중단 대비 몽타주 종료 시 커밋 폴백
+			if (UAnimInstance* anim = ownerCharacter->GetMesh() ? ownerCharacter->GetMesh()->GetAnimInstance() : nullptr)
+			{
+				FOnMontageEnded endDelegate;
+				endDelegate.BindUObject(this, &USkillComponent::OnSkillMontageEnded);
+				anim->Montage_SetEndDelegate(endDelegate, montage);
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[SkillComponent] 몽타주 재생 실패: %s — ABP의 AnimGraph에 DefaultSlot 노드 필요"),
+				*montage->GetName());
 		}
 	}
 
-	currentSkill = saved;
+	//몽타주가 없거나 재생 실패 시 즉시 커밋해 효과 증발 방지
+	if (duration <= 0.f)
+	{
+		CommitPendingExecution();
+	}
+}
+
+void USkillComponent::CommitPendingExecution()
+{
+	if (!pendingAction) return;
+
+	//커밋 액션이 새 pending을 등록할 수 있어 실행 전에 해제
+	TFunction<void()> action = MoveTemp(pendingAction);
+	pendingAction = nullptr;
+
+	UActiveSkillBase* skill = pendingSkill;
+	pendingSkill = nullptr;
+	pendingMontage = nullptr;
+
+	//스킬 자체 효과(포복 토글 등) 먼저, 이후 대상별 효과
+	if (skill)
+	{
+		skill->OnCommit();
+	}
+	action();
+}
+
+void USkillComponent::OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	//현재 pending 소속이 아닌 몽타주의 종료는 무시 (이전 스킬 몽타주 블렌드아웃 등)
+	if (Montage != pendingMontage) return;
+
+	//같은 몽타주 재시작으로 인한 이전 인스턴스 중단이면 새 인스턴스의 종료를 기다림
+	if (bInterrupted && ownerCharacter && ownerCharacter->GetCurrentMontage() == Montage) return;
+
+	//노티파이가 이미 커밋했으면 no-op
+	CommitPendingExecution();
 }
 
 void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
@@ -238,13 +327,15 @@ void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 	const FVector CasterLocation = ownerCharacter->GetActorLocation();
 
 	//시전 가능 범위 인디케이터 생성, 점프는 현재 이동력으로 갈 수 있는 범위로 사거리 원 표시
-	if (skillRangeIndicatorClass && Skill->pickRange > 0.f && Skill->selectMode != ESelectMode::Self)
+	//표시 여부도 실효 사거리로 판단, pickRange는 점프에서 상한이 아님
+	const float effectivePickRange = Skill->GetEffectivePickRange();
+	if (skillRangeIndicatorClass && effectivePickRange > 0.f && Skill->selectMode != ESelectMode::Self)
 	{
 		skillRangeIndicator = World->SpawnActor<ASkillRangeIndicator>(
 			skillRangeIndicatorClass, FTransform(CasterLocation));
 		if (skillRangeIndicator)
 		{
-			skillRangeIndicator->InitRange(Skill->GetEffectivePickRange());
+			skillRangeIndicator->InitRange(effectivePickRange);
 		}
 	}
 

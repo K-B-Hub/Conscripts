@@ -44,8 +44,8 @@ public:
 	//CursorIndicator에서 계산된 경유점 배열을 받아 순서대로 이동
 	void MoveAlongPath(const TArray<FVector>& Points);
 
-	//인디케이터가 계산한 포물선 궤적을 3D로 따라 이동(점프), 비용은 호출자가 미리 차감
-	void MoveAlongArc(const TArray<FVector>& ArcPoints);
+	//걷기 이동 상태 정리 후 공용 아치 이동(점프), 비용은 호출자가 미리 차감
+	virtual void MoveAlongArc(const TArray<FVector>& ArcPoints, bool bForced = false) override;
 
 	//이동 중단
 	void StopMovement();
@@ -71,6 +71,9 @@ protected:
 	//레벨업 시 부여 레벨을 큐에 누적, 다음 자기 턴 시작 시 소비. 종류는 소비 시점에 레벨로 분류
 	virtual void GrantLevelUpUpgrade() override { pendingUpgradeLevels.Add(level); }
 
+	//아치 이동(점프) 자연 완료 시 이동 완료 통지
+	virtual void NotifyArcMoveCompleted() override;
+
 private:
 	//대기 중인 강화가 부여된 레벨들(FIFO)
 	TArray<int32> pendingUpgradeLevels;
@@ -86,16 +89,4 @@ private:
 
 	//이전 프레임 위치, 이동 거리 실시간 차감용
 	FVector lastFrameLocation = FVector::ZeroVector;
-
-	//점프 궤적 폴리라인 및 현재 인덱스
-	TArray<FVector> arcPoints;
-	int32 arcIndex = 0;
-	bool bIsJumping = false;
-
-	//점프 궤적 추종 속도(cm/s)
-	UPROPERTY(EditDefaultsOnly, Category = "Movement")
-	float jumpSpeed = 800.f;
-
-	//점프 궤적 한 프레임 진행, 완료 시 이동 종료 알림
-	void UpdateArcMovement(float DeltaTime);
 };

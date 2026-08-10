@@ -11,6 +11,7 @@ class UActiveSkillBase;
 class ASkillRangeIndicator;
 class AAttackRangeIndicator;
 class ACharacterBase;
+class UAnimMontage;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PW_API USkillComponent : public UActorComponent
@@ -64,11 +65,23 @@ public:
 	//캐릭터의 스탯 변경 시 호출해 스킬들의 계산된 값 변경
 	void CalcSkillStats();
 
-	//단일 대상의 피해 예측값 계산
+	//단일 대상의 피해 예측값 계산, 현재 활성 스킬 기준
 	void RecalculatePending(ACharacterBase* Target);
+	//단일 대상의 피해 예측값 계산, 명시한 스킬 기준 — 커밋 시점 재계산용(currentSkill 해제 후에도 안전)
+	void RecalculatePending(UActiveSkillBase* Skill, ACharacterBase* Target);
 
-	//인디케이터 없이 대상들에게 즉시 시전, 비용은 1회만 차감, 대상별 예측·명중 판정 후 시전
-	void DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets);
+	//인디케이터 없이 대상들에게 시전, 비용은 1회만 차감, 효과는 pending 커밋 시점에 적용
+	//SkillPoint는 AI가 조준한 실제 지점, SkillPoint 기준 밀치기의 기준점으로 기록
+	void DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, const FVector& SkillPoint);
+
+	//커밋 대기 중인 스킬 효과 존재 여부, 대기 중엔 컨트롤러가 신규 입력 차단
+	bool HasPendingExecution() const { return pendingAction != nullptr; }
+
+	//효과를 pending으로 등록 후 커밋 몽타주 재생, 몽타주 없거나 재생 실패 시 즉시 커밋
+	void StartPendingExecution(UActiveSkillBase* Skill, TFunction<void()>&& Action);
+
+	//pending 효과 실행 및 해제, SkillImpact 노티파이 또는 몽타주 종료 폴백이 호출
+	void CommitPendingExecution();
 
 protected:
 	virtual void BeginPlay() override;
@@ -100,6 +113,20 @@ private:
 
 	//멀티픽 누적 대상 목록
 	TArray<ACharacterBase*> accumulatedTargets;
+
+	//커밋 대기 중인 스킬, GC 보호용 (효과 본문은 pendingAction이 보유)
+	UPROPERTY()
+	TObjectPtr<UActiveSkillBase> pendingSkill = nullptr;
+
+	//pending이 속한 몽타주, 다른 몽타주의 종료 폴백 오발 방지
+	UPROPERTY()
+	TObjectPtr<UAnimMontage> pendingMontage = nullptr;
+
+	//커밋 시 실행할 효과, 등록 시점에 대상 스냅샷을 약참조로 캡처
+	TFunction<void()> pendingAction;
+
+	//노티파이 누락·몽타주 중단 시에도 커밋 보장하는 폴백
+	void OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
 	//인디케이터 생성
 	void SpawnIndicators(UActiveSkillBase* Skill);

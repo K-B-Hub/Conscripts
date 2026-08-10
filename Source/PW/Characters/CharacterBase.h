@@ -20,6 +20,7 @@ class UActiveSkillBase;
 class USkillBase;
 class UTerrainComponent;
 class ATerrainBase;
+class UAnimMontage;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 //hp/스트레스 변동 시 HUD 게이지 등 외부 통지
@@ -106,57 +107,57 @@ protected:
 	//캐릭터 스탯
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 maxHp = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 hp = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 atk = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 speed = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 skill = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 def = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	float movingPoint = 9.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	float currentMovingPoint = 9.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 mentality = 1;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 stress = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 maxStress = 100;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 actionPoint = 2;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 currentActionPoint = 2;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 damageReduction = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 damageAmplification = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 penetration = 0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	float sight = 15;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 battleResource = 10;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Combat")
 	float accuracy = 0.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Combat")
 	float evasion = 0.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Combat")
 	float critical = 0.0;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 hpGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 atkGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 speedGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 skillGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 defGrowth = 50;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 mentalityGrowth = 5;
 	
 	//AttackRangeIndicator와 오버렙 시 미리 계산해 값을 저장
@@ -175,8 +176,43 @@ protected:
 	//본인 이동 상태, 턴 시작 시 false로 초기화, 첫 이동 시 true로 전이
 	bool isMoved = false;
 
+	//실제 이동력 소모 여부, 턴 시작 시 리셋
+	//isMoved는 인디케이터 미리보기·AI 후보 평가가 일시적으로 켰다 끄므로 "실제로 이동했는가"의 근거가 못 됨
+	bool hasConsumedMovingPoint = false;
+
 	//포복 자세, 행동력 1로 진입하는 토글 상태 (일어서기는 무료), 턴이 넘어가도 유지
 	bool bIsProne = false;
+
+	//서있는 자세 기준 이동 속도, BeginPlay에서 캐싱 후 포복 배율 적용의 기준값
+	float baseWalkSpeed = 0.f;
+
+	//아치 궤적 폴리라인 및 현재 인덱스, 점프·밀치기 공용
+	TArray<FVector> arcPoints;
+	int32 arcIndex = 0;
+	//아치 궤적 추종 중 여부, IsAirborne의 근거
+	bool bIsArcMoving = false;
+	//외력에 의한 아치 이동 여부, true면 이동 패시브 훅·완료 통지 생략, 착지 시 낙하 피해
+	bool bIsArcForced = false;
+
+	//아치 궤적 추종 속도(cm/s)
+	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	float jumpSpeed = 800.f;
+
+	//착지 몽타주, 아치 이동(점프·밀치기) 완료 시 재생 — 미지정 시 생략
+	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	TObjectPtr<UAnimMontage> landMontage;
+
+	//낙하 피해 면제 높이(cm), 순수 하강분이 이를 초과하면 피해
+	UPROPERTY(EditDefaultsOnly, Category = "Movement|FallDamage")
+	float fallDamageThreshold = 200.f;
+	//면제 초과 1m당 낙하 피해
+	UPROPERTY(EditDefaultsOnly, Category = "Movement|FallDamage")
+	int32 fallDamagePerMeter = 1;
+
+	//아치 궤적 한 프레임 진행, 완료 시 착지 처리
+	void UpdateArcMovement(float DeltaTime);
+	//아치 이동 자연 완료(비강제) 시 호출, 아군은 OnMovementCompleted 브로드캐스트로 확장
+	virtual void NotifyArcMoveCompleted() {}
 
 	//레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
@@ -219,6 +255,8 @@ public:
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
 	float GetMovingPoint() const { return movingPoint; }
 	bool IsMoved() const { return isMoved; }
+	//실제 이동력을 소모했는가, 투기적 isMoved 토글을 되돌릴 목적지
+	bool HasConsumedMovingPoint() const { return hasConsumedMovingPoint; }
 
 	//서있는 자세 기준 시야 눈높이(cm), LOS 매직넘버의 단일 출처·지면 타겟 기본값
 	static constexpr float StandingEyeHeightZ = 80.f;
@@ -226,12 +264,22 @@ public:
 	static constexpr float ProneEyeHeightZ = 35.f;
 
 	bool IsProne() const { return bIsProne; }
+	//포복 상태 명시 설정(멱등), 이동 속도 배율 반영
+	void SetProne(bool bNewProne);
+	//아치 궤적(점프·밀치기) 추종 중 여부
+	bool IsAirborne() const { return bIsArcMoving; }
+	//포물선 궤적을 3D로 따라 이동, bForced=외력: 이동 패시브 훅·완료 통지 생략, 착지 시 낙하 피해
+	virtual void MoveAlongArc(const TArray<FVector>& ArcPoints, bool bForced = false);
+	//원점→대상 수평 일직선 방향으로 밀쳐냄, 궤적 계산·포복 강제 해제 포함
+	void ApplyKnockback(const FVector& origin, float force, float angleDeg);
 	//LOS 라인트레이스 양 끝점에 쓰는 자세별 눈높이(cm)
 	float GetEyeHeightZ() const { return bIsProne ? ProneEyeHeightZ : StandingEyeHeightZ; }
 	//포복 시 이동력 소모 배율, 지형 배율과 별개로 곱함
 	float GetStanceMoveCostMultiplier() const { return bIsProne ? 2.f : 1.f; }
-	//포복 자세 순수 토글, 행동력 소모는 스킬 계층(ProneSkill)에서 처리
-	void ToggleProne() { bIsProne = !bIsProne; }
+	//포복 시 실제 이동 속도 배율, 이동력 소모 배율과 별개
+	static constexpr float ProneMoveSpeedMultiplier = 0.5f;
+	//포복 자세 토글 및 이동 속도 반영, 행동력 소모는 스킬 계층(ProneSkill)에서 처리
+	void ToggleProne();
 	//이동력 차감, 지형 배율은 호출자가 미리 반영해서 넘김
 	void ConsumeMovingPoint(float meters);
 	//이동력 증가(달리기 등), 상한 클램프 없음 — 기본 최대치를 초과해 얻을 수 있음

@@ -369,8 +369,11 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 {
 	if (!activeUnit) return;
 
-	//스킬 모드 우선 처리
+	//스킬 커밋 대기 중 신규 명령 차단, 효과 적용 전 다른 행동 방지
 	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
+	if (SkillComp && SkillComp->HasPendingExecution()) return;
+
+	//스킬 모드 우선 처리
 	if (SkillComp && SkillComp->IsSkillActive())
 	{
 		ExecuteSkill();
@@ -395,6 +398,8 @@ void ABattleController::OnCancelMove(const FInputActionValue& Value)
 	if (activeUnit)
 	{
 		USkillComponent* SkillComp = activeUnit->GetSkillComponent();
+		//커밋 대기 중엔 취소 불가, 비용은 이미 확정됨
+		if (SkillComp && SkillComp->HasPendingExecution()) return;
 		if (SkillComp && SkillComp->IsSkillActive())
 		{
 			if (bPendingSkillExec)
@@ -556,20 +561,17 @@ void ABattleController::OnUnitMovementCompleted()
 		const TArray<ACharacterBase*> Targets = SkillComp->GetCurrentTargets();
 		if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
+		//밀치기 기준점용 시전 지점 기록
+		Skill->skillPointLocation = Indicator ? Indicator->GetActorLocation() : activeUnit->GetActorLocation();
+
 		Skill->BeginUse();
 		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 		{
 			GM->RecordSkillUse(activeUnit, Skill);
 		}
 
-		for (ACharacterBase* Target : Targets)
-		{
-			if (!IsValid(Target)) continue;
-			Target->SetLastAttacker(activeUnit);
-			if (!Target->ReflectDamage()) continue;
-			if (!IsValid(Target)) continue;
-			Skill->Execute(Target);
-		}
+		//효과 적용은 임팩트 커밋 시점으로 지연
+		StartPendingSkillOnTargets(SkillComp, Skill, Targets);
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
 
@@ -610,6 +612,9 @@ void ABattleController::ExecuteSkill()
 	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
 	if (!SkillComp) return;
 
+	//이전 스킬 커밋 대기 중 중복 실행 방지
+	if (SkillComp->HasPendingExecution()) return;
+
 	UActiveSkillBase* Skill = SkillComp->GetCurrentSkill();
 	if (!Skill) return;
 
@@ -623,15 +628,15 @@ void ABattleController::ExecuteSkill()
 		const TArray<FVector>& Arc = Indicator->GetArcPath();
 		if (Arc.Num() < 2) return;
 
-		//수평거리(m) * 배율 = 이동력 비용
 		const FVector From = activeUnit->GetActorLocation();
 		const FVector To = Indicator->GetActorLocation();
 		const float HorizCm = FVector2D(To.X - From.X, To.Y - From.Y).Size();
-		const float HorizM = HorizCm / 100.f;
-		const float CostM = HorizM * Skill->arcMoveCostMultiplier;
 
-		//이동력 부족 시 도약 불가, 이 검사가 곧 사거리 제한 (미리보기 빨강과 일치)
-		if (CostM > activeUnit->GetCurrentMovingPoint()) return;
+		//사거리 판정은 미리보기 빨강과 같은 출처(GetEffectivePickRange)를 사용
+		if (HorizCm > Skill->GetEffectivePickRange()) return;
+
+		//수평거리(m) * 배율 = 이동력 비용
+		const float CostM = (HorizCm / 100.f) * Skill->arcMoveCostMultiplier;
 
 		//도약 방향으로 회전
 		FVector Dir = To - From;
@@ -641,9 +646,19 @@ void ABattleController::ExecuteSkill()
 			activeUnit->SetActorRotation(Dir.Rotation());
 		}
 
-		Skill->BeginUse();  //행동력(0)·몽타주
+		Skill->BeginUse();  //행동력(0)·비용
 		activeUnit->ConsumeMovingPoint(CostM);
-		activeUnit->MoveAlongArc(Arc);
+
+		//인디케이터 파괴 전에 궤적 복사, 도약 시작은 커밋 시점(도약 몽타주의 이륙 프레임)
+		TArray<FVector> arcCopy = Arc;
+		TWeakObjectPtr<AAllyCharacterBase> caster = activeUnit;
+		SkillComp->StartPendingExecution(Skill, [caster, arcCopy]()
+		{
+			if (caster.IsValid())
+			{
+				caster->MoveAlongArc(arcCopy);
+			}
+		});
 
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
@@ -685,15 +700,8 @@ void ABattleController::ExecuteSkill()
 			}
 		}
 
-		//멀티픽 누적 대상 중 사망한 캐릭터 필터링
-		TArray<ACharacterBase*> ValidTargets;
-		for (ACharacterBase* Target : SkillComp->GetAccumulatedTargets())
-		{
-			if (IsValid(Target))
-			{
-				ValidTargets.Add(Target);
-			}
-		}
+		//밀치기 기준점용 시전 지점 기록
+		Skill->skillPointLocation = Indicator ? Indicator->GetActorLocation() : activeUnit->GetActorLocation();
 
 		Skill->BeginUse();
 		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
@@ -701,14 +709,8 @@ void ABattleController::ExecuteSkill()
 			GM->RecordSkillUse(activeUnit, Skill);
 		}
 
-		for (ACharacterBase* Target : ValidTargets)
-		{
-			if (!IsValid(Target)) continue;
-			Target->SetLastAttacker(activeUnit);
-			if (!Target->ReflectDamage()) continue;
-			if (!IsValid(Target)) continue;
-			Skill->Execute(Target);
-		}
+		//멀티픽 누적 대상으로 pending 등록, 사망자 필터는 스냅샷·커밋 양쪽에서 수행
+		StartPendingSkillOnTargets(SkillComp, Skill, SkillComp->GetAccumulatedTargets());
 		remainingPicks = 0;
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
@@ -755,21 +757,17 @@ void ABattleController::ExecuteSkill()
 	//SinglePick만 타겟 필수, Self/GroundPoint는 타겟 없이도 실행 가능
 	if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
+	//밀치기 기준점용 시전 지점 기록, 인디케이터 없으면 시전자 위치
+	Skill->skillPointLocation = Indicator ? Indicator->GetActorLocation() : activeUnit->GetActorLocation();
+
 	Skill->BeginUse();
 	if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 	{
 		GM->RecordSkillUse(activeUnit, Skill);
 	}
 
-	//전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨, 바로 ReflectDamage
-	for (ACharacterBase* Target : Targets)
-	{
-		if (!IsValid(Target)) continue;
-		Target->SetLastAttacker(activeUnit);
-		if (!Target->ReflectDamage()) continue;
-		if (!IsValid(Target)) continue;
-		Skill->Execute(Target);
-	}
+	//예측값은 커밋 시점에 재계산되어 판정됨, 오버랩 시 값은 UI 표시용
+	StartPendingSkillOnTargets(SkillComp, Skill, Targets);
 
 	//스킬 사용 완료, 비활성화
 	SkillComp->DeactivateSkill();
@@ -777,6 +775,35 @@ void ABattleController::ExecuteSkill()
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleController] 스킬 실행: %s → %d명 대상"),
 		*Skill->skillName.ToString(), Targets.Num());
+}
+
+void ABattleController::StartPendingSkillOnTargets(USkillComponent* SkillComp, UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets)
+{
+	//커밋 시점까지 대상 생존 불확실, 약참조 스냅샷
+	TArray<TWeakObjectPtr<ACharacterBase>> pendingTargets;
+	for (ACharacterBase* Target : Targets)
+	{
+		if (IsValid(Target))
+		{
+			pendingTargets.Add(Target);
+		}
+	}
+	TWeakObjectPtr<ACharacterBase> caster = activeUnit;
+
+	//인디케이터 파괴 시 OnOverlapEnd가 pending 예측값을 지우므로, 커밋 시점에 재계산 후 판정
+	SkillComp->StartPendingExecution(Skill, [SkillComp, Skill, pendingTargets, caster]()
+	{
+		for (const TWeakObjectPtr<ACharacterBase>& Weak : pendingTargets)
+		{
+			ACharacterBase* Target = Weak.Get();
+			if (!IsValid(Target)) continue;
+			SkillComp->RecalculatePending(Skill, Target);
+			Target->SetLastAttacker(caster.Get());
+			if (!Target->ReflectDamage()) continue;
+			if (!IsValid(Target)) continue;
+			Skill->Execute(Target);
+		}
+	});
 }
 
 void ABattleController::RefreshSkillButtons()

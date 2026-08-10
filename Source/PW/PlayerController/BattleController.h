@@ -18,6 +18,7 @@ class AAttackRangeIndicator;
 class UUpgradeSelectWidget;
 class USkillBase;
 class UDebugWidget;
+class USkillComponent;
 
 //전투 씬 플레이어 컨트롤러, EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
 UCLASS()
@@ -197,8 +198,11 @@ private:
 	UFUNCTION()
 	void RefreshGauges();
 
-	//스킬 실행, 타겟 검증 후 ReflectDamage + Execute
+	//스킬 실행 확정, 타겟 검증·비용 차감 후 효과를 pending 등록 (적용은 SkillImpact 노티파이 커밋 시점)
 	void ExecuteSkill();
+
+	//대상 루프(ReflectDamage + Execute)를 약참조 스냅샷으로 pending 등록
+	void StartPendingSkillOnTargets(USkillComponent* SkillComp, UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets);
 
 	//스킬 버튼 활성/비활성 상태 갱신
 	void RefreshSkillButtons();

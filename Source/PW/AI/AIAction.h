@@ -36,6 +36,10 @@ struct FAIAction
 	UPROPERTY(BlueprintReadOnly)
 	FVector CastFrom = FVector::ZeroVector;
 
+	//조준 지점(지면점·대표 위치 등), SkillPoint 기준 밀치기의 기준점으로 실행 시 전달
+	UPROPERTY(BlueprintReadOnly)
+	FVector AimPoint = FVector::ZeroVector;
+
 	//시전 위치까지의 경로 길이
 	UPROPERTY(BlueprintReadOnly)
 	float PathLengthCm = 0.f;

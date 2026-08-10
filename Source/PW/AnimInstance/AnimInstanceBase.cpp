@@ -35,6 +35,9 @@ void UAnimInstanceBase::NativeUpdateAnimation(float DeltaTime)
 		const float TargetSpeed = OwnerCharacter->GetVelocity().Size();
 		speed = TargetSpeed;
 
+		bIsAirborne = OwnerCharacter->IsAirborne();
+		bIsProne = OwnerCharacter->IsProne();
+
 		if (bEnableLeftHandIK)
 		{
 			UpdateLeftHandIK();

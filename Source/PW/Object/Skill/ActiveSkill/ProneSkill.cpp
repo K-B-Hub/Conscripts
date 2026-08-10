@@ -29,13 +29,19 @@ UProneSkill::UProneSkill()
 	baseDamage = 0;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
-
-	//플레이스홀더 몽타주, 실제 엎드리기/일어서기 전환 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire_Montage"));
+	
+	//플레이스홀더 몽타주, 실제 달리기 준비 애니메이션으로 교체 예정
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_ProneToStand"));
 	if (MontageAsset.Succeeded())
 	{
-		lieDownMontage = MontageAsset.Object;
 		standUpMontage = MontageAsset.Object;
+	}
+	
+	//플레이스홀더 몽타주, 실제 달리기 준비 애니메이션으로 교체 예정
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset2(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_StandToProne"));
+	if (MontageAsset2.Succeeded())
+	{
+		lieDownMontage = MontageAsset2.Object;
 	}
 }
 
@@ -54,20 +60,26 @@ void UProneSkill::BeginUse()
 	ACharacterBase* ownerPtr = GetOwner();
 	if (!ownerPtr) return;
 
-	//토글 직전 상태가 전환 방향을 결정
-	const bool wasProne = ownerPtr->IsProne();
-
-	//서있다가 포복으로 진입할 때만 행동력 소모, 일어서기는 무료
-	if (!wasProne)
+	//서있다가 포복으로 진입할 때만 비용 소모, 일어서기는 무료
+	if (!ownerPtr->IsProne())
 	{
-		ownerPtr->ReduceActionPoint(actionPointCost);
+		Super::BeginUse();
 	}
-	ownerPtr->ToggleProne();
+}
 
-	//포복→서있음이면 일어서기, 서있음→포복이면 엎드리기 몽타주 재생
-	UAnimMontage* transition = wasProne ? standUpMontage : lieDownMontage;
-	if (transition)
+UAnimMontage* UProneSkill::GetCommitMontage() const
+{
+	ACharacterBase* ownerPtr = GetOwner();
+	if (!ownerPtr) return nullptr;
+
+	//토글 이전 상태가 전환 방향을 결정
+	return ownerPtr->IsProne() ? standUpMontage : lieDownMontage;
+}
+
+void UProneSkill::OnCommit()
+{
+	if (ACharacterBase* ownerPtr = GetOwner())
 	{
-		ownerPtr->PlayAnimMontage(transition, montagePlayRate);
+		ownerPtr->ToggleProne();
 	}
 }

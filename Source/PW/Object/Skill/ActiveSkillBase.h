@@ -81,6 +81,15 @@ public:
 	//아치 이동(점프) 시 수평거리 대비 이동력 소모 배율
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Arc")
 	float arcMoveCostMultiplier = 1.5f;
+	//밀치기 수평 거리(cm), 0이면 밀치기 없음
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Knockback")
+	float knockbackForce = 0.f;
+	//밀치기 발사각(도), 정점 높이 = 거리·tanθ/4
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Knockback")
+	float knockbackAngle = 30.f;
+	//밀치는 방향의 기준점
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Knockback")
+	EKnockbackOrigin knockbackOrigin = EKnockbackOrigin::Caster;
 	//스킬 사용 가능 여부 검사, 파생에서 추가 조건 가능(알람 1회 제한 등)
 	virtual bool CanExecute() const;
 	//실행 시 시전자를 궤적을 따라 이동시키는가(점프), 기본은 아님(투척물 등 다른 소비)
@@ -97,8 +106,14 @@ public:
 	float calcCritical;
 	int32 calcDamageAmplfication;
 	int32 calcPenetration;
-	//스킬 사용 시 1회 호출
+	//SkillPoint 기준 밀치기용 시전 지점, 확정 시점에 컨트롤러/AI가 기록
+	FVector skillPointLocation = FVector::ZeroVector;
+	//스킬 사용 확정 시 1회 호출, 비용 차감만 담당 (몽타주는 SkillComponent의 pending 흐름이 재생)
 	virtual void BeginUse();
+	//커밋 시점에 재생 중일 몽타주, 파생에서 상황별 교체 가능(포복 방향 등)
+	virtual UAnimMontage* GetCommitMontage() const { return skillMontage; }
+	//커밋 시점 스킬 자체 효과(포복 토글 등), 대상 루프 이전 1회 호출
+	virtual void OnCommit() {}
 	//적중한 대상마다 호출
 	virtual void Execute(const ACharacterBase* target);
 };
