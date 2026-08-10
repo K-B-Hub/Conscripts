@@ -65,11 +65,14 @@ public:
 	//캐릭터의 스탯 변경 시 호출해 스킬들의 계산된 값 변경
 	void CalcSkillStats();
 
-	//단일 대상의 피해 예측값 계산
+	//단일 대상의 피해 예측값 계산, 현재 활성 스킬 기준
 	void RecalculatePending(ACharacterBase* Target);
+	//단일 대상의 피해 예측값 계산, 명시한 스킬 기준 — 커밋 시점 재계산용(currentSkill 해제 후에도 안전)
+	void RecalculatePending(UActiveSkillBase* Skill, ACharacterBase* Target);
 
 	//인디케이터 없이 대상들에게 시전, 비용은 1회만 차감, 효과는 pending 커밋 시점에 적용
-	void DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets);
+	//SkillPoint는 AI가 조준한 실제 지점, SkillPoint 기준 밀치기의 기준점으로 기록
+	void DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, const FVector& SkillPoint);
 
 	//커밋 대기 중인 스킬 효과 존재 여부, 대기 중엔 컨트롤러가 신규 입력 차단
 	bool HasPendingExecution() const { return pendingAction != nullptr; }

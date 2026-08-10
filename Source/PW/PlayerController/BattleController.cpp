@@ -561,6 +561,9 @@ void ABattleController::OnUnitMovementCompleted()
 		const TArray<ACharacterBase*> Targets = SkillComp->GetCurrentTargets();
 		if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
+		//밀치기 기준점용 시전 지점 기록
+		Skill->skillPointLocation = Indicator ? Indicator->GetActorLocation() : activeUnit->GetActorLocation();
+
 		Skill->BeginUse();
 		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 		{
@@ -697,6 +700,9 @@ void ABattleController::ExecuteSkill()
 			}
 		}
 
+		//밀치기 기준점용 시전 지점 기록
+		Skill->skillPointLocation = Indicator ? Indicator->GetActorLocation() : activeUnit->GetActorLocation();
+
 		Skill->BeginUse();
 		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 		{
@@ -751,13 +757,16 @@ void ABattleController::ExecuteSkill()
 	//SinglePick만 타겟 필수, Self/GroundPoint는 타겟 없이도 실행 가능
 	if (Targets.Num() == 0 && Skill->selectMode == ESelectMode::SinglePick) return;
 
+	//밀치기 기준점용 시전 지점 기록, 인디케이터 없으면 시전자 위치
+	Skill->skillPointLocation = Indicator ? Indicator->GetActorLocation() : activeUnit->GetActorLocation();
+
 	Skill->BeginUse();
 	if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 	{
 		GM->RecordSkillUse(activeUnit, Skill);
 	}
 
-	//전투 예측 값은 이미 오버랩 시 CalculateDamage로 세팅됨, 커밋 시 바로 ReflectDamage
+	//예측값은 커밋 시점에 재계산되어 판정됨, 오버랩 시 값은 UI 표시용
 	StartPendingSkillOnTargets(SkillComp, Skill, Targets);
 
 	//스킬 사용 완료, 비활성화
@@ -781,12 +790,14 @@ void ABattleController::StartPendingSkillOnTargets(USkillComponent* SkillComp, U
 	}
 	TWeakObjectPtr<ACharacterBase> caster = activeUnit;
 
-	SkillComp->StartPendingExecution(Skill, [Skill, pendingTargets, caster]()
+	//인디케이터 파괴 시 OnOverlapEnd가 pending 예측값을 지우므로, 커밋 시점에 재계산 후 판정
+	SkillComp->StartPendingExecution(Skill, [SkillComp, Skill, pendingTargets, caster]()
 	{
 		for (const TWeakObjectPtr<ACharacterBase>& Weak : pendingTargets)
 		{
 			ACharacterBase* Target = Weak.Get();
 			if (!IsValid(Target)) continue;
+			SkillComp->RecalculatePending(Skill, Target);
 			Target->SetLastAttacker(caster.Get());
 			if (!Target->ReflectDamage()) continue;
 			if (!IsValid(Target)) continue;

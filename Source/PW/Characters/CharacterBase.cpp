@@ -130,15 +130,22 @@ void ACharacterBase::BeginPlay()
 	}
 }
 
-void ACharacterBase::ToggleProne()
+void ACharacterBase::SetProne(bool bNewProne)
 {
-	bIsProne = !bIsProne;
+	if (bIsProne == bNewProne) return;
+
+	bIsProne = bNewProne;
 
 	//포복 중에는 실제 이동 속도도 낮춰 기어가는 애니메이션과 속도를 맞춤
 	if (UCharacterMovementComponent* move = GetCharacterMovement())
 	{
 		move->MaxWalkSpeed = baseWalkSpeed * (bIsProne ? ProneMoveSpeedMultiplier : 1.f);
 	}
+}
+
+void ACharacterBase::ToggleProne()
+{
+	SetProne(!bIsProne);
 }
 
 void ACharacterBase::SetDefaultSkills()
@@ -184,6 +191,160 @@ void ACharacterBase::SetDefaultStats()
 void ACharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	//아치 궤적 추종 중이면 우선 처리
+	if (bIsArcMoving)
+	{
+		UpdateArcMovement(DeltaTime);
+	}
+}
+
+void ACharacterBase::MoveAlongArc(const TArray<FVector>& ArcPoints, bool bForced)
+{
+	//아치 이동은 시작되면 취소·재시작 불가
+	if (bIsArcMoving) return;
+	if (ArcPoints.Num() < 2) return;
+
+	//자발적 이동만 BeforeMove 전이, 외력은 이동 패시브 훅 미발동
+	if (!bForced)
+	{
+		OnMoveStateChanged(true);
+	}
+
+	arcPoints = ArcPoints;
+	arcIndex = 1; //0은 시작점
+	bIsArcMoving = true;
+	bIsArcForced = bForced;
+
+	//중력·바닥스냅이 궤적을 방해하지 않도록 비행 모드로 전환, 착지 시 복구
+	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+	GetCharacterMovement()->StopMovementImmediately();
+}
+
+void ACharacterBase::UpdateArcMovement(float DeltaTime)
+{
+	const FVector Cur = GetActorLocation();
+	const FVector Target = arcPoints[arcIndex];
+	const FVector Delta = Target - Cur;
+	const float Step = jumpSpeed * DeltaTime;
+
+	//현재 목표 샘플 도달 시 다음 샘플로, 마지막이면 착지 종료
+	if (Delta.Size() <= Step)
+	{
+		SetActorLocation(Target);
+		arcIndex++;
+		if (arcIndex >= arcPoints.Num())
+		{
+			SetActorLocation(arcPoints.Last());
+			//순수 하강분, 낙하 피해 산정용
+			const float fallCm = arcPoints[0].Z - arcPoints.Last().Z;
+			bIsArcMoving = false;
+			const bool bWasForced = bIsArcForced;
+			bIsArcForced = false;
+			arcPoints.Empty();
+			GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+			GetCharacterMovement()->StopMovementImmediately();
+
+			//착지 연출, 스테이트머신의 공중→지상 전이를 몽타주가 덮음
+			if (landMontage)
+			{
+				PlayAnimMontage(landMontage, 3.0);
+			}
+
+			if (bWasForced)
+			{
+				//외력 착지, 환경 피해라 비치명
+				if (fallCm > fallDamageThreshold)
+				{
+					const int32 dmg = FMath::CeilToInt((fallCm - fallDamageThreshold) / 100.f) * fallDamagePerMeter;
+					if (dmg > 0)
+					{
+						ReceiveDamage(dmg, false);
+					}
+				}
+			}
+			else
+			{
+				//MoveComplete 패시브를 완료 통지 전에 처리
+				if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+				{
+					GM->BroadcastMoveComplete();
+				}
+				NotifyArcMoveCompleted();
+			}
+		}
+		return;
+	}
+
+	//샘플 방향으로 등속 전진
+	SetActorLocation(Cur + Delta.GetSafeNormal() * Step);
+}
+
+void ACharacterBase::ApplyKnockback(const FVector& origin, float force, float angleDeg)
+{
+	if (force <= 0.f || bIsArcMoving || IsDead()) return;
+
+	//원점→대상 수평 일직선 방향, 수평으로 겹치면 방향 정의 불가
+	const FVector start = GetActorLocation();
+	FVector dir = start - origin;
+	dir.Z = 0.f;
+	if (dir.IsNearlyZero()) return;
+	dir.Normalize();
+
+	//외력 부양은 포복 강제 해제, 전환 몽타주 없이 ABP가 공중 상태로 즉시 전이
+	SetProne(false);
+
+	//해석적 포물선: 발사각 θ → 정점 높이 h = 거리·tanθ/4
+	const float apex = force * FMath::Tan(FMath::DegreesToRadians(angleDeg)) * 0.25f;
+	const float halfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+
+	FCollisionQueryParams params;
+	params.AddIgnoredActor(this);
+	UWorld* world = GetWorld();
+
+	//임시 착지점의 지면 높이 탐색, 미발견 시 시작 높이 유지
+	const FVector endXY = start + dir * force;
+	float landZ = start.Z;
+	{
+		FHitResult ground;
+		const FVector traceStart = FVector(endXY.X, endXY.Y, FMath::Max(start.Z, endXY.Z) + apex + 100.f);
+		if (world->LineTraceSingleByChannel(ground, traceStart, traceStart - FVector(0.f, 0.f, 100000.f), ECC_Visibility, params))
+		{
+			landZ = ground.Location.Z + halfHeight;
+		}
+	}
+
+	//시작·착지 높이를 보간한 포물선 샘플링
+	const int32 sampleCount = 12;
+	TArray<FVector> arc;
+	arc.Reserve(sampleCount + 1);
+	for (int32 i = 0; i <= sampleCount; ++i)
+	{
+		const float t = static_cast<float>(i) / sampleCount;
+		FVector p = start + dir * (force * t);
+		p.Z = FMath::Lerp(start.Z, landZ, t) + 4.f * apex * t * (1.f - t);
+		arc.Add(p);
+	}
+
+	//경로 차단 검사, 첫 차단 지점에서 수직 낙하로 착지점 재계산
+	for (int32 i = 0; i + 1 < arc.Num(); ++i)
+	{
+		FHitResult hit;
+		if (world->LineTraceSingleByChannel(hit, arc[i], arc[i + 1], ECC_Visibility, params))
+		{
+			arc.SetNum(i + 1);
+			FHitResult ground;
+			const FVector dropFrom = hit.Location;
+			if (world->LineTraceSingleByChannel(ground, dropFrom, dropFrom - FVector(0.f, 0.f, 100000.f), ECC_Visibility, params))
+			{
+				arc.Add(FVector(dropFrom.X, dropFrom.Y, ground.Location.Z + halfHeight));
+			}
+			break;
+		}
+	}
+
+	if (arc.Num() < 2) return;
+	MoveAlongArc(arc, true);
 }
 
 int32 ACharacterBase::GetTurnOrder() const

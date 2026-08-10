@@ -89,8 +89,9 @@ protected:
 	//대표는 Targets[0], 우선순위 = 최대 피해 적군 > 최대 부상 아군 > 최대 rider 가치 대상
 	//유효 가치가 전혀 없으면 후보 미생성
 	//Pos는 GatherCastPositions가 채운 미완성 후보, 위치·경로·지형 값을 그대로 승계
+	//AimPoint는 실제 조준 지점(지면점 포함), 밀치기 기준점으로 실행까지 전달
 	void BuildActionFromCast(UActiveSkillBase* Skill, const FAIAction& Pos,
-	                         const TArray<ACharacterBase*>& Affected,
+	                         const TArray<ACharacterBase*>& Affected, const FVector& AimPoint,
 	                         TArray<FAIAction>& OutCandidates) const;
 
 	//스킬 rider(버프/상태이상)의 대상 기준 가치, hitP·팀부호·턴수·중복 게이트 반영

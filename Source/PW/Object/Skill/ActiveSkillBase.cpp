@@ -98,4 +98,14 @@ void UActiveSkillBase::Execute(const ACharacterBase* target)
 			}
 		}
 	}
+
+	//밀치기, force 0이면 비활성
+	if (knockbackForce > 0.f)
+	{
+		const FVector origin = (knockbackOrigin == EKnockbackOrigin::SkillPoint || !ownerPtr)
+			? skillPointLocation
+			: ownerPtr->GetActorLocation();
+		//이동은 대상 액터를 직접 변경, 컴포넌트 경유 변경과 동일한 const 예외
+		const_cast<ACharacterBase*>(target)->ApplyKnockback(origin, knockbackForce, knockbackAngle);
+	}
 }

@@ -54,6 +54,13 @@ enum class EDamageType : uint8		//액티브 스킬 중 피해를 주는 스킬�
 };
 
 UENUM(BlueprintType)
+enum class EKnockbackOrigin : uint8	//밀치기 방향의 기준점, 기준점→대상 수평 일직선으로 밀쳐냄
+{
+	Caster      UMETA(DisplayName = "Caster"),		//시전자 위치 기준
+	SkillPoint  UMETA(DisplayName = "Skill Point")	//스킬 시전 지점 기준
+};
+
+UENUM(BlueprintType)
 enum class EPassiveType : uint8		//패시브 스킬 유형
 {
 	Stat		UMETA(DisplayName = "Stat"),		//단순 스탯 증가

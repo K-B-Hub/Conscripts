@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/JumpSkill.h"
+#include "Characters/CharacterBase.h"
 #include "Animation/AnimMontage.h"
 
 UJumpSkill::UJumpSkill()
@@ -43,4 +44,13 @@ UJumpSkill::UJumpSkill()
 	{
 		skillMontage = MontageAsset.Object;
 	}
+}
+
+bool UJumpSkill::CanExecute() const
+{
+	//포복 자세에서는 도약 불가
+	ACharacterBase* ownerPtr = GetOwner();
+	if (ownerPtr && ownerPtr->IsProne()) return false;
+
+	return Super::CanExecute();
 }

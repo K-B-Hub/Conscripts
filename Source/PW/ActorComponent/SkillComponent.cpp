@@ -174,19 +174,24 @@ void USkillComponent::CalcSkillStats()
 
 void USkillComponent::RecalculatePending(ACharacterBase* Target)
 {
-	if (!Target || !currentSkill || !ownerCharacter) return;
+	RecalculatePending(currentSkill, Target);
+}
+
+void USkillComponent::RecalculatePending(UActiveSkillBase* Skill, ACharacterBase* Target)
+{
+	if (!Target || !Skill || !ownerCharacter) return;
 
 	//스킬 계산값을 로컬 값으로 복사
-	float dmg  = currentSkill->calcDamage;
-	int32 amp  = currentSkill->calcDamageAmplfication;
-	int32 pen  = currentSkill->calcPenetration;
-	float acc  = currentSkill->calcAccuracy;
-	float crit = currentSkill->calcCritical;
+	float dmg  = Skill->calcDamage;
+	int32 amp  = Skill->calcDamageAmplfication;
+	int32 pen  = Skill->calcPenetration;
+	float acc  = Skill->calcAccuracy;
+	float crit = Skill->calcCritical;
 
 	//공격자 패시브 보너스 반영
 	if (UPassiveSkillComponent* PSC = ownerCharacter->GetPassiveSkillComponent())
 	{
-		PSC->DispatchBeforeDamageCalc(Target, currentSkill->skillType, currentSkill->damageType,
+		PSC->DispatchBeforeDamageCalc(Target, Skill->skillType, Skill->damageType,
 			dmg, amp, pen, acc, crit);
 	}
 
@@ -196,15 +201,18 @@ void USkillComponent::RecalculatePending(ACharacterBase* Target)
 		crit,
 		amp,
 		pen,
-		currentSkill->skillType,
+		Skill->skillType,
 		ownerCharacter
 	);
 }
 
-void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets)
+void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, const FVector& SkillPoint)
 {
 	if (!Skill || Targets.Num() == 0 || !ownerCharacter) return;
 	if (!Skill->CanExecute()) return;
+
+	//AI가 조준한 실제 지점을 밀치기 기준점으로 기록, Caster 기준 스킬은 Execute가 시전자 위치를 직접 사용
+	Skill->skillPointLocation = SkillPoint;
 
 	//자원 차감은 1회만, 확정 시점 즉시
 	Skill->BeginUse();
@@ -225,23 +233,17 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<AChara
 	//대상별 예측 계산·명중 판정·효과 적용은 커밋 시점에 실행
 	StartPendingExecution(Skill, [this, Skill, pendingTargets]()
 	{
-		//currentSkill을 임시 지정해 예측 계산 경로 재사용
-		UActiveSkillBase* saved = currentSkill;
-		currentSkill = Skill;
-
 		for (const TWeakObjectPtr<ACharacterBase>& Weak : pendingTargets)
 		{
 			ACharacterBase* Target = Weak.Get();
 			if (!IsValid(Target)) continue;
-			RecalculatePending(Target);
+			RecalculatePending(Skill, Target);
 			Target->SetLastAttacker(ownerCharacter);
 			if (Target->ReflectDamage() && IsValid(Target))
 			{
 				Skill->Execute(Target);
 			}
 		}
-
-		currentSkill = saved;
 	});
 }
 
