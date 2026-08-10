@@ -178,6 +178,9 @@ protected:
 	//포복 자세, 행동력 1로 진입하는 토글 상태 (일어서기는 무료), 턴이 넘어가도 유지
 	bool bIsProne = false;
 
+	//서있는 자세 기준 이동 속도, BeginPlay에서 캐싱 후 포복 배율 적용의 기준값
+	float baseWalkSpeed = 0.f;
+
 	//레벨 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	int32 level = 1;
@@ -232,8 +235,10 @@ public:
 	float GetEyeHeightZ() const { return bIsProne ? ProneEyeHeightZ : StandingEyeHeightZ; }
 	//포복 시 이동력 소모 배율, 지형 배율과 별개로 곱함
 	float GetStanceMoveCostMultiplier() const { return bIsProne ? 2.f : 1.f; }
-	//포복 자세 순수 토글, 행동력 소모는 스킬 계층(ProneSkill)에서 처리
-	void ToggleProne() { bIsProne = !bIsProne; }
+	//포복 시 실제 이동 속도 배율, 이동력 소모 배율과 별개
+	static constexpr float ProneMoveSpeedMultiplier = 0.5f;
+	//포복 자세 토글 및 이동 속도 반영, 행동력 소모는 스킬 계층(ProneSkill)에서 처리
+	void ToggleProne();
 	//이동력 차감, 지형 배율은 호출자가 미리 반영해서 넘김
 	void ConsumeMovingPoint(float meters);
 	//이동력 증가(달리기 등), 상한 클램프 없음 — 기본 최대치를 초과해 얻을 수 있음

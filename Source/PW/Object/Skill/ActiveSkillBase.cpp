@@ -2,7 +2,6 @@
 
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Characters/CharacterBase.h"
-#include "Animation/AnimMontage.h"
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
 #include "ActorComponent/AilmentComponent.h"
@@ -68,17 +67,6 @@ void UActiveSkillBase::BeginUse()
 
 	ownerPtr->ReduceActionPoint(actionPointCost);
 	ownerPtr->ReduceBattleResource(battleResourceCost);
-
-	if (skillMontage)
-	{
-		const float Duration = ownerPtr->PlayAnimMontage(skillMontage, montagePlayRate);
-		UE_LOG(LogTemp, Log, TEXT("[ActiveSkillBase] 몽타주 재생: %s (Duration: %.2f) — 0이면 ABP의 AnimGraph에 DefaultSlot 노드 필요"),
-			*skillMontage->GetName(), Duration);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[ActiveSkillBase] skillMontage가 nullptr — 에셋 경로 확인 필요"));
-	}
 }
 
 void UActiveSkillBase::Execute(const ACharacterBase* target)

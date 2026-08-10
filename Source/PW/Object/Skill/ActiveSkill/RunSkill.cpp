@@ -31,7 +31,7 @@ URunSkill::URunSkill()
 	bonusDamageAmplication = 0;
 
 	//플레이스홀더 몽타주, 실제 달리기 준비 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire"));
 	if (MontageAsset.Succeeded())
 	{
 		skillMontage = MontageAsset.Object;

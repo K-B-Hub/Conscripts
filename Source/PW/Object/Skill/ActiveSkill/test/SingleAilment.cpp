@@ -30,7 +30,7 @@ USingleAilment::USingleAilment()
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire"));
 	if (MontageAsset.Succeeded())
 	{
 		skillMontage = MontageAsset.Object;

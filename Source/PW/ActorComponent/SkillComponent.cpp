@@ -8,6 +8,9 @@
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "GameMode/BattleGameMode.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
+#include "Components/SkeletalMeshComponent.h"
 
 USkillComponent::USkillComponent()
 {
@@ -92,6 +95,9 @@ TArray<UActiveSkillBase*> USkillComponent::GetActiveSkills() const
 void USkillComponent::ActivateSkill(UActiveSkillBase* Skill)
 {
 	if (!Skill || !Skill->CanExecute()) return;
+
+	//이전 스킬 커밋 대기 중 신규 활성화 차단
+	if (HasPendingExecution()) return;
 
 	if (currentSkill)
 	{
@@ -200,11 +206,7 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<AChara
 	if (!Skill || Targets.Num() == 0 || !ownerCharacter) return;
 	if (!Skill->CanExecute()) return;
 
-	//currentSkill을 임시 지정해 예측 계산 경로 재사용
-	UActiveSkillBase* saved = currentSkill;
-	currentSkill = Skill;
-
-	//자원 차감은 1회만
+	//자원 차감은 1회만, 확정 시점 즉시
 	Skill->BeginUse();
 
 	//위협 프로파일에 기록
@@ -213,19 +215,104 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<AChara
 		gm->RecordSkillUse(ownerCharacter, Skill);
 	}
 
-	//대상별로 예측 계산 후 명중 시 효과 실행
+	//커밋 시점까지 대상 생존 불확실, 약참조 스냅샷
+	TArray<TWeakObjectPtr<ACharacterBase>> pendingTargets;
 	for (ACharacterBase* Target : Targets)
 	{
-		if (!IsValid(Target)) continue;
-		RecalculatePending(Target);
-		Target->SetLastAttacker(ownerCharacter);
-		if (Target->ReflectDamage() && IsValid(Target))
+		pendingTargets.Add(Target);
+	}
+
+	//대상별 예측 계산·명중 판정·효과 적용은 커밋 시점에 실행
+	StartPendingExecution(Skill, [this, Skill, pendingTargets]()
+	{
+		//currentSkill을 임시 지정해 예측 계산 경로 재사용
+		UActiveSkillBase* saved = currentSkill;
+		currentSkill = Skill;
+
+		for (const TWeakObjectPtr<ACharacterBase>& Weak : pendingTargets)
 		{
-			Skill->Execute(Target);
+			ACharacterBase* Target = Weak.Get();
+			if (!IsValid(Target)) continue;
+			RecalculatePending(Target);
+			Target->SetLastAttacker(ownerCharacter);
+			if (Target->ReflectDamage() && IsValid(Target))
+			{
+				Skill->Execute(Target);
+			}
+		}
+
+		currentSkill = saved;
+	});
+}
+
+void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, TFunction<void()>&& Action)
+{
+	//이전 pending이 남아있으면 먼저 커밋해 유실 방지
+	CommitPendingExecution();
+
+	pendingSkill = Skill;
+	pendingAction = MoveTemp(Action);
+
+	float duration = 0.f;
+	UAnimMontage* montage = Skill ? Skill->GetCommitMontage() : nullptr;
+	if (montage && ownerCharacter)
+	{
+		pendingMontage = montage;
+		duration = ownerCharacter->PlayAnimMontage(montage, Skill->montagePlayRate);
+		if (duration > 0.f)
+		{
+			//노티파이 누락·중단 대비 몽타주 종료 시 커밋 폴백
+			if (UAnimInstance* anim = ownerCharacter->GetMesh() ? ownerCharacter->GetMesh()->GetAnimInstance() : nullptr)
+			{
+				FOnMontageEnded endDelegate;
+				endDelegate.BindUObject(this, &USkillComponent::OnSkillMontageEnded);
+				anim->Montage_SetEndDelegate(endDelegate, montage);
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[SkillComponent] 몽타주 재생 실패: %s — ABP의 AnimGraph에 DefaultSlot 노드 필요"),
+				*montage->GetName());
 		}
 	}
 
-	currentSkill = saved;
+	//몽타주가 없거나 재생 실패 시 즉시 커밋해 효과 증발 방지
+	if (duration <= 0.f)
+	{
+		CommitPendingExecution();
+	}
+}
+
+void USkillComponent::CommitPendingExecution()
+{
+	if (!pendingAction) return;
+
+	//커밋 액션이 새 pending을 등록할 수 있어 실행 전에 해제
+	TFunction<void()> action = MoveTemp(pendingAction);
+	pendingAction = nullptr;
+
+	UActiveSkillBase* skill = pendingSkill;
+	pendingSkill = nullptr;
+	pendingMontage = nullptr;
+
+	//스킬 자체 효과(포복 토글 등) 먼저, 이후 대상별 효과
+	if (skill)
+	{
+		skill->OnCommit();
+	}
+	action();
+}
+
+void USkillComponent::OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	//현재 pending 소속이 아닌 몽타주의 종료는 무시 (이전 스킬 몽타주 블렌드아웃 등)
+	if (Montage != pendingMontage) return;
+
+	//같은 몽타주 재시작으로 인한 이전 인스턴스 중단이면 새 인스턴스의 종료를 기다림
+	if (bInterrupted && ownerCharacter && ownerCharacter->GetCurrentMontage() == Montage) return;
+
+	//노티파이가 이미 커밋했으면 no-op
+	CommitPendingExecution();
 }
 
 void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)

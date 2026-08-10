@@ -97,8 +97,12 @@ public:
 	float calcCritical;
 	int32 calcDamageAmplfication;
 	int32 calcPenetration;
-	//스킬 사용 시 1회 호출
+	//스킬 사용 확정 시 1회 호출, 비용 차감만 담당 (몽타주는 SkillComponent의 pending 흐름이 재생)
 	virtual void BeginUse();
+	//커밋 시점에 재생 중일 몽타주, 파생에서 상황별 교체 가능(포복 방향 등)
+	virtual UAnimMontage* GetCommitMontage() const { return skillMontage; }
+	//커밋 시점 스킬 자체 효과(포복 토글 등), 대상 루프 이전 1회 호출
+	virtual void OnCommit() {}
 	//적중한 대상마다 호출
 	virtual void Execute(const ACharacterBase* target);
 };

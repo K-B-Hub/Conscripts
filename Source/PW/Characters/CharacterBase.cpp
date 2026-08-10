@@ -122,6 +122,23 @@ void ACharacterBase::BeginPlay()
 	SetDefaultSkills();
 	//패시브 등록, 파생 스탯 보너스는 컴포넌트에 저장되어 재계산에도 보존
 	SetDefaultPassives();
+
+	//BP에서 지정한 이동 속도를 서있는 자세 기준값으로 캐싱
+	if (UCharacterMovementComponent* move = GetCharacterMovement())
+	{
+		baseWalkSpeed = move->MaxWalkSpeed;
+	}
+}
+
+void ACharacterBase::ToggleProne()
+{
+	bIsProne = !bIsProne;
+
+	//포복 중에는 실제 이동 속도도 낮춰 기어가는 애니메이션과 속도를 맞춤
+	if (UCharacterMovementComponent* move = GetCharacterMovement())
+	{
+		move->MaxWalkSpeed = baseWalkSpeed * (bIsProne ? ProneMoveSpeedMultiplier : 1.f);
+	}
 }
 
 void ACharacterBase::SetDefaultSkills()
@@ -432,6 +449,12 @@ void ACharacterBase::InitTurn()
 
 void ACharacterBase::EndTurn()
 {
+	//커밋 대기 중인 스킬 효과가 있으면 즉시 적용, 다음 턴 이월 방지
+	if (skillComponent)
+	{
+		skillComponent->CommitPendingExecution();
+	}
+
 	//턴 종료 Conditional 패시브, 버프/상태이상 차감 전 상태에서 평가
 	if (passiveSkillComponent)
 	{
