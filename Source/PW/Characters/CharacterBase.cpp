@@ -430,6 +430,12 @@ void ACharacterBase::ConsumeMovingPoint(float meters)
 {
 	//지형 배율은 호출자가 적용, AI는 경로 전체 가중 비용을, 아군은 프레임별 현재 지형 배율을 반영
 	currentMovingPoint = FMath::Max(0.f, currentMovingPoint - meters);
+
+	//이동력 소모 = 실제 이동, 넉백 등 외력은 여기를 거치지 않아 자연히 제외
+	if (meters > 0.f)
+	{
+		hasConsumedMovingPoint = true;
+	}
 }
 
 void ACharacterBase::GainMovingPoint(float meters)
@@ -582,6 +588,7 @@ void ACharacterBase::InitTurn()
 {
 	currentActionPoint = actionPoint;
 	currentMovingPoint = movingPoint;
+	hasConsumedMovingPoint = false;
 
 	//이전 턴 이동 상태를 false로 전이
 	OnMoveStateChanged(false);

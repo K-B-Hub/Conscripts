@@ -60,10 +60,10 @@ void UProneSkill::BeginUse()
 	ACharacterBase* ownerPtr = GetOwner();
 	if (!ownerPtr) return;
 
-	//서있다가 포복으로 진입할 때만 행동력 소모, 일어서기는 무료
+	//서있다가 포복으로 진입할 때만 비용 소모, 일어서기는 무료
 	if (!ownerPtr->IsProne())
 	{
-		ownerPtr->ReduceActionPoint(actionPointCost);
+		Super::BeginUse();
 	}
 }
 

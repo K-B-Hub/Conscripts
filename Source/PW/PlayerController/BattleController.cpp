@@ -628,15 +628,15 @@ void ABattleController::ExecuteSkill()
 		const TArray<FVector>& Arc = Indicator->GetArcPath();
 		if (Arc.Num() < 2) return;
 
-		//수평거리(m) * 배율 = 이동력 비용
 		const FVector From = activeUnit->GetActorLocation();
 		const FVector To = Indicator->GetActorLocation();
 		const float HorizCm = FVector2D(To.X - From.X, To.Y - From.Y).Size();
-		const float HorizM = HorizCm / 100.f;
-		const float CostM = HorizM * Skill->arcMoveCostMultiplier;
 
-		//이동력 부족 시 도약 불가, 이 검사가 곧 사거리 제한 (미리보기 빨강과 일치)
-		if (CostM > activeUnit->GetCurrentMovingPoint()) return;
+		//사거리 판정은 미리보기 빨강과 같은 출처(GetEffectivePickRange)를 사용
+		if (HorizCm > Skill->GetEffectivePickRange()) return;
+
+		//수평거리(m) * 배율 = 이동력 비용
+		const float CostM = (HorizCm / 100.f) * Skill->arcMoveCostMultiplier;
 
 		//도약 방향으로 회전
 		FVector Dir = To - From;

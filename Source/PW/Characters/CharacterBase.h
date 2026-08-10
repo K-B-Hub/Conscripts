@@ -176,6 +176,10 @@ protected:
 	//본인 이동 상태, 턴 시작 시 false로 초기화, 첫 이동 시 true로 전이
 	bool isMoved = false;
 
+	//실제 이동력 소모 여부, 턴 시작 시 리셋
+	//isMoved는 인디케이터 미리보기·AI 후보 평가가 일시적으로 켰다 끄므로 "실제로 이동했는가"의 근거가 못 됨
+	bool hasConsumedMovingPoint = false;
+
 	//포복 자세, 행동력 1로 진입하는 토글 상태 (일어서기는 무료), 턴이 넘어가도 유지
 	bool bIsProne = false;
 
@@ -251,6 +255,8 @@ public:
 	float GetCurrentMovingPoint() const { return currentMovingPoint; }
 	float GetMovingPoint() const { return movingPoint; }
 	bool IsMoved() const { return isMoved; }
+	//실제 이동력을 소모했는가, 투기적 isMoved 토글을 되돌릴 목적지
+	bool HasConsumedMovingPoint() const { return hasConsumedMovingPoint; }
 
 	//서있는 자세 기준 시야 눈높이(cm), LOS 매직넘버의 단일 출처·지면 타겟 기본값
 	static constexpr float StandingEyeHeightZ = 80.f;

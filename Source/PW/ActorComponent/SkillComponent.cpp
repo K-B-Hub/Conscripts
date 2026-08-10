@@ -122,11 +122,11 @@ void USkillComponent::DeactivateSkill()
 	ClearAccumulatedTargets();
 	currentSkill = nullptr;
 
-	//실제 이동력 차감 여부로 이동 상태 복구
+	//인디케이터가 자동이동 예상으로 켜둔 투기적 이동 상태를 실제 이동 여부로 복구
+	//최대치 비교는 달리기 보너스·이동력 버프에 흔들리므로 소모 플래그를 사용
 	if (ownerCharacter)
 	{
-		const bool actuallyMoved = ownerCharacter->GetCurrentMovingPoint() < ownerCharacter->GetMovingPoint();
-		ownerCharacter->OnMoveStateChanged(actuallyMoved);
+		ownerCharacter->OnMoveStateChanged(ownerCharacter->HasConsumedMovingPoint());
 	}
 }
 
@@ -327,13 +327,15 @@ void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 	const FVector CasterLocation = ownerCharacter->GetActorLocation();
 
 	//시전 가능 범위 인디케이터 생성, 점프는 현재 이동력으로 갈 수 있는 범위로 사거리 원 표시
-	if (skillRangeIndicatorClass && Skill->pickRange > 0.f && Skill->selectMode != ESelectMode::Self)
+	//표시 여부도 실효 사거리로 판단, pickRange는 점프에서 상한이 아님
+	const float effectivePickRange = Skill->GetEffectivePickRange();
+	if (skillRangeIndicatorClass && effectivePickRange > 0.f && Skill->selectMode != ESelectMode::Self)
 	{
 		skillRangeIndicator = World->SpawnActor<ASkillRangeIndicator>(
 			skillRangeIndicatorClass, FTransform(CasterLocation));
 		if (skillRangeIndicator)
 		{
-			skillRangeIndicator->InitRange(Skill->GetEffectivePickRange());
+			skillRangeIndicator->InitRange(effectivePickRange);
 		}
 	}
 

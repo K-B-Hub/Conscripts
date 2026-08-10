@@ -19,7 +19,8 @@ UJumpSkill::UJumpSkill()
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 100.f;
 
-	//도약 최대 사거리(cm), 실제 가능 여부는 이동력 예산으로 실행 시 재검증
+	//기본 이동력(9m) 기준 도약 사거리(cm), 상한이 아니라 표시용 기준값
+	//실제 사거리는 항상 현재 이동력이 결정 (GetEffectivePickRange)
 	pickRange = 600.f;
 	pickCount = 1;
 
