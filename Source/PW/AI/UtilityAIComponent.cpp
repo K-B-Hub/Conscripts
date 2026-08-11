@@ -900,7 +900,8 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 					if (AAllyCharacterBase* allyTarget = Cast<AAllyCharacterBase>(primary))
 					{
 						const FThreatProfile& tp = gm->GetThreatProfile(allyTarget);
-						const float tHitP  = tp.Accuracy / 100.f;
+						const float ownerEva = ownerCharacter ? ownerCharacter->GetEvasion() : 0.f;
+						const float tHitP  = tp.Accuracy / FMath::Max(1.f, tp.Accuracy + ownerEva);
 						const float tCritP = tp.CritChance / 100.f;
 						const float targetThreat = tHitP * ((1.f - tCritP) * tp.NormalDamage + tCritP * tp.CritDamage);
 						score += targetThreat * p->weightTargetThreat;
@@ -1206,8 +1207,9 @@ float UUtilityAIComponent::ComputeIncomingDangerAt(const FVector& AtLocation) co
 			hit, threatLoc + eye, AtLocation + eye, ECC_Visibility, params);
 		if (bBlocked && hit.GetActor() != ownerCharacter) continue;   //시야 차단
 
-		//기대 피해 합산
-		const float hitP  = prof.Accuracy / 100.f;
+		//기대 피해 합산, 명중은 내 회피와의 비율로 환산
+		const float ownerEva = ownerCharacter ? ownerCharacter->GetEvasion() : 0.f;
+		const float hitP  = prof.Accuracy / FMath::Max(1.f, prof.Accuracy + ownerEva);
 		const float critP = prof.CritChance / 100.f;
 		total += hitP * ((1.f - critP) * prof.NormalDamage + critP * prof.CritDamage);
 	}
@@ -1276,8 +1278,9 @@ float UUtilityAIComponent::ComputeExpectedOutput(const ACharacterBase* Target) c
 	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	if (!gm || !Target) return 0.f;
 
+	//상대 진영 평균 회피 기준 기대 산출, 특정 대상이 없는 일반 위협 지표
 	const FThreatProfile& prof = gm->GetThreatProfile(Target);
-	const float hitP  = prof.Accuracy / 100.f;
+	const float hitP  = prof.Accuracy / FMath::Max(1.f, prof.Accuracy + battlefieldAvg.evasion);
 	const float critP = prof.CritChance / 100.f;
 	return hitP * ((1.f - critP) * prof.NormalDamage + critP * prof.CritDamage);
 }
@@ -1316,7 +1319,7 @@ float UUtilityAIComponent::ComputeIncomingFor(const ACharacterBase* Target, floa
 		//사거리 밖 위협 제외
 		if (prof.RangeCm > 0.f && FVector::Dist(threat->GetActorLocation(), targetLoc) > prof.RangeCm) continue;
 
-		const float hitP  = prof.Accuracy / 100.f;
+		const float hitP  = prof.Accuracy / FMath::Max(1.f, prof.Accuracy + Target->GetEvasion());
 		const float critP = prof.CritChance / 100.f;
 		const float raw = (1.f - critP) * prof.NormalDamage + critP * prof.CritDamage;
 		OutRawDamage += raw;
@@ -1370,14 +1373,20 @@ float UUtilityAIComponent::StatLeverage(EAIBuffStat Stat, const ACharacterBase* 
 
 	//퍼센트 스탯은 앵커의 1%, 프로파일 NormalDamage는 방어 적용 전 원시 일격 피해
 	const FThreatProfile& prof = gm->GetThreatProfile(Target);
-	const float hitP  = prof.Accuracy / 100.f;
+	const float hitP  = prof.Accuracy / FMath::Max(1.f, prof.Accuracy + battlefieldAvg.evasion);
 	const float critP = prof.CritChance / 100.f;
 	const float strikeDmg = prof.NormalDamage;
+
+	//비율 명중의 기울기, 명중 1p당 eva/(acc+eva)^2 · 회피 1p당 acc/(acc+eva)^2
+	const float accSum = FMath::Max(1.f, Target->GetAccuracy() + battlefieldAvg.evasion);
+	const float accSlope = battlefieldAvg.evasion / (accSum * accSum);
+	const float evaSum = FMath::Max(1.f, battlefieldAvg.accuracy + Target->GetEvasion());
+	const float evaSlope = battlefieldAvg.accuracy / (evaSum * evaSum);
 
 	switch (Stat)
 	{
 	case EAIBuffStat::Accuracy:
-		return 0.01f * strikeDmg * (1.f + critP);
+		return accSlope * strikeDmg * (1.f + critP);
 	case EAIBuffStat::Critical:
 		return 0.01f * hitP * strikeDmg;
 	case EAIBuffStat::DamageAmplification:
@@ -1386,10 +1395,10 @@ float UUtilityAIComponent::StatLeverage(EAIBuffStat Stat, const ACharacterBase* 
 		return 0.01f * hitP * (1.f + critP) * OpposingTeamAverageDef(Target);
 	case EAIBuffStat::Evasion:
 	{
-		//회피 1%p의 가치는 명중률 미적용 원시 피격 피해의 1%
+		//회피 1p의 가치는 명중률 미적용 원시 피격 피해 × 피격 확률 감소분
 		float rawIncoming = 0.f;
 		ComputeIncomingFor(Target, rawIncoming);
-		return 0.01f * rawIncoming;
+		return evaSlope * rawIncoming;
 	}
 	case EAIBuffStat::DamageReduction:
 	{

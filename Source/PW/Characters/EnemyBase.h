@@ -10,6 +10,7 @@ class AAllyCharacterBase;
 class AEnemyAIController;
 class UUtilityAIComponent;
 class UUpgradeTableData;
+class UFixedUpgradeTableData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEnemyDeath, AEnemyBase*, DeadEnemy, AAllyCharacterBase*, Killer);
 
@@ -64,6 +65,10 @@ protected:
 	//직업 고유 강화 후보 풀, 적 BP에서 지정
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
 	TObjectPtr<UUpgradeTableData> classUpgradeTable;
+
+	//레벨 고정 강화 매핑, 적 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
+	TObjectPtr<UFixedUpgradeTableData> fixedUpgradeTable;
 
 	//보스 유닛 여부
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")

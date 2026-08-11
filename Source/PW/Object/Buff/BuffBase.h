@@ -15,6 +15,14 @@ class PW_API UBuffBase : public UObject
 	GENERATED_BODY()
 
 public:
+	//버프 이름 (UI 표시용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff|Identity")
+	FText buffName;
+
+	//버프 설명 (UI 툴팁용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff|Identity")
+	FText buffDescription;
+
 	//버프 스탯 변경량
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
 	int32 hp = 0;

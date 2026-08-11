@@ -16,6 +16,7 @@
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
 #include "GameMode/BattleGameMode.h"
+#include "PlayerController/BattleController.h"
 #include "ActorComponent/TerrainComponent.h"
 #include "Actors/Terrain/TerrainBase.h"
 
@@ -31,12 +32,17 @@ static void ComputeDamageNumbers(const ACharacterBase* Target,
 		return;
 	}
 
+	//대결형 비율 명중, 명중과 회피의 상대비로 판정해 저명중이 무력화되지 않게 함
+	const float acc = FMath::Max(0.f, Accuracy);
+	const float eva = FMath::Max(0.f, Target->GetEvasion());
+	const float hitChance = 100.f * acc / FMath::Max(KINDA_SMALL_NUMBER, acc + eva);
+
 	if (SkillType == ESkillType::Heal)
 	{
 		//음수 데미지로 회복 처리, 치명타 미적용
 		OutDmg = -(Damage * (1 + DamageAmplfication / 100.f));
 		//아군 대상이면 회피 무시하고 반드시 명중
-		OutAccuracy = bAllyTarget ? 100.f : FMath::Clamp(Accuracy - Target->GetEvasion(), 0.f, 100.f);
+		OutAccuracy = bAllyTarget ? 100.f : hitChance;
 		OutCritical = 0.f;
 		return;
 	}
@@ -44,14 +50,14 @@ static void ComputeDamageNumbers(const ACharacterBase* Target,
 	{
 		OutDmg = 0.f;
 		//아군 대상이면 회피 무시하고 반드시 명중
-		OutAccuracy = bAllyTarget ? 100.f : FMath::Clamp(Accuracy - Target->GetEvasion(), 0.f, 100.f);
+		OutAccuracy = bAllyTarget ? 100.f : hitChance;
 		OutCritical = 0.f;
 		return;
 	}
 	if (SkillType == ESkillType::Ailment)
 	{
 		OutDmg = 0.f;
-		OutAccuracy = FMath::Clamp(Accuracy - Target->GetEvasion(), 0.f, 100.f);
+		OutAccuracy = hitChance;
 		OutCritical = 0.f;
 		return;
 	}
@@ -59,7 +65,7 @@ static void ComputeDamageNumbers(const ACharacterBase* Target,
 	OutDmg = (Damage * (1 + DamageAmplfication / 100.f) - Target->GetDef() * (1 - Penetration / 100.f))
 	         * (1 - Target->GetDamageReduction() / 100.f);
 	if (OutDmg <= 0.f) OutDmg = 0.f;
-	OutAccuracy = FMath::Clamp(Accuracy - Target->GetEvasion(), 0.f, 100.f);
+	OutAccuracy = hitChance;
 	OutCritical = Critical;
 }
 
@@ -251,19 +257,18 @@ void ACharacterBase::UpdateArcMovement(float DeltaTime)
 				PlayAnimMontage(landMontage, 3.0);
 			}
 
-			if (bWasForced)
+			//낙하 피해는 낙차만으로 결정, 자발적 점프든 외력이든 동일. 환경 피해라 비치명
+			if (fallCm > fallDamageThreshold)
 			{
-				//외력 착지, 환경 피해라 비치명
-				if (fallCm > fallDamageThreshold)
+				const int32 dmg = FMath::CeilToInt((fallCm - fallDamageThreshold) / 100.f) * fallDamagePerMeter;
+				if (dmg > 0)
 				{
-					const int32 dmg = FMath::CeilToInt((fallCm - fallDamageThreshold) / 100.f) * fallDamagePerMeter;
-					if (dmg > 0)
-					{
-						ReceiveDamage(dmg, false);
-					}
+					ReceiveDamage(dmg, false);
 				}
 			}
-			else
+
+			//외력 이동은 이동 패시브 훅·완료 통지 생략
+			if (!bWasForced)
 			{
 				//MoveComplete 패시브를 완료 통지 전에 처리
 				if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
@@ -294,8 +299,9 @@ void ACharacterBase::ApplyKnockback(const FVector& origin, float force, float an
 	//외력 부양은 포복 강제 해제, 전환 몽타주 없이 ABP가 공중 상태로 즉시 전이
 	SetProne(false);
 
-	//해석적 포물선: 발사각 θ → 정점 높이 h = 거리·tanθ/4
-	const float apex = force * FMath::Tan(FMath::DegreesToRadians(angleDeg)) * 0.25f;
+	//해석적 포물선: 발사각 θ → 수평거리 전체에 대한 초기 상승분, 평지 정점 높이 h = 거리·tanθ/4
+	const float rise = force * FMath::Tan(FMath::DegreesToRadians(angleDeg));
+	const float apex = rise * 0.25f;
 	const float halfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 
 	FCollisionQueryParams params;
@@ -306,15 +312,21 @@ void ACharacterBase::ApplyKnockback(const FVector& origin, float force, float an
 	const FVector endXY = start + dir * force;
 	float landZ = start.Z;
 	{
+		//도달 가능한 최고점에서 아래로 탐색, 그보다 높은 지형은 애초에 올라탈 수 없어 경로 차단 검사가 처리
+		//시작점이 지형 내부면(더 높은 벽·건물) 그 표면을 지면으로 오인하므로 관통 시작은 무시
 		FHitResult ground;
-		const FVector traceStart = FVector(endXY.X, endXY.Y, FMath::Max(start.Z, endXY.Z) + apex + 100.f);
-		if (world->LineTraceSingleByChannel(ground, traceStart, traceStart - FVector(0.f, 0.f, 100000.f), ECC_Visibility, params))
+		const FVector traceStart = FVector(endXY.X, endXY.Y, start.Z + apex);
+		if (world->LineTraceSingleByChannel(ground, traceStart, traceStart - FVector(0.f, 0.f, 100000.f), ECC_Visibility, params)
+			&& !ground.bStartPenetrating)
 		{
 			landZ = ground.Location.Z + halfHeight;
 		}
 	}
 
-	//시작·착지 높이를 보간한 포물선 샘플링
+	//포물선 샘플링, z(t) = start.Z + rise·t − fall·t²
+	//항상 발사각 θ로 출발하고 t=1에서 landZ에 닿도록 하강분만 보정, 낙차가 커도 시작부터 아래로 꺾이지 않음
+	const float fall = start.Z - landZ + rise;
+
 	const int32 sampleCount = 12;
 	TArray<FVector> arc;
 	arc.Reserve(sampleCount + 1);
@@ -322,7 +334,7 @@ void ACharacterBase::ApplyKnockback(const FVector& origin, float force, float an
 	{
 		const float t = static_cast<float>(i) / sampleCount;
 		FVector p = start + dir * (force * t);
-		p.Z = FMath::Lerp(start.Z, landZ, t) + 4.f * apex * t * (1.f - t);
+		p.Z = start.Z + rise * t - fall * t * t;
 		arc.Add(p);
 	}
 
@@ -586,12 +598,25 @@ void ACharacterBase::OnMoveStateChanged(bool newIsMoved)
 
 void ACharacterBase::InitTurn()
 {
+	bTurnEndRequested = false;
 	currentActionPoint = actionPoint;
 	currentMovingPoint = movingPoint;
 	hasConsumedMovingPoint = false;
 
 	//이전 턴 이동 상태를 false로 전이
 	OnMoveStateChanged(false);
+
+	//대기 스트레스 이벤트 소비·추첨, 만땅 게이지가 대기 표식
+	//버프/상태이상 OnTurnStart 루프보다 앞이어야 새 효과가 이번 턴에 발동해 지속턴 차감과 위상이 맞음
+	if (stress >= maxStress)
+	{
+		stress = 0;
+		OnVitalsChanged.Broadcast();
+		if (ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+		{
+			gameMode->ApplyStressEvent(this);
+		}
+	}
 
 	if (buffComponent)
 	{
@@ -915,17 +940,13 @@ void ACharacterBase::ReceiveStress(int32 Amount)
 	const int32 finalAmount = FMath::RoundToInt(Amount * (1.f - GetStressMitigation() / 100.f));
 	if (finalAmount <= 0) return;
 
-	stress += finalAmount;
+	//maxStress 도달 시 리셋 없이 클램프, 만땅 게이지가 다음 자기 턴 시작의 이벤트 대기 표식
+	//소비·추첨은 InitTurn에서, 오버플로우는 한계 최초 도달 시에만 발동
+	const bool bOverflow = stress < maxStress && stress + finalAmount >= maxStress;
+	stress = FMath::Min(stress + finalAmount, maxStress);
 
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 스트레스 %d 수신(원본 %d, 경감 %.1f%%) → %d / %d"),
 		*GetName(), finalAmount, Amount, GetStressMitigation(), stress, maxStress);
-
-	//maxStress 도달 시 0으로 초기화 후 스트레스 이벤트 발동
-	const bool bOverflow = stress >= maxStress;
-	if (bOverflow)
-	{
-		stress = 0;
-	}
 
 	//HUD 게이지 갱신 통지
 	OnVitalsChanged.Broadcast();
@@ -954,13 +975,46 @@ void ACharacterBase::RelieveStress(int32 Amount)
 
 void ACharacterBase::OnStressOverflow()
 {
-	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 스트레스 한계 도달, 스트레스 이벤트 발동"), *GetName());
+	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 스트레스 한계 도달, 다음 턴 시작에 이벤트 소비"), *GetName());
 
-	//게임모드의 이벤트 풀에서 20% 긍정 / 80% 부정 이벤트 적용
-	if (ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	//이벤트 추첨은 다음 자기 턴 시작(InitTurn)으로 지연, 본인 턴 진행 중이면 즉시 턴 종료만
+	ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>();
+	if (!gameMode) return;
+
+	const TArray<ACharacterBase*>& order = gameMode->GetTurnOrder();
+	const int32 idx = gameMode->GetCurrentTurnIndex();
+	if (order.IsValidIndex(idx) && order[idx] == this)
 	{
-		gameMode->ApplyStressEvent(this);
+		RequestEndTurn();
 	}
+}
+
+void ACharacterBase::RequestEndTurn()
+{
+	if (bTurnEndRequested) return;
+	bTurnEndRequested = true;
+
+	//InitTurn·스킬 흐름 도중 호출되므로 콜 스택 탈출 후 종료, 활성 유닛 사망 처리와 동일 패턴
+	TWeakObjectPtr<ACharacterBase> weakThis(this);
+	GetWorldTimerManager().SetTimerForNextTick([weakThis]()
+	{
+		if (!weakThis.IsValid()) return;
+
+		UWorld* world = weakThis->GetWorld();
+		ABattleGameMode* gameMode = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+		if (!gameMode) return;
+
+		//예약 후 사망 등으로 턴이 이미 넘어갔으면 중복 종료 방지
+		const TArray<ACharacterBase*>& order = gameMode->GetTurnOrder();
+		const int32 idx = gameMode->GetCurrentTurnIndex();
+		if (!order.IsValidIndex(idx) || order[idx] != weakThis.Get()) return;
+
+		if (ABattleController* controller = Cast<ABattleController>(world->GetFirstPlayerController()))
+		{
+			controller->EndTurn();
+		}
+		gameMode->OnTurnEnd();
+	});
 }
 
 void ACharacterBase::ApplyHpThresholdStress(int32 hpBefore)
