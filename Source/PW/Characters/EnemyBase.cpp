@@ -8,6 +8,7 @@
 #include "Components/WidgetComponent.h"
 #include "DrawDebugHelpers.h"
 #include "DataAsset/UpgradeLibrary.h"
+#include "DataAsset/FixedUpgradeTableData.h"
 #include "GameInstance/PWGameInstance.h"
 #include "Object/Skill/SkillBase.h"
 
@@ -22,12 +23,26 @@ AEnemyBase::AEnemyBase()
 
 void AEnemyBase::GrantLevelUpUpgrade()
 {
+	//고정 강화 레벨이면 지정된 강화를 그대로 습득, 아군의 단일 카드 제시와 같은 규칙
+	const ELevelUpUpgradeKind kind = UUpgradeLibrary::ClassifyLevelUpUpgrade(level);
+	if (kind == ELevelUpUpgradeKind::ClassFixed)
+	{
+		if (fixedUpgradeTable)
+		{
+			AcquireUpgrade(fixedUpgradeTable->GetFixedUpgrade(level));
+		}
+		return;
+	}
+
 	//공용 풀은 GameInstance, 직업 풀은 자기 것
 	const UPWGameInstance* gameInstance = GetWorld() ? GetWorld()->GetGameInstance<UPWGameInstance>() : nullptr;
 	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
 
+	//고급 랜덤 레벨은 하급 풀 제외
+	const EUpgradeGrade minGrade = (kind == ELevelUpUpgradeKind::HighRandom) ? EUpgradeGrade::Mid : EUpgradeGrade::Low;
+
 	//적은 선택지 없이 랜덤 1개를 자동 습득
-	TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildChoices(this, classUpgradeTable, commonTable, 1);
+	TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildChoices(this, classUpgradeTable, commonTable, 1, minGrade);
 	if (choices.Num() > 0)
 	{
 		AcquireUpgrade(choices[0]);

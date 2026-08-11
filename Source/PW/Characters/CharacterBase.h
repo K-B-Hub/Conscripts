@@ -180,6 +180,9 @@ protected:
 	//isMoved는 인디케이터 미리보기·AI 후보 평가가 일시적으로 켰다 끄므로 "실제로 이동했는가"의 근거가 못 됨
 	bool hasConsumedMovingPoint = false;
 
+	//턴 강제 종료 예약 래치, 스트레스 오버플로우·행동 제약 상태이상이 세움, 턴 시작 시 리셋
+	bool bTurnEndRequested = false;
+
 	//포복 자세, 행동력 1로 진입하는 토글 상태 (일어서기는 무료), 턴이 넘어가도 유지
 	bool bIsProne = false;
 
@@ -191,7 +194,7 @@ protected:
 	int32 arcIndex = 0;
 	//아치 궤적 추종 중 여부, IsAirborne의 근거
 	bool bIsArcMoving = false;
-	//외력에 의한 아치 이동 여부, true면 이동 패시브 훅·완료 통지 생략, 착지 시 낙하 피해
+	//외력에 의한 아치 이동 여부, true면 이동 패시브 훅·완료 통지 생략
 	bool bIsArcForced = false;
 
 	//아치 궤적 추종 속도(cm/s)
@@ -222,7 +225,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	float maxExp = 100;
 
-	//maxStress 도달 시 발동, 스트레스 0 초기화 후 호출됨 (20% 긍정 버프 / 80% 부정 버프·상태이상, 추후 구현)
+	//maxStress 도달 시 발동, 이벤트 추첨·소비는 다음 자기 턴 시작(InitTurn)으로 지연, 본인 턴 진행 중이면 즉시 턴 종료
 	void OnStressOverflow();
 	//체력 비율 경계(50%/30%) 하향 통과 시 스트레스 부여
 	void ApplyHpThresholdStress(int32 hpBefore);
@@ -268,7 +271,7 @@ public:
 	void SetProne(bool bNewProne);
 	//아치 궤적(점프·밀치기) 추종 중 여부
 	bool IsAirborne() const { return bIsArcMoving; }
-	//포물선 궤적을 3D로 따라 이동, bForced=외력: 이동 패시브 훅·완료 통지 생략, 착지 시 낙하 피해
+	//포물선 궤적을 3D로 따라 이동, bForced=외력: 이동 패시브 훅·완료 통지 생략. 낙하 피해는 양쪽 공통
 	virtual void MoveAlongArc(const TArray<FVector>& ArcPoints, bool bForced = false);
 	//원점→대상 수평 일직선 방향으로 밀쳐냄, 궤적 계산·포복 강제 해제 포함
 	void ApplyKnockback(const FVector& origin, float force, float angleDeg);
@@ -331,6 +334,10 @@ public:
 	
 	virtual void InitTurn();
 	virtual void EndTurn();
+
+	//턴 강제 종료 예약, 콜 스택 탈출 후 다음 틱에 종료 — 스트레스 오버플로우·행동 제약 상태이상용(아군 전용)
+	void RequestEndTurn();
+	bool IsTurnEndRequested() const { return bTurnEndRequested; }
 
 	//데미지 적용 후 HealthWidget 갱신, 음수일시 회복
 	//bIsLethal=false 시 hp를 1까지만 깎고 사망 처리 안 함 (환경 데미지, 상태이상 등)

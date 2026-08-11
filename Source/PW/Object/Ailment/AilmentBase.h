@@ -14,6 +14,14 @@ class PW_API UAilmentBase : public UObject
 {
 	GENERATED_BODY()
 public:
+	//상태이상 이름 (UI 표시용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ailment|Identity")
+	FText ailmentName;
+
+	//상태이상 설명 (UI 툴팁용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ailment|Identity")
+	FText ailmentDescription;
+
 	//초기 지속 턴수
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Ailment")
 	int32 ailmentTurn = 3;

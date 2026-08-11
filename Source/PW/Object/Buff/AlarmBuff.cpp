@@ -9,6 +9,9 @@
 
 UAlarmBuff::UAlarmBuff()
 {
+	buffName = NSLOCTEXT("Buff", "Alarm_Name", "알람");
+	buffDescription = NSLOCTEXT("Buff", "Alarm_Description", "구원 요청이 진행 중이다. 만료되면 맵의 모든 적이 전투에 합류한다. 만료 전에 시전자를 처치하면 무산된다");
+
 	buffTurn = 3;
 	isStart = false;
 	isEnd = true;
