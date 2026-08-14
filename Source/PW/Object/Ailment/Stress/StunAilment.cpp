@@ -21,6 +21,10 @@ void UStunAilment::Execute(ACharacterBase* affected)
 
 	if (!affected) return;
 
-	//행동 불가, 잔여 행동 몰수 후 즉시 턴 종료
-	affected->RequestEndTurn();
+	//딜레이 동안 플레이어가 끼어들지 못하도록 턴 점유 선언
+	affected->MarkAilmentDrivenTurn();
+
+	//행동 불가, 잔여 행동 몰수 후 턴 종료
+	//즉시 넘기면 실신이 보이지 않으므로 연출 딜레이를 두고 종료
+	ScheduleWithPacing(affected, [](ACharacterBase* character) { character->RequestEndTurn(); });
 }

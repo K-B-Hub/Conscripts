@@ -9,8 +9,8 @@ void AAllyCharacterBase::InitTurn()
 	Super::InitTurn();
 
 	//대기 중인 레벨업 강화가 있으면 알림, 위젯 생성·잠금은 컨트롤러 책임
-	//턴 강제 종료 예약 시 보류, 대기 큐가 유지되어 다음 행동 가능한 턴에 다시 표시됨
-	if (pendingUpgradeLevels.Num() > 0 && !bTurnEndRequested)
+	//턴 강제 종료 예약·상태이상 점유 시 보류, 대기 큐가 유지되어 다음 행동 가능한 턴에 다시 표시됨
+	if (pendingUpgradeLevels.Num() > 0 && !bTurnEndRequested && !bAilmentDrivenTurn)
 	{
 		OnUpgradeSelectRequested.Broadcast();
 	}

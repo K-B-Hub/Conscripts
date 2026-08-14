@@ -30,13 +30,16 @@ void UConfusionAilment::Execute(ACharacterBase* affected)
 	AAllyCharacterBase* ally = Cast<AAllyCharacterBase>(affected);
 	if (!ally) return;
 
+	//시전이 끝날 때까지 플레이어가 끼어들지 못하도록 턴 점유 선언
+	ally->MarkAilmentDrivenTurn();
+
 	UActiveSkillBase* skill = nullptr;
 	ACharacterBase* target = nullptr;
 	FVector castFrom = FVector::ZeroVector;
 	if (!PickRandomSkillAndTarget(ally, skill, target, castFrom))
 	{
-		//시전할 게 없으면 행동 없이 턴 종료
-		ally->RequestEndTurn();
+		//시전할 게 없으면 행동 없이 턴 종료, 즉시 넘기지 않도록 딜레이
+		ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
 		return;
 	}
 
@@ -44,10 +47,10 @@ void UConfusionAilment::Execute(ACharacterBase* affected)
 	pendingSkill = skill;
 	pendingTarget = target;
 
-	//제자리에서 사거리가 닿으면 이동 없이 즉시 시전
+	//제자리에서 사거리가 닿으면 이동 없이 시전, 카메라가 시전자를 잡을 시간만 확보
 	if (castFrom.Equals(ally->GetActorLocation()))
 	{
-		CastAndWaitCommit();
+		ScheduleWithPacing(ally, [this](ACharacterBase*) { CastAndWaitCommit(); });
 		return;
 	}
 
@@ -55,7 +58,7 @@ void UConfusionAilment::Execute(ACharacterBase* affected)
 		ally->GetWorld(), ally->GetActorLocation(), castFrom);
 	if (!path || path->PathPoints.Num() < 2)
 	{
-		ally->RequestEndTurn();
+		ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
 		return;
 	}
 
@@ -63,7 +66,15 @@ void UConfusionAilment::Execute(ACharacterBase* affected)
 	ally->OnMovementCompleted.RemoveAll(this);
 	ally->OnMovementCompleted.AddUObject(this, &UConfusionAilment::OnApproachCompleted);
 
-	ally->MoveAlongPath(path->PathPoints);
+	//카메라가 시전자를 잡을 시간을 준 뒤 접근 시작
+	const TArray<FVector> pathPoints = path->PathPoints;
+	ScheduleWithPacing(ally, [pathPoints](ACharacterBase* character)
+	{
+		if (AAllyCharacterBase* confused = Cast<AAllyCharacterBase>(character))
+		{
+			confused->MoveAlongPath(pathPoints);
+		}
+	});
 }
 
 bool UConfusionAilment::PickRandomSkillAndTarget(AAllyCharacterBase* ally, UActiveSkillBase*& outSkill,
@@ -187,7 +198,9 @@ void UConfusionAilment::OnApproachCompleted()
 	if (!ally) return;
 
 	ally->OnMovementCompleted.RemoveAll(this);
-	CastAndWaitCommit();
+
+	//도착 직후 바로 시전하지 않고 조준하는 간격을 둠, 적 AI의 이동 후 행동 딜레이와 동일
+	ScheduleWithPacing(ally, [this](ACharacterBase*) { CastAndWaitCommit(); });
 }
 
 void UConfusionAilment::CastAndWaitCommit()
@@ -199,7 +212,7 @@ void UConfusionAilment::CastAndWaitCommit()
 	USkillComponent* skillComp = ally->GetSkillComponent();
 	if (!target || !pendingSkill || !skillComp)
 	{
-		ally->RequestEndTurn();
+		ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
 		return;
 	}
 
@@ -227,5 +240,7 @@ void UConfusionAilment::PollCommitFinished()
 	if (skillComp && skillComp->HasPendingExecution()) return;
 
 	ally->GetWorldTimerManager().ClearTimer(commitWaitHandle);
-	ally->RequestEndTurn();
+
+	//피격 연출이 끝나고 결과를 볼 시간을 준 뒤 턴 종료
+	ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
 }

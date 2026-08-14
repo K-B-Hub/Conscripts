@@ -7,6 +7,7 @@
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Object/Skill/PassiveSkillBase.h"
+#include "Object/Rest/RestBase.h"
 
 ELevelUpUpgradeKind UUpgradeLibrary::ClassifyLevelUpUpgrade(int32 level)
 {
@@ -44,6 +45,12 @@ bool UUpgradeLibrary::CanAcquire(const ACharacterBase* character, TSubclassOf<US
 			UE_LOG(LogTemp, Log, TEXT("[Upgrade] 제외(액티브 중복): %s"), *skillClass->GetName());
 		}
 		return sc && !bHas;
+	}
+
+	//1회성 즉시 효과는 보유 개념이 없어 항상 습득 가능
+	if (skillClass->IsChildOf(URestBase::StaticClass()))
+	{
+		return true;
 	}
 
 	//패시브는 bAllowDuplicate이면 항상 가능, 아니면 미보유 시에만
