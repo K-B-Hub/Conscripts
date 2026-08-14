@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
+#include "Engine/TimerHandle.h"
 #include "AilmentBase.generated.h"
 
 class ACharacterBase;
@@ -55,4 +56,15 @@ public:
 
 	//턴 시작/종료 효과
 	virtual void Execute(ACharacterBase* affected);
+
+protected:
+	//행동 연출 딜레이, 상태이상 행동이 한 프레임에 끝나 보이지 않는 것 방지
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ailment|Pacing")
+	float pacingDelay = 0.8f;
+
+	//pacingDelay 후 action 실행, 딜레이 중 상태이상·대상이 사라지면 취소
+	void ScheduleWithPacing(ACharacterBase* affected, TFunction<void(ACharacterBase*)> action);
+
+private:
+	FTimerHandle pacingTimerHandle;
 };

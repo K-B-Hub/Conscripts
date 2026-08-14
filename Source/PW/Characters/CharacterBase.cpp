@@ -10,6 +10,7 @@
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/PassiveSkillBase.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "Object/Rest/RestBase.h"
 #include "Widget/HealthWidget.h"
 #include "Widget/SkillInfoWidget.h"
 #include "ActorComponent/SkillComponent.h"
@@ -423,6 +424,14 @@ void ACharacterBase::AcquireUpgrade(TSubclassOf<USkillBase> skillClass)
 		if (passiveSkillComponent) passiveSkillComponent->AddPassive(TSubclassOf<UPassiveSkillBase>(skillClass));
 		UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 습득(패시브): %s"), *GetName(), *skillClass->GetName());
 	}
+	//1회성 즉시 효과는 어디에도 등록하지 않고 그 자리에서 발동 후 버림
+	else if (skillClass->IsChildOf(URestBase::StaticClass()))
+	{
+		URestBase* rest = NewObject<URestBase>(this, skillClass);
+		rest->SetOwner(this);
+		rest->Execute(this);
+		UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 발동(1회성): %s"), *GetName(), *skillClass->GetName());
+	}
 
 	//강화 종류와 무관하게 파생 스탯·스킬 스탯을 전반 재계산
 	SetDefaultStats();
@@ -435,7 +444,20 @@ void ACharacterBase::ReduceActionPoint(int32 amount)
 
 void ACharacterBase::ReduceBattleResource(int32 amount)
 {
-	battleResource = FMath::Clamp(battleResource - amount, 0, battleResource);
+	battleResource = FMath::Clamp(battleResource - amount, 0, maxBattleResource);
+}
+
+void ACharacterBase::GainBattleResource(int32 amount)
+{
+	if (amount <= 0) return;
+
+	const int32 before = battleResource;
+	battleResource = FMath::Min(battleResource + amount, maxBattleResource);
+	if (battleResource == before) return;
+
+	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 전투 자원 %d 회복 → %d / %d"),
+		*GetName(), battleResource - before, battleResource, maxBattleResource);
+
 }
 
 void ACharacterBase::ConsumeMovingPoint(float meters)
@@ -599,6 +621,7 @@ void ACharacterBase::OnMoveStateChanged(bool newIsMoved)
 void ACharacterBase::InitTurn()
 {
 	bTurnEndRequested = false;
+	bAilmentDrivenTurn = false;
 	currentActionPoint = actionPoint;
 	currentMovingPoint = movingPoint;
 	hasConsumedMovingPoint = false;

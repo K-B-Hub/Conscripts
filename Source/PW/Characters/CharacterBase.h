@@ -140,6 +140,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	float sight = 15;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	int32 maxBattleResource = 10;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
 	int32 battleResource = 10;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Combat")
 	float accuracy = 0.0;
@@ -182,6 +184,9 @@ protected:
 
 	//턴 강제 종료 예약 래치, 스트레스 오버플로우·행동 제약 상태이상이 세움, 턴 시작 시 리셋
 	bool bTurnEndRequested = false;
+
+	//행동 제약 상태이상이 이번 턴을 대신 진행 중, 플레이어 조작 잠금 근거, 턴 시작 시 리셋
+	bool bAilmentDrivenTurn = false;
 
 	//포복 자세, 행동력 1로 진입하는 토글 상태 (일어서기는 무료), 턴이 넘어가도 유지
 	bool bIsProne = false;
@@ -298,7 +303,10 @@ public:
 	int32 GetCurrentActionPoint() const { return currentActionPoint; }
 	void ReduceActionPoint(int32 amount);
 	int32 GetBattleResource() const { return battleResource; }
+	int32 GetMaxBattleResource() const { return maxBattleResource; }
 	void ReduceBattleResource(int32 amount);
+	//전투 자원 회복, 최대치 초과분은 잘림
+	void GainBattleResource(int32 amount);
 	int32 GetAtk() const { return atk; }
 	int32 GetSpeed() const { return speed; }
 	int32 GetSkill() const { return skill; }
@@ -338,6 +346,10 @@ public:
 	//턴 강제 종료 예약, 콜 스택 탈출 후 다음 틱에 종료 — 스트레스 오버플로우·행동 제약 상태이상용(아군 전용)
 	void RequestEndTurn();
 	bool IsTurnEndRequested() const { return bTurnEndRequested; }
+
+	//상태이상이 턴 행동을 대신 수행함을 표시, 해제는 다음 턴 시작뿐
+	void MarkAilmentDrivenTurn() { bAilmentDrivenTurn = true; }
+	bool IsAilmentDrivenTurn() const { return bAilmentDrivenTurn; }
 
 	//데미지 적용 후 HealthWidget 갱신, 음수일시 회복
 	//bIsLethal=false 시 hp를 1까지만 깎고 사망 처리 안 함 (환경 데미지, 상태이상 등)

@@ -131,6 +131,13 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 	if (IsValid(turnHudWidgetInstance))
 	{
 		turnHudWidgetInstance->InitTurnHUD(activeUnit);
+
+		//상태이상이 턴을 대신 진행하면 이동/스킬/턴종료 버튼 잠금, 강화 선택 잠금과 동일 방식
+		//해제는 하지 않음, 상태이상 행동이 끝나면 턴이 종료되며 HUD가 제거됨
+		if (activeUnit->IsAilmentDrivenTurn())
+		{
+			turnHudWidgetInstance->SetIsEnabled(false);
+		}
 	}
 }
 
@@ -369,6 +376,9 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 {
 	if (!activeUnit) return;
 
+	//상태이상이 턴을 진행 중이면 조작 불가, HUD 잠금이 막지 못하는 입력 경로 차단
+	if (activeUnit->IsAilmentDrivenTurn()) return;
+
 	//스킬 커밋 대기 중 신규 명령 차단, 효과 적용 전 다른 행동 방지
 	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
 	if (SkillComp && SkillComp->HasPendingExecution()) return;
@@ -394,6 +404,9 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 
 void ABattleController::OnCancelMove(const FInputActionValue& Value)
 {
+	//상태이상이 턴을 진행 중이면 취소 불가, 도주·착란 이동이 끊기지 않도록
+	if (activeUnit && activeUnit->IsAilmentDrivenTurn()) return;
+
 	//스킬 모드 활성 시 스킬 취소 우선, 자동이동 중이면 이동도 중단
 	if (activeUnit)
 	{

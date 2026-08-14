@@ -34,11 +34,14 @@ void UFleeAilment::Execute(ACharacterBase* affected)
 	AAllyCharacterBase* ally = Cast<AAllyCharacterBase>(affected);
 	if (!ally) return;
 
+	//도주가 끝날 때까지 플레이어가 끼어들지 못하도록 턴 점유 선언
+	ally->MarkAilmentDrivenTurn();
+
 	FVector destination = FVector::ZeroVector;
 	if (!PickFleeDestination(ally, destination))
 	{
-		//갈 곳이 없으면 행동 없이 턴 종료
-		ally->RequestEndTurn();
+		//갈 곳이 없으면 행동 없이 턴 종료, 즉시 넘기지 않도록 딜레이
+		ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
 		return;
 	}
 
@@ -46,7 +49,7 @@ void UFleeAilment::Execute(ACharacterBase* affected)
 		ally->GetWorld(), ally->GetActorLocation(), destination);
 	if (!path || path->PathPoints.Num() < 2)
 	{
-		ally->RequestEndTurn();
+		ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
 		return;
 	}
 
@@ -55,7 +58,15 @@ void UFleeAilment::Execute(ACharacterBase* affected)
 	ally->OnMovementCompleted.RemoveAll(this);
 	ally->OnMovementCompleted.AddUObject(this, &UFleeAilment::OnFleeMoveCompleted);
 
-	ally->MoveAlongPath(path->PathPoints);
+	//카메라가 도주 캐릭터를 잡을 시간을 준 뒤 이동 시작
+	const TArray<FVector> pathPoints = path->PathPoints;
+	ScheduleWithPacing(ally, [pathPoints](ACharacterBase* character)
+	{
+		if (AAllyCharacterBase* fleeing = Cast<AAllyCharacterBase>(character))
+		{
+			fleeing->MoveAlongPath(pathPoints);
+		}
+	});
 }
 
 bool UFleeAilment::PickFleeDestination(AAllyCharacterBase* ally, FVector& outDestination) const
@@ -111,6 +122,7 @@ void UFleeAilment::OnFleeMoveCompleted()
 	if (AAllyCharacterBase* ally = fleeingAlly.Get())
 	{
 		ally->OnMovementCompleted.RemoveAll(this);
-		ally->RequestEndTurn();
+		//도착 지점을 보여준 뒤 턴 종료
+		ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
 	}
 }
