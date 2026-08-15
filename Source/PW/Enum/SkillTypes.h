@@ -88,5 +88,6 @@ enum class EConditionalType : uint8
 	Damaged			UMETA(DisplayName = "Damaged"),			//체력 감소시
 	AllyDeath		UMETA(DisplayName = "Ally Death"),		//아군 사망시
 	EnemyDeath		UMETA(DisplayName = "Enemy Death"),		//적 사망시
-	RoundStart		UMETA(DisplayName = "Round Start")		//라운드 시작시
+	RoundStart		UMETA(DisplayName = "Round Start"),		//라운드 시작시
+	TerrainChanged	UMETA(DisplayName = "Terrain Changed")	//소지자의 지형 체류 상태 변경시(진입·이탈, 지형 생성·소멸 포함)
 };

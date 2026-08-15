@@ -23,6 +23,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ailment|Identity")
 	FText ailmentDescription;
 
+	//상태이상 아이콘 (UI 표시용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ailment|Identity")
+	TObjectPtr<UTexture2D> ailmentIcon;
+
 	//초기 지속 턴수
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Ailment")
 	int32 ailmentTurn = 3;

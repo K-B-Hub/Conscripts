@@ -28,8 +28,8 @@ public:
 	//스킬 버튼 활성/비활성 갱신
 	void RefreshSkillButtons();
 
-	//HP/스트레스 게이지 수치 갱신
-	void RefreshGauges(int32 InHp, int32 InStress);
+	//HP/스트레스 게이지 갱신, 레벨업·패시브로 최대치도 변하므로 max까지 함께 반영
+	void RefreshGauges(int32 InMaxHp, int32 InHp, int32 InMaxStress, int32 InStress);
 
 protected:
 	//BP에서 각 이름으로 자동 바인딩

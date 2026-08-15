@@ -5,6 +5,8 @@
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/BuffComponent.h"
 #include "ActorComponent/AilmentComponent.h"
+#include "ActorComponent/PassiveSkillComponent.h"
+#include "Enum/SkillTypes.h"
 #include "Object/Buff/BuffBase.h"
 #include "Object/Ailment/AilmentBase.h"
 
@@ -22,6 +24,9 @@ void UTerrainComponent::BeginPlay()
 
 void UTerrainComponent::EnterTerrain(ATerrainBase* terrain)
 {
+	//지형 BeginPlay가 먼저 돌면 아직 캐싱 전이라 여기서 늦게 초기화
+	if (!ownerCharacter) ownerCharacter = Cast<ACharacterBase>(GetOwner());
+
 	if (!terrain || !ownerCharacter || currentTerrains.Contains(terrain)) return;
 
 	currentTerrains.Add(terrain);
@@ -47,6 +52,12 @@ void UTerrainComponent::EnterTerrain(ATerrainBase* terrain)
 
 	//파생 클래스의 고유 진입 효과
 	terrain->OnCharacterEnter(ownerCharacter);
+
+	//지형 효과가 모두 반영된 상태를 패시브가 보도록 마지막에 통지
+	if (UPassiveSkillComponent* PSC = ownerCharacter->GetPassiveSkillComponent())
+	{
+		PSC->DispatchConditional(EConditionalType::TerrainChanged);
+	}
 }
 
 void UTerrainComponent::ExitTerrain(ATerrainBase* terrain)
@@ -59,6 +70,12 @@ void UTerrainComponent::ExitTerrain(ATerrainBase* terrain)
 
 	//지형 스탯 델타 복구
 	ownerCharacter->ApplyTerrainStatDelta(terrain, -1);
+
+	//지형 효과가 모두 걷힌 상태를 패시브가 보도록 마지막에 통지
+	if (UPassiveSkillComponent* PSC = ownerCharacter->GetPassiveSkillComponent())
+	{
+		PSC->DispatchConditional(EConditionalType::TerrainChanged);
+	}
 }
 
 void UTerrainComponent::DispatchTurnStart()

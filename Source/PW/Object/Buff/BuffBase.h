@@ -23,6 +23,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff|Identity")
 	FText buffDescription;
 
+	//버프 아이콘 (UI 표시용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff|Identity")
+	TObjectPtr<UTexture2D> buffIcon;
+
 	//버프 스탯 변경량
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
 	int32 hp = 0;

@@ -4,7 +4,7 @@
 #include "Characters/EnemyCharacters/EnemyTestAlarm.h"
 
 #include "ActorComponent/SkillComponent.h"
-#include "Object/Skill/ActiveSkill/AlarmSkill.h"
+#include "Object/Enemy/ActiveSkill/AlarmSkill.h"
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/TestDebuffSkill.h"
 #include "Object/Skill/ActiveSkill/test/TestHeal.h"

@@ -37,8 +37,9 @@ public:
 
 	const TArray<TObjectPtr<UPassiveSkillBase>>& GetActivePassives() const { return activePassives; }
 
-	//피해 계산 전 패시브 실행
+	//피해 계산 전 패시브 실행, attackerLocation은 거리 조건 패시브가 쓰는 공격 시점 좌표
 	void DispatchBeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType,
+		const FVector& attackerLocation,
 		float& dmg, int32& amp, int32& pen, float& acc, float& crit);
 
 	//피해 적용 후 패시브 실행

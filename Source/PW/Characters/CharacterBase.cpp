@@ -123,7 +123,6 @@ void ACharacterBase::BeginPlay()
 	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
 		HealthWidget->InitHealth(maxHp, hp);
-		healthWidget = HealthWidget;
 	}
 	SetDefaultStats();
 	SetDefaultSkills();
@@ -268,14 +267,15 @@ void ACharacterBase::UpdateArcMovement(float DeltaTime)
 				}
 			}
 
-			//외력 이동은 이동 패시브 훅·완료 통지 생략
+			//MoveComplete는 전장 내 위치 변화가 근거라 외력 이동에도 발동, 완료 통지 전에 처리
+			if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+			{
+				GM->BroadcastMoveComplete();
+			}
+
+			//외력 이동은 본인 이동이 아니므로 완료 통지만 생략
 			if (!bWasForced)
 			{
-				//MoveComplete 패시브를 완료 통지 전에 처리
-				if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
-				{
-					GM->BroadcastMoveComplete();
-				}
 				NotifyArcMoveCompleted();
 			}
 		}
@@ -383,8 +383,11 @@ void ACharacterBase::LevelUp()
 	if (FMath::RandRange(1, 100) <= hpGrowth)
 	{
 		maxHp++; hp++;
-		if (IsValid(healthWidget))
-			healthWidget->InitHealth(maxHp, hp);
+		//BeginPlay 시점 캐시가 비어 있을 수 있어 위젯 컴포넌트에서 직접 조회
+		if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
+		{
+			HealthWidget->InitHealth(maxHp, hp);
+		}
 	}
 	if (FMath::RandRange(1, 100) <= atkGrowth)       { atk++; }
 	if (FMath::RandRange(1, 100) <= speedGrowth)     { speed++; }
@@ -394,6 +397,9 @@ void ACharacterBase::LevelUp()
 
 	//파생 스탯 재계산
 	SetDefaultStats();
+
+	//HUD 게이지 갱신 통지
+	OnVitalsChanged.Broadcast();
 
 	//레벨당 강화효과 1회, 처리 방식은 파생 클래스가 결정
 	GrantLevelUpUpgrade();
@@ -513,7 +519,7 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 	if (UPassiveSkillComponent* PSC = Attacker->GetPassiveSkillComponent())
 	{
 		PSC->DispatchBeforeDamageCalc(const_cast<ACharacterBase*>(this),
-			Skill->skillType, Skill->damageType, dmg, amp, pen, acc, crit);
+			Skill->skillType, Skill->damageType, AttackerLocation, dmg, amp, pen, acc, crit);
 	}
 
 	const bool bAllyTarget = Attacker->IsAlly() == IsAlly();
@@ -701,9 +707,10 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	maxHp += buff->hp * sign;
 	if (maxHp <= 0) maxHp = 1;
 	hp = FMath::Clamp(hp, 1, maxHp);
-	if (healthWidget)
+	//BeginPlay 시점 캐시가 비어 있을 수 있어 위젯 컴포넌트에서 직접 조회
+	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
-		healthWidget->InitHealth(maxHp, hp);
+		HealthWidget->InitHealth(maxHp, hp);
 	}
 
 	//기본 능력치
@@ -738,6 +745,9 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	{
 		SetDefaultStats();
 	}
+
+	//HUD 게이지 갱신 통지
+	OnVitalsChanged.Broadcast();
 }
 
 void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int32 sign)
@@ -773,9 +783,10 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 	if (maxHp <= 0) maxHp = 1;
 	hp += hpDelta;
 	hp = FMath::Clamp(hp, 1, maxHp);
-	if (healthWidget)
+	//BeginPlay 시점 캐시가 비어 있을 수 있어 위젯 컴포넌트에서 직접 조회
+	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
-		healthWidget->InitHealth(maxHp, hp);
+		HealthWidget->InitHealth(maxHp, hp);
 	}
 
 	//기본 능력치
@@ -842,6 +853,9 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 		UE_LOG(LogTemp, Log, TEXT("  evasion: %.2f -> %.2f"), beforeEvasion, evasion);
 	if (!FMath::IsNearlyEqual(beforeCritical, critical))
 		UE_LOG(LogTemp, Log, TEXT("  critical: %.2f -> %.2f"), beforeCritical, critical);
+
+	//HUD 게이지 갱신 통지
+	OnVitalsChanged.Broadcast();
 }
 
 void ACharacterBase::ApplyTerrainStatDelta(const ATerrainBase* terrain, int32 sign)
@@ -852,9 +866,10 @@ void ACharacterBase::ApplyTerrainStatDelta(const ATerrainBase* terrain, int32 si
 	maxHp += terrain->hp * sign;
 	if (maxHp <= 0) maxHp = 1;
 	hp = FMath::Clamp(hp, 1, maxHp);
-	if (healthWidget)
+	//BeginPlay 시점 캐시가 비어 있을 수 있어 위젯 컴포넌트에서 직접 조회
+	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
-		healthWidget->InitHealth(maxHp, hp);
+		HealthWidget->InitHealth(maxHp, hp);
 	}
 
 	//기본 능력치
@@ -889,6 +904,9 @@ void ACharacterBase::ApplyTerrainStatDelta(const ATerrainBase* terrain, int32 si
 	{
 		SetDefaultStats();
 	}
+
+	//HUD 게이지 갱신 통지
+	OnVitalsChanged.Broadcast();
 }
 
 void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)

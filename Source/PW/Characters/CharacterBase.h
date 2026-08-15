@@ -74,8 +74,6 @@ protected:
 	//체력 위젯 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "UI")
 	TObjectPtr<UWidgetComponent> healthWidgetComponent;
-	UPROPERTY(VisibleAnywhere, Category = "UI")
-	TObjectPtr<UHealthWidget> healthWidget;
 
 	//스킬 정보 예측 위젯 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "UI")
@@ -105,61 +103,62 @@ protected:
 	TObjectPtr<UTerrainComponent> terrainComponent;
 
 	//캐릭터 스탯
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	//EditAnywhere라야 PIE 중 인스턴스 디테일 패널에 노출됨, EditDefaultsOnly는 클래스 디폴트에만 표시
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 maxHp = 10;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 hp = 10;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 atk = 10;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 speed = 10;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 skill = 10;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 def = 10;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float movingPoint = 9.0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float currentMovingPoint = 9.0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 mentality = 1;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 stress = 0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 maxStress = 100;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 actionPoint = 2;
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 currentActionPoint = 2;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 damageReduction = 0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 damageAmplification = 0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 penetration = 0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float sight = 15;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 maxBattleResource = 10;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	int32 battleResource = 10;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Combat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
 	float accuracy = 0.0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Combat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
 	float evasion = 0.0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Combat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
 	float critical = 0.0;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 hpGrowth = 50;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 atkGrowth = 50;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 speedGrowth = 50;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 skillGrowth = 50;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 defGrowth = 50;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stat|Growth")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 mentalityGrowth = 5;
 	
 	//AttackRangeIndicator와 오버렙 시 미리 계산해 값을 저장

@@ -252,7 +252,8 @@ void ABattleController::RefreshGauges()
 {
 	if (!IsValid(activeUnit) || !IsValid(turnHudWidgetInstance)) return;
 
-	turnHudWidgetInstance->RefreshGauges(activeUnit->GetHp(), activeUnit->GetStress());
+	turnHudWidgetInstance->RefreshGauges(activeUnit->GetMaxHp(), activeUnit->GetHp(),
+		activeUnit->GetMaxStress(), activeUnit->GetStress());
 }
 
 void ABattleController::SetupInputComponent()

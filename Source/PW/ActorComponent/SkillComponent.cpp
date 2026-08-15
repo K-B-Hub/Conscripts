@@ -192,6 +192,7 @@ void USkillComponent::RecalculatePending(UActiveSkillBase* Skill, ACharacterBase
 	if (UPassiveSkillComponent* PSC = ownerCharacter->GetPassiveSkillComponent())
 	{
 		PSC->DispatchBeforeDamageCalc(Target, Skill->skillType, Skill->damageType,
+			ownerCharacter->GetActorLocation(),
 			dmg, amp, pen, acc, crit);
 	}
 
