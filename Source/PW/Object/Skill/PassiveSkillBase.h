@@ -57,8 +57,8 @@ public:
 	EReactiveType reactiveType = EReactiveType::None;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
 	EConditionalType conditionType = EConditionalType::None;
-	//피해 계산 전 패시브 조건 검사
-	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType) { return false; }
+	//피해 계산 전 패시브 조건 검사, attackerLocation은 자동이동 후 위치가 반영된 공격 시점 좌표
+	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation) { return false; }
 	//이동 상태 변경 패시브 실행
 	virtual void Execute_BeforeMove(bool bIsMoved, int32 sign) {}
 	//피해 적용 후 패시브 실행

@@ -10,7 +10,7 @@ class ACharacterBase;
 
 //레벨업 강화로 습득하는 1회성 즉시 효과의 공통 기반
 //액티브/패시브와 달리 컴포넌트에 등록되지 않고 습득 즉시 Execute 후 버려짐
-UCLASS(Abstract, BlueprintType)
+UCLASS(Abstract, Blueprintable, BlueprintType)
 class PW_API URestBase : public USkillBase
 {
 	GENERATED_BODY()

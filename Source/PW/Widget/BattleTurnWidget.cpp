@@ -52,14 +52,14 @@ void UBattleTurnWidget::RefreshSkillButtons()
 	}
 }
 
-void UBattleTurnWidget::RefreshGauges(int32 InHp, int32 InStress)
+void UBattleTurnWidget::RefreshGauges(int32 InMaxHp, int32 InHp, int32 InMaxStress, int32 InStress)
 {
 	if (HpGauge)
 	{
-		HpGauge->SetValue(InHp);
+		HpGauge->InitGauge(InMaxHp, InHp);
 	}
 	if (StressGauge)
 	{
-		StressGauge->SetValue(InStress);
+		StressGauge->InitGauge(InMaxStress, InStress);
 	}
 }

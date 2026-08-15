@@ -68,6 +68,14 @@ void UPassiveSkillComponent::AddPassive(TSubclassOf<UPassiveSkillBase> passiveCl
 		break;
 	case EPassiveType::Conditional:
 		conditionalPassives.Add(instance);
+		//주변 인원수·체력 비율·지형 체류는 습득 시점에 이미 성립해 있을 수 있어 현재 상태로 즉시 1회 평가
+		//나머지 조건은 사건 발생이 트리거라 즉시 평가 대상이 아님
+		if (instance->conditionType == EConditionalType::MoveComplete
+			|| instance->conditionType == EConditionalType::Damaged
+			|| instance->conditionType == EConditionalType::TerrainChanged)
+		{
+			instance->Execute_Conditional();
+		}
 		break;
 	}
 }
@@ -101,13 +109,14 @@ void UPassiveSkillComponent::RemovePassiveAt(int32 Index)
 }
 
 void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType,
+	const FVector& attackerLocation,
 	float& dmg, int32& amp, int32& pen, float& acc, float& crit)
 {
 	for (UPassiveSkillBase* p : reactivePassives)
 	{
 		if (!p || p->reactiveType != EReactiveType::BeforeDamageCalc) continue;
 
-		if (p->Execute_BeforeDamageCalc(target, skillType, damageType))
+		if (p->Execute_BeforeDamageCalc(target, skillType, damageType, attackerLocation))
 		{
 			//패시브 보너스를 이번 공격값에 합산
 			dmg  += p->atk;

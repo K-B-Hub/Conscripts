@@ -39,6 +39,15 @@ void ATerrainBase::BeginPlay()
 	terrainBox->OnComponentBeginOverlap.AddDynamic(this, &ATerrainBase::OnBoxBeginOverlap);
 	terrainBox->OnComponentEndOverlap.AddDynamic(this, &ATerrainBase::OnBoxEndOverlap);
 
+	//바인딩 전부터 겹쳐 있던 캐릭터는 BeginOverlap이 오지 않으므로 직접 수집
+	//지형 위에서 전투 시작, 캐릭터를 덮는 위치에 지형 스폰이 이 경로
+	TArray<AActor*> overlappingActors;
+	terrainBox->GetOverlappingActors(overlappingActors, ACharacterBase::StaticClass());
+	for (AActor* actor : overlappingActors)
+	{
+		OnBoxBeginOverlap(terrainBox, actor, nullptr, 0, false, FHitResult());
+	}
+
 	//AI 경로 평가가 액터 순회 없이 지형을 조회하도록 등록
 	if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 	{

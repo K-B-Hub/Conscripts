@@ -8,9 +8,9 @@
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
 #include "Object/Skill/ActiveSkill/test/TestHeal.h"
 #include "Object/Skill/ActiveSkill/test/TestThrowSkill.h"
-#include "Object/Skill/ActiveSkill/ProneSkill.h"
-#include "Object/Skill/ActiveSkill/JumpSkill.h"
-#include "Object/Skill/ActiveSkill/RunSkill.h"
+#include "Object/Ally/ActiveSkill/ProneSkill.h"
+#include "Object/Ally/ActiveSkill/JumpSkill.h"
+#include "Object/Ally/ActiveSkill/RunSkill.h"
 
 AAllyTest::AAllyTest()
 {

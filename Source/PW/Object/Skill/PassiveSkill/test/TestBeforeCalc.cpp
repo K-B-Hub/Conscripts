@@ -22,7 +22,7 @@ UTestBeforeCalc::UTestBeforeCalc()
 	critical = 0.0f;
 }
 
-bool UTestBeforeCalc::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType)
+bool UTestBeforeCalc::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)
 {
 	if (!target) return false;
 	
