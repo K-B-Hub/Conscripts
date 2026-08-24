@@ -76,3 +76,4 @@ DerivedDataCache/*
 /Content/SkeletalMesh/Soldier1.uasset
 /*.user
 /*.slnx
+/.mcp.json
