@@ -77,3 +77,6 @@ DerivedDataCache/*
 /*.user
 /*.slnx
 /.mcp.json
+/.DS_Store
+/Content/AgentSkills
+/.codex
