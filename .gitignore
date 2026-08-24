@@ -74,3 +74,6 @@ DerivedDataCache/*
 /AGENTS.md
 /Content/SkeletalMesh/Medic1.uasset
 /Content/SkeletalMesh/Soldier1.uasset
+/*.user
+/*.slnx
+/.mcp.json
