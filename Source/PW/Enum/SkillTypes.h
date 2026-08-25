@@ -86,6 +86,7 @@ enum class EConditionalType : uint8
 	TurnStart		UMETA(DisplayName = "Turn Start"),		//턴 시작
 	TurnEnd			UMETA(DisplayName = "Turn End"),		//턴 종료
 	Damaged			UMETA(DisplayName = "Damaged"),			//체력 감소시
+	BeforeDeath		UMETA(DisplayName = "Before Death"),	//치사 피해로 죽기 직전, 체력 클램프 전에 판정
 	AllyDeath		UMETA(DisplayName = "Ally Death"),		//아군 사망시
 	EnemyDeath		UMETA(DisplayName = "Enemy Death"),		//적 사망시
 	RoundStart		UMETA(DisplayName = "Round Start"),		//라운드 시작시

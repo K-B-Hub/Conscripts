@@ -187,19 +187,22 @@ void USkillComponent::RecalculatePending(UActiveSkillBase* Skill, ACharacterBase
 	int32 pen  = Skill->calcPenetration;
 	float acc  = Skill->calcAccuracy;
 	float crit = Skill->calcCritical;
+	//배율은 공격자 스탯에서 출발, 패시브 보너스가 여기에 가산됨
+	float critDmg = ownerCharacter->GetCriticalDamage();
 
 	//공격자 패시브 보너스 반영
 	if (UPassiveSkillComponent* PSC = ownerCharacter->GetPassiveSkillComponent())
 	{
 		PSC->DispatchBeforeDamageCalc(Target, Skill->skillType, Skill->damageType,
 			ownerCharacter->GetActorLocation(),
-			dmg, amp, pen, acc, crit);
+			dmg, amp, pen, acc, crit, critDmg);
 	}
 
 	Target->CalculateDamage(
 		dmg,
 		acc,
 		crit,
+		critDmg,
 		amp,
 		pen,
 		Skill->skillType,

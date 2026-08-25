@@ -58,6 +58,9 @@ public:
 	float evasion = 0.0;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
 	float critical = 0.0;
+	//치명타 배율 증가분, 1.0이면 배율 +1.0(=피해 100%p 증가)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
+	float criticalDamage = 0.0;
 
 	//초기 지속 턴수
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Buff")

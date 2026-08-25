@@ -380,8 +380,10 @@ void ABattleGameMode::ApplyStressEvent(ACharacterBase* Target)
 	const UStressPoolData* stressPool = gameInstance ? gameInstance->GetStressPool() : nullptr;
 	if (!stressPool) return;
 
-	//20% 긍정, 80% 부정
-	const bool bPositive = FMath::RandRange(1, 100) <= 20;
+	//20% 긍정, 80% 부정, 긍정 고정 패시브 보유 시 추첨 생략
+	const UPassiveSkillComponent* targetPassives = Target->GetPassiveSkillComponent();
+	const bool bPositive = (targetPassives && targetPassives->HasStressEventAlwaysPositive())
+		|| FMath::RandRange(1, 100) <= 20;
 	const TArray<TSubclassOf<UObject>>& pool = bPositive ? stressPool->positiveEvents : stressPool->negativeEvents;
 	if (pool.Num() == 0) return;
 
@@ -439,11 +441,11 @@ void ABattleGameMode::RecordSkillUse(ACharacterBase* Character, const UActiveSki
 		return;
 	}
 
-	//캐스터 스탯이 이미 반영된 cached 값 사용, CritDamage는 NormalDamage의 2배
+	//캐스터 스탯이 이미 반영된 cached 값 사용, CritDamage는 캐스터의 치명타 배율 적용
 	const float newDamage    = Skill->calcDamage;
 	const float newAccuracy  = Skill->calcAccuracy;
 	const float newCritChance= Skill->calcCritical;
-	const float newCritDamage= newDamage * 2.f;
+	const float newCritDamage= newDamage * Character->GetCriticalDamage();
 
 	const float newHitP  = newAccuracy / 100.f;
 	const float newCritP = newCritChance / 100.f;
