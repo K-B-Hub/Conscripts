@@ -45,10 +45,17 @@ public:
 	float evasion = 0.0;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
 	float critical = 0.0;
-	
+	//치명타 배율 증가분, 1.0이면 배율 +1.0(=피해 100%p 증가)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
+	float criticalDamage = 0.0;
+
 	//동일 클래스 중복 획득 허용 여부, false면 이미 보유 시 재등록 생략
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
 	bool bAllowDuplicate = false;
+
+	//스트레스 이벤트 추첨을 긍정 풀로 고정, 만땅 도달 시 턴 손실 페널티는 그대로 유지
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stress")
+	bool bStressEventAlwaysPositive = false;
 
 	//패시브 스킬의 타입, Stat일 경우에는 별도의 검사 필요x, Conditional이나 Reactive 면 EConditionalType이나 EReactiveType에 따라 검사 후 Execute 필요
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
@@ -67,4 +74,6 @@ public:
 	virtual void Execute_AfterSlay(FVector slainLocation) {}
 	//조건부 패시브 실행
 	virtual void Execute_Conditional() {}
+	//치사 피해 직전 조건 검사, true를 반환하면 체력 1로 생존
+	virtual bool Execute_BeforeDeath(int32 hpBefore, int32 incomingDamage) { return false; }
 };

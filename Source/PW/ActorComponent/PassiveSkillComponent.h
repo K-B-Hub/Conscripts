@@ -35,18 +35,24 @@ public:
 	//해당 클래스의 패시브를 이미 보유 중인지, 강화 후보 중복 필터용
 	bool HasPassiveClass(TSubclassOf<UPassiveSkillBase> passiveClass) const;
 
+	//스트레스 이벤트를 긍정 풀로 고정하는 패시브를 보유 중인지
+	bool HasStressEventAlwaysPositive() const;
+
 	const TArray<TObjectPtr<UPassiveSkillBase>>& GetActivePassives() const { return activePassives; }
 
 	//피해 계산 전 패시브 실행, attackerLocation은 거리 조건 패시브가 쓰는 공격 시점 좌표
 	void DispatchBeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType,
 		const FVector& attackerLocation,
-		float& dmg, int32& amp, int32& pen, float& acc, float& crit);
+		float& dmg, int32& amp, int32& pen, float& acc, float& crit, float& critDmg);
 
 	//피해 적용 후 패시브 실행
 	void DispatchAfterDamage(ACharacterBase* target);
 
 	//처치 후 패시브 실행
 	void DispatchAfterSlay(const FVector& slainLocation);
+
+	//치사 피해 직전 패시브 실행, 하나라도 생존시키면 true
+	bool DispatchBeforeDeath(int32 hpBefore, int32 incomingDamage);
 
 	//이동 상태 변경 패시브 실행
 	void DispatchBeforeMove(bool bIsMoved, int32 sign);

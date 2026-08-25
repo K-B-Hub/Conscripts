@@ -489,11 +489,14 @@ float ACharacterBase::GetTerrainMoveCostMultiplier() const
 	return terrainComponent ? terrainComponent->GetMovingPointCostMultiplier() : 1.f;
 }
 
-void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication,
+void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critical, float CriticalDamage,
+                                     int32 DamageAmplfication,
                                      int Penetration, ESkillType SkillType, const ACharacterBase* Attacker)
 {
 	//공용 헬퍼 호출, 결과를 pending* 멤버에 기입 (인디케이터 위젯·ReflectDamage 경로)
 	pendingSkillType = SkillType;
+	//치명타 배율은 공격자 측 값, ReflectDamage는 피격자에서 실행되므로 여기서 스냅샷
+	pendingCriticalDamage = CriticalDamage;
 	const bool bAllyTarget = Attacker && (Attacker->IsAlly() == IsAlly());
 	ComputeDamageNumbers(this, Damage, Accuracy, Critical, DamageAmplfication, Penetration,
 		SkillType, bAllyTarget, pendingDMG, pendingAccuracy, pendingCritical);
@@ -514,12 +517,13 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 	int32 pen  = Skill->calcPenetration;
 	float acc  = Skill->calcAccuracy;
 	float crit = Skill->calcCritical;
+	float critDmg = Attacker->GetCriticalDamage();
 
 	//캐스터 측 BeforeDamageCalc 패시브 보너스 합산
 	if (UPassiveSkillComponent* PSC = Attacker->GetPassiveSkillComponent())
 	{
 		PSC->DispatchBeforeDamageCalc(const_cast<ACharacterBase*>(this),
-			Skill->skillType, Skill->damageType, AttackerLocation, dmg, amp, pen, acc, crit);
+			Skill->skillType, Skill->damageType, AttackerLocation, dmg, amp, pen, acc, crit, critDmg);
 	}
 
 	const bool bAllyTarget = Attacker->IsAlly() == IsAlly();
@@ -530,7 +534,7 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 	result.HitChance   = outAcc;
 	result.CritChance  = outCrit;
 	result.NormalDamage = FMath::RoundToInt(outDmg);
-	result.CritDamage   = FMath::RoundToInt(outDmg * 2.f);   //ReflectDamage 산식과 일치
+	result.CritDamage   = FMath::RoundToInt(outDmg * critDmg);   //ReflectDamage 산식과 일치
 	//두 단계 처치 가능성, AI는 확정 처치와 운빨 처치를 다르게 가중
 	result.bCanKill     = (result.NormalDamage >= hp);
 	result.bCanCritKill = !result.bCanKill && (result.CritDamage >= hp);
@@ -577,7 +581,7 @@ bool ACharacterBase::ReflectDamage()
 	float critRoll = FMath::FRandRange(0.f, 100.f);
 	const bool bCrit = critRoll <= pendingCritical;
 	int32 finalDamage = bCrit
-		? FMath::RoundToInt(pendingDMG * 2.f)
+		? FMath::RoundToInt(pendingDMG * pendingCriticalDamage)
 		: FMath::RoundToInt(pendingDMG);
 
 	//치명타 피격 스트레스 5~10, 사망(Destroy) 전에 적용되도록 데미지보다 먼저 부여
@@ -733,6 +737,8 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 	damageAmplification += buff->damageAmplification * sign;
 	penetration += buff->penetration * sign;
 	sight += buff->sight * sign;
+	//파생 공식이 없어 SetDefaultStats 재계산을 안 타므로 직접 가감
+	criticalDamage += buff->criticalDamage * sign;
 
 	//전투 파생 스탯은 직접 가감하지 않고 BuffComponent 보너스에 저장, 재계산 시 가산
 	if (buffComponent)
@@ -776,6 +782,7 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 	const float beforeAccuracy = accuracy;
 	const float beforeEvasion = evasion;
 	const float beforeCritical = critical;
+	const float beforeCriticalDamage = criticalDamage;
 
 	//최대 HP 증가량만큼 현재 HP도 함께 증가, 패시브는 영구이므로 등록 시점이 곧 성장
 	const int32 hpDelta = passive->hp * sign;
@@ -809,6 +816,8 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 	damageAmplification += passive->damageAmplification * sign;
 	penetration += passive->penetration * sign;
 	sight += passive->sight * sign;
+	//파생 공식이 없어 SetDefaultStats 재계산을 안 타므로 직접 가감
+	criticalDamage += passive->criticalDamage * sign;
 
 	//전투 파생 스탯은 직접 가감하지 않고 PassiveSkillComponent 보너스에 저장, 재계산 시 가산
 	if (passiveSkillComponent)
@@ -853,6 +862,8 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 		UE_LOG(LogTemp, Log, TEXT("  evasion: %.2f -> %.2f"), beforeEvasion, evasion);
 	if (!FMath::IsNearlyEqual(beforeCritical, critical))
 		UE_LOG(LogTemp, Log, TEXT("  critical: %.2f -> %.2f"), beforeCritical, critical);
+	if (!FMath::IsNearlyEqual(beforeCriticalDamage, criticalDamage))
+		UE_LOG(LogTemp, Log, TEXT("  criticalDamage: %.2f -> %.2f"), beforeCriticalDamage, criticalDamage);
 
 	//HUD 게이지 갱신 통지
 	OnVitalsChanged.Broadcast();
@@ -914,7 +925,15 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 	if (IsDead()) return;
 
 	const int32 hpBefore = hp;
-	const int32 minHp = bIsLethal ? 0 : 1;
+	int32 minHp = bIsLethal ? 0 : 1;
+
+	//치사 피해 직전 생존 패시브 판정, 클램프 전에 처리해야 체력 위젯이 0을 거치지 않음
+	if (bIsLethal && hp - Amount <= 0 && passiveSkillComponent
+		&& passiveSkillComponent->DispatchBeforeDeath(hpBefore, Amount))
+	{
+		minHp = 1;
+	}
+
 	hp = FMath::Clamp(hp - Amount, minHp, maxHp);
 
 	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))

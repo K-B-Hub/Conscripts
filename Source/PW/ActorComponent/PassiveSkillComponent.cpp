@@ -110,7 +110,7 @@ void UPassiveSkillComponent::RemovePassiveAt(int32 Index)
 
 void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType,
 	const FVector& attackerLocation,
-	float& dmg, int32& amp, int32& pen, float& acc, float& crit)
+	float& dmg, int32& amp, int32& pen, float& acc, float& crit, float& critDmg)
 {
 	for (UPassiveSkillBase* p : reactivePassives)
 	{
@@ -124,6 +124,7 @@ void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target, ES
 			pen  += p->penetration;
 			acc  += p->accuracy;
 			crit += p->critical;
+			critDmg += p->criticalDamage;
 		}
 	}
 
@@ -150,6 +151,18 @@ void UPassiveSkillComponent::DispatchAfterSlay(const FVector& slainLocation)
 		if (!p || p->reactiveType != EReactiveType::AfterSlay) continue;
 		p->Execute_AfterSlay(slainLocation);
 	}
+}
+
+bool UPassiveSkillComponent::DispatchBeforeDeath(int32 hpBefore, int32 incomingDamage)
+{
+	for (UPassiveSkillBase* p : conditionalPassives)
+	{
+		if (!p || p->conditionType != EConditionalType::BeforeDeath) continue;
+
+		//첫 생존에서 중단, 횟수 제한형 패시브가 여러 장 소모되지 않게 함
+		if (p->Execute_BeforeDeath(hpBefore, incomingDamage)) return true;
+	}
+	return false;
 }
 
 void UPassiveSkillComponent::DispatchBeforeMove(bool bIsMoved, int32 sign)
@@ -179,6 +192,18 @@ bool UPassiveSkillComponent::HasPassiveClass(TSubclassOf<UPassiveSkillBase> pass
 	for (const UPassiveSkillBase* passive : activePassives)
 	{
 		if (passive && passive->GetClass() == passiveClass)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UPassiveSkillComponent::HasStressEventAlwaysPositive() const
+{
+	for (const UPassiveSkillBase* passive : activePassives)
+	{
+		if (passive && passive->bStressEventAlwaysPositive)
 		{
 			return true;
 		}

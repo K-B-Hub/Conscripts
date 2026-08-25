@@ -21,7 +21,7 @@ enum class EAIBuffStat : uint8
 {
 	Hp, Atk, Def, Speed, Skill, MovingPoint,
 	DamageReduction, DamageAmplification, Penetration,
-	Accuracy, Evasion, Critical,
+	Accuracy, Evasion, Critical, CriticalDamage,
 };
 
 //적 전투 턴 행동을 결정하는 컴포넌트
@@ -133,6 +133,7 @@ protected:
 		float accuracy = 0.f;
 		float evasion = 0.f;
 		float critical = 0.f;
+		float criticalDamage = 0.f;
 	};
 
 	//전장 평균 스탯 갱신, 스텝당 1회

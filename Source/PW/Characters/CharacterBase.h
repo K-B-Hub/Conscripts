@@ -148,6 +148,9 @@ protected:
 	float evasion = 0.0;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
 	float critical = 0.0;
+	//치명타 시 피해 배율, 파생 공식이 없어 SetDefaultStats 재계산 대상이 아님
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Combat")
+	float criticalDamage = 2.0;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 hpGrowth = 50;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
@@ -168,6 +171,9 @@ protected:
 	float pendingAccuracy;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	float pendingCritical;
+	//공격자 측 스탯이라 계산 시점에 스냅샷, ReflectDamage는 피격자에서 실행되어 공격자를 직접 못 봄
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
+	float pendingCriticalDamage = 2.0;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	ESkillType pendingSkillType = ESkillType::Melee;
 
@@ -312,6 +318,7 @@ public:
 	float GetSight() const { return sight; }
 	float GetAccuracy() const { return accuracy; }
 	float GetCritical() const { return critical; }
+	float GetCriticalDamage() const { return criticalDamage; }
 	int32 GetDamageAmplification() const { return damageAmplification; }
 	int32 GetPenetration() const { return penetration; }
 	int32 GetDef() const { return def; }
@@ -323,7 +330,8 @@ public:
 
 	//AttackRangeIndicator 오버렙 시 데미지 미리 계산
 	//Attacker: 실제 시전자, this와 IsAlly()가 같으면 아군 대상 취급(회피 차감 없이 반드시 명중)
-	void CalculateDamage(float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int Penetration, ESkillType SkillType, const ACharacterBase* Attacker);
+	//CriticalDamage: BeforeDamageCalc 보너스가 합산된 이번 공격의 치명타 배율
+	void CalculateDamage(float Damage, float Accuracy, float Critical, float CriticalDamage, int32 DamageAmplfication, int Penetration, ESkillType SkillType, const ACharacterBase* Attacker);
 
 	//순수 데미지 예측, 상태 미변경(const)이라 AI 후보 평가에서 다회 호출 안전
 	FDamageResult PreviewDamage(const UActiveSkillBase* Skill,

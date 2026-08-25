@@ -1255,6 +1255,7 @@ void UUtilityAIComponent::UpdateBattlefieldAverages()
 		battlefieldAvg.accuracy += c->GetAccuracy();
 		battlefieldAvg.evasion += c->GetEvasion();
 		battlefieldAvg.critical += c->GetCritical();
+		battlefieldAvg.criticalDamage += c->GetCriticalDamage();
 	}
 
 	const float n = static_cast<float>(all.Num());
@@ -1270,6 +1271,7 @@ void UUtilityAIComponent::UpdateBattlefieldAverages()
 	battlefieldAvg.accuracy /= n;
 	battlefieldAvg.evasion /= n;
 	battlefieldAvg.critical /= n;
+	battlefieldAvg.criticalDamage /= n;
 }
 
 float UUtilityAIComponent::ComputeExpectedOutput(const ACharacterBase* Target) const
@@ -1377,6 +1379,10 @@ float UUtilityAIComponent::StatLeverage(EAIBuffStat Stat, const ACharacterBase* 
 	const float critP = prof.CritChance / 100.f;
 	const float strikeDmg = prof.NormalDamage;
 
+	//기대 일격 = D·(1 + p·(m−1)), m은 대상의 치명타 배율
+	const float critMul = Target->GetCriticalDamage();
+	const float critFactor = 1.f + critP * (critMul - 1.f);
+
 	//비율 명중의 기울기, 명중 1p당 eva/(acc+eva)^2 · 회피 1p당 acc/(acc+eva)^2
 	const float accSum = FMath::Max(1.f, Target->GetAccuracy() + battlefieldAvg.evasion);
 	const float accSlope = battlefieldAvg.evasion / (accSum * accSum);
@@ -1386,13 +1392,16 @@ float UUtilityAIComponent::StatLeverage(EAIBuffStat Stat, const ACharacterBase* 
 	switch (Stat)
 	{
 	case EAIBuffStat::Accuracy:
-		return accSlope * strikeDmg * (1.f + critP);
+		return accSlope * strikeDmg * critFactor;
 	case EAIBuffStat::Critical:
-		return 0.01f * hitP * strikeDmg;
+		return 0.01f * hitP * strikeDmg * (critMul - 1.f);
+	//퍼센트가 아닌 배율 단위라 1.0(=피해 100%p)당 가치
+	case EAIBuffStat::CriticalDamage:
+		return hitP * strikeDmg * critP;
 	case EAIBuffStat::DamageAmplification:
-		return 0.01f * hitP * (1.f + critP) * strikeDmg;
+		return 0.01f * hitP * critFactor * strikeDmg;
 	case EAIBuffStat::Penetration:
-		return 0.01f * hitP * (1.f + critP) * OpposingTeamAverageDef(Target);
+		return 0.01f * hitP * critFactor * OpposingTeamAverageDef(Target);
 	case EAIBuffStat::Evasion:
 	{
 		//회피 1p의 가치는 명중률 미적용 원시 피격 피해 × 피격 확률 감소분
@@ -1466,6 +1475,7 @@ float UUtilityAIComponent::BuffValueForTarget(const UBuffBase* BuffCDO, const AC
 	value += term(BuffCDO->accuracy, EAIBuffStat::Accuracy, Target->GetAccuracy(), battlefieldAvg.accuracy);
 	value += term(BuffCDO->evasion, EAIBuffStat::Evasion, Target->GetEvasion(), battlefieldAvg.evasion);
 	value += term(BuffCDO->critical, EAIBuffStat::Critical, Target->GetCritical(), battlefieldAvg.critical);
+	value += term(BuffCDO->criticalDamage, EAIBuffStat::CriticalDamage, Target->GetCriticalDamage(), battlefieldAvg.criticalDamage);
 	//mentality/sight/actionPoint는 레버리지 미정의로 평가 제외
 
 	return value;
