@@ -1511,16 +1511,20 @@ void UUtilityAIComponent::DrawDebugCandidates(const TArray<FAIAction>& Candidate
 	UWorld* world = GetWorld();
 	if (!world || Candidates.Num() != Scores.Num()) return;
 
+	//StepNext는 한 턴에 여러 번 돌고 duration도 길어 라벨이 누적됨, 최신 결정만 남기려고 먼저 비움
+	FlushDebugStrings(world);
+
+	//점수 내림차순 순위, 로그 덤프와 라벨 표시 대상 선별에 공용
+	TArray<int32> order;
+	order.Reserve(Candidates.Num());
+	for (int32 i = 0; i < Candidates.Num(); ++i)
+	{
+		order.Add(i);
+	}
+	order.Sort([&Scores](int32 A, int32 B) { return Scores[A] > Scores[B]; });
+
 	//DrawDebugString은 HUD 텍스트라 카메라 분리(eject) 시 안 보임, 로그로도 점수 상위 후보 덤프
 	{
-		TArray<int32> order;
-		order.Reserve(Candidates.Num());
-		for (int32 i = 0; i < Candidates.Num(); ++i)
-		{
-			order.Add(i);
-		}
-		order.Sort([&Scores](int32 A, int32 B) { return Scores[A] > Scores[B]; });
-
 		//레벨 1은 상위 15개, 레벨 2는 전체
 		const int32 logN = (CVarUtilityAIDebug.GetValueOnGameThread() >= 2)
 			? order.Num() : FMath::Min(order.Num(), 15);
@@ -1577,42 +1581,47 @@ void UUtilityAIComponent::DrawDebugCandidates(const TArray<FAIAction>& Candidate
 			case EAIActionType::Wait:    typeStr = TEXT("WAIT"); break;
 		}
 
-		//스킬 후보는 스킬 클래스와 대표 대상까지 표기
-		FString label;
-		if (c.Skill)
-		{
-			label = FString::Printf(TEXT("%s%s %s>%s  %.1f"),
-				bIsBest ? TEXT(">> ") : TEXT(""), typeStr,
-				*c.Skill->GetClass()->GetName(), *GetNameSafe(c.GetPrimaryTarget()), score);
-		}
-		else
-		{
-			label = FString::Printf(TEXT("%s%s  %.1f"),
-				bIsBest ? TEXT(">> ") : TEXT(""), typeStr, score);
-		}
-		DrawDebugString(world, c.CastFrom + textOffset, label,
-			nullptr, color, duration, false, bIsBest ? 2.2f : 1.4f);
+		//라벨은 채택된 후보만, 레벨 2에서는 전체 표기
+		const bool bShowLabel = bIsBest || CVarUtilityAIDebug.GetValueOnGameThread() >= 2;
 
-		//점수 구성 요소 상세, 최고점은 항상·나머지는 레벨 2에서 표기
-		if (bIsBest || CVarUtilityAIDebug.GetValueOnGameThread() >= 2)
+		//스킬 후보는 스킬 클래스와 대표 대상까지 표기
+		if (bShowLabel)
 		{
-			const FString detail = FString::Printf(
-				TEXT("dmg %.1f ff %.1f heal %.1f buff %.1f ail %.1f dan %.1f app %.0f path %.0f"),
+			FString label;
+			if (c.Skill)
+			{
+				label = FString::Printf(TEXT("%s%s %s>%s  %.1f"),
+					bIsBest ? TEXT(">> ") : TEXT(""), typeStr,
+					*c.Skill->GetClass()->GetName(), *GetNameSafe(c.GetPrimaryTarget()), score);
+			}
+			else
+			{
+				label = FString::Printf(TEXT("%s%s  %.1f"),
+					bIsBest ? TEXT(">> ") : TEXT(""), typeStr, score);
+			}
+
+			//상세는 개행으로 이어 붙임, 월드 오프셋으로 띄우면 카메라가 멀 때 픽셀 간격이 좁아져 겹침
+			label += FString::Printf(
+				TEXT("\ndmg %.1f ff %.1f heal %.1f buff %.1f ail %.1f dan %.1f app %.0f path %.0f"),
 				c.EnemyExpectedDamage, c.AllyExpectedDamage, c.HealExpectedTotal,
 				c.BuffValueTotal, c.AilmentValueTotal, c.IncomingDangerExpected, c.ApproachDeltaCm, c.PathLengthCm);
-			DrawDebugString(world, c.CastFrom + textOffset - FVector(0.f, 0.f, 22.f), detail,
+
+			//상세 줄이 길어 배율은 상세 기준으로 맞춤
+			DrawDebugString(world, c.CastFrom + textOffset, label,
 				nullptr, color, duration, false, bIsBest ? 1.4f : 1.0f);
 		}
 
 		//공격과 지원 의도선 표시, 영향 대상마다 한 줄씩
+		//열거 단계 LOS는 대표 대상만 검사하므로 범위 피격자는 차단일 수 있음, 시안=통과 마젠타=실패
 		if (c.Type == EAIActionType::Attack || c.Type == EAIActionType::Support)
 		{
 			for (const TObjectPtr<ACharacterBase>& t : c.Targets)
 			{
 				if (!IsValid(t)) continue;
+				const bool bHasLOS = UAINavigationHelper::HasLineOfSightFrom(ownerCharacter, c.CastFrom, t);
 				DrawDebugLine(world, c.CastFrom + FVector(0.f, 0.f, 80.f),
 					t->GetActorLocation() + FVector(0.f, 0.f, 80.f),
-					color, false, duration, 0, bIsBest ? 2.f : 0.5f);
+					bHasLOS ? FColor::Cyan : FColor::Magenta, false, duration, 0, bIsBest ? 2.f : 0.5f);
 			}
 		}
 	}
