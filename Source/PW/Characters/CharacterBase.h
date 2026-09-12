@@ -235,6 +235,11 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	float maxExp = 100;
 
+	//습득한 강화 클래스, 스테이지 간 스냅샷 복원용
+	//1회성 즉시효과(URestBase)는 인스턴스가 남지 않으므로 기록하지 않는다
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Upgrade")
+	TArray<TSubclassOf<USkillBase>> acquiredUpgrades;
+
 	//maxStress 도달 시 발동, 이벤트 추첨·소비는 다음 자기 턴 시작(InitTurn)으로 지연, 본인 턴 진행 중이면 즉시 턴 종료
 	void OnStressOverflow();
 	//체력 비율 경계(50%/30%) 하향 통과 시 스트레스 부여

@@ -420,14 +420,17 @@ void ACharacterBase::AcquireUpgrade(TSubclassOf<USkillBase> skillClass)
 	if (!skillClass) return;
 
 	//액티브 계열은 SkillComponent, 패시브 계열은 PassiveSkillComponent에 등록
+	//인스턴스가 남는 두 계열만 습득 목록에 기록해 스냅샷 복원 시 재등록한다
 	if (skillClass->IsChildOf(UActiveSkillBase::StaticClass()))
 	{
 		if (skillComponent) skillComponent->AddSkill(skillClass);
+		acquiredUpgrades.Add(skillClass);
 		UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 습득(액티브): %s"), *GetName(), *skillClass->GetName());
 	}
 	else if (skillClass->IsChildOf(UPassiveSkillBase::StaticClass()))
 	{
 		if (passiveSkillComponent) passiveSkillComponent->AddPassive(TSubclassOf<UPassiveSkillBase>(skillClass));
+		acquiredUpgrades.Add(skillClass);
 		UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 습득(패시브): %s"), *GetName(), *skillClass->GetName());
 	}
 	//1회성 즉시 효과는 어디에도 등록하지 않고 그 자리에서 발동 후 버림
