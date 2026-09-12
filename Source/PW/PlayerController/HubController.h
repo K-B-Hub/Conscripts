@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "Enum/GameDifficulty.h"
+#include "Run/AllyRunState.h"
 #include "HubController.generated.h"
 
 class UUserWidget;
@@ -12,6 +13,7 @@ class UMainMenuWidget;
 class UModeSelectWidget;
 class UStoryRouteSelectWidget;
 class USettingsWidget;
+class UFormationWidget;
 
 //허브 레벨의 화면 전환을 전담, 화면은 항상 하나만 살아 있다
 //위젯은 GetOwningPlayer로 이 클래스를 직접 호출하고, 다음 화면 결정은 여기서 한다
@@ -25,12 +27,19 @@ public:
 	void ShowModeSelect();
 	void ShowStoryRouteSelect();
 	void ShowSettings();
+	void ShowFormation();
 
 	//모드 확정, 스토리는 줄기 선택으로 나머지는 편성으로 진행
 	void ChooseMode(EGameDifficulty mode);
 
 	//스토리 줄기 확정, 편성으로 진행
 	void ChooseStoryRoute(FName routeId);
+
+	//편성 확정, 런을 열고 첫 스테이지로 진입
+	void ConfirmFormation(const TArray<FAllyRunState>& roster);
+
+	//편성 화면이 스토리 고정 편성을 조회할 때 사용, 스토리가 아니면 NAME_None
+	FName GetPendingStoryRouteId() const { return pendingStoryRouteId; }
 
 	void QuitGame();
 
@@ -46,6 +55,8 @@ protected:
 	TSubclassOf<UStoryRouteSelectWidget> storyRouteSelectWidgetClass;
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<USettingsWidget> settingsWidgetClass;
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UFormationWidget> formationWidgetClass;
 
 private:
 	//기존 화면을 제거하고 새 위젯을 생성해 표시

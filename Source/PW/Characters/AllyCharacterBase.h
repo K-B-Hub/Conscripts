@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Characters/CharacterBase.h"
+#include "Run/AllyRunState.h"
 #include "AllyCharacterBase.generated.h"
 
 class UUpgradeTableData;
@@ -17,6 +18,20 @@ class PW_API AAllyCharacterBase : public ACharacterBase
 
 public:
 	virtual bool IsAlly() const override { return true; }
+
+	//편성·출격 화면에 표시할 직업 이름, 파생 직업 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
+	FText jobName;
+
+	//개체 이름, 로스터 항목마다 다르며 복원 시 주입된다
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Job")
+	FString displayName;
+
+	//현재 상태를 스냅샷으로 추출, CDO에 대해 호출하면 직업 기본 스탯이 나온다
+	FAllyRunState CaptureRunState() const;
+
+	//스냅샷 복원, 강화 재등록 → 베이스 스탯 대입 → 파생 재계산 순서를 지킨다
+	void RestoreRunState(const FAllyRunState& state);
 
 	//직업 고유 강화 후보 풀, 파생 직업 BP에서 지정
 	UUpgradeTableData* GetClassUpgradeTable() const { return classUpgradeTable; }

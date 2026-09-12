@@ -3,6 +3,100 @@
 #include "Characters/AllyCharacterBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameMode/BattleGameMode.h"
+#include "Widget/HealthWidget.h"
+#include "Components/WidgetComponent.h"
+
+FAllyRunState AAllyCharacterBase::CaptureRunState() const
+{
+	FAllyRunState state;
+
+	state.AllyClass = GetClass();
+	state.DisplayName = displayName;
+
+	state.Level = level;
+	state.Exp = exp;
+	state.MaxExp = maxExp;
+
+	state.MaxHp = maxHp;
+	state.Atk = atk;
+	state.Speed = speed;
+	state.Skill = skill;
+	state.Def = def;
+	state.Mentality = mentality;
+	state.MovingPoint = movingPoint;
+	state.ActionPoint = actionPoint;
+	state.MaxStress = maxStress;
+	state.MaxBattleResource = maxBattleResource;
+	state.DamageReduction = damageReduction;
+	state.DamageAmplification = damageAmplification;
+	state.Penetration = penetration;
+	state.Sight = sight;
+	state.CriticalDamage = criticalDamage;
+
+	state.Hp = hp;
+	state.Stress = stress;
+	state.BattleResource = battleResource;
+
+	state.AcquiredUpgrades = acquiredUpgrades;
+
+	return state;
+}
+
+void AAllyCharacterBase::RestoreRunState(const FAllyRunState& state)
+{
+	displayName = state.DisplayName;
+
+	//1) 습득 강화 재등록. 리액티브·컨디셔널 훅과 컴포넌트의 파생 스탯 보너스가 여기서만 복원된다
+	//   Stat 패시브가 베이스 스탯을 다시 가산하지만 2)의 대입이 통째로 덮어쓴다
+	for (const TSubclassOf<USkillBase>& upgrade : state.AcquiredUpgrades)
+	{
+		AcquireUpgrade(upgrade);
+	}
+
+	//AcquireUpgrade가 목록에 다시 쌓으므로 스냅샷 값으로 되돌린다
+	acquiredUpgrades = state.AcquiredUpgrades;
+
+	//2) 베이스 스탯 대입. 대입은 멱등이라 BeginPlay 기본 패시브와 1)의 이중 가산이 함께 사라진다
+	level = state.Level;
+	exp = state.Exp;
+	maxExp = state.MaxExp;
+
+	maxHp = state.MaxHp;
+	atk = state.Atk;
+	speed = state.Speed;
+	skill = state.Skill;
+	def = state.Def;
+	mentality = state.Mentality;
+	movingPoint = state.MovingPoint;
+	actionPoint = state.ActionPoint;
+	maxStress = state.MaxStress;
+	maxBattleResource = state.MaxBattleResource;
+	damageReduction = state.DamageReduction;
+	damageAmplification = state.DamageAmplification;
+	penetration = state.Penetration;
+	sight = state.Sight;
+	criticalDamage = state.CriticalDamage;
+
+	hp = FMath::Clamp(state.Hp, 1, maxHp);
+	stress = state.Stress;
+	battleResource = FMath::Clamp(state.BattleResource, 0, maxBattleResource);
+
+	//턴 시작 전이므로 현재치는 최대치에서 출발
+	currentMovingPoint = movingPoint;
+	currentActionPoint = actionPoint;
+
+	//3) 파생 스탯 재계산. 컴포넌트에 누적된 명중·회피·치명 보너스가 여기서 반영된다
+	SetDefaultStats();
+
+	if (healthWidgetComponent)
+	{
+		if (UHealthWidget* healthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
+		{
+			healthWidget->InitHealth(maxHp, hp);
+		}
+	}
+	OnVitalsChanged.Broadcast();
+}
 
 void AAllyCharacterBase::InitTurn()
 {

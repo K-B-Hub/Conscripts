@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "Enum/GameDifficulty.h"
+#include "Run/AllyRunState.h"
 #include "PWGameInstance.generated.h"
 
 class UStressPoolData;
@@ -12,6 +13,7 @@ class UUpgradeTableData;
 class UStoryRouteData;
 class URunProgress;
 class UPWSaveGame;
+class AAllyCharacterBase;
 
 //레벨 전환 간 유지되는 런 상태 보관(난이도, 추후 캐릭터 상태·특전 등)
 UCLASS()
@@ -39,6 +41,15 @@ public:
 	//스토리 줄기 목록, 줄기 선택 화면이 사용
 	const TArray<TObjectPtr<UStoryRouteData>>& GetStoryRoutes() const { return storyRoutes; }
 
+	//식별자로 줄기 조회, 없으면 nullptr
+	const UStoryRouteData* FindStoryRoute(FName routeId) const;
+
+	//편성에서 고를 수 있는 직업 목록, 해금 필터는 콘텐츠를 채울 때 적용
+	const TArray<TSubclassOf<AAllyCharacterBase>>& GetSelectableJobs() const { return selectableJobs; }
+
+	//로그라이크·악몽의 시작 편성 인원
+	int32 GetInitialRosterSize() const { return initialRosterSize; }
+
 	//현재 런의 진행 상태, Init 이후 항상 유효
 	URunProgress* GetRunProgress() const { return runProgress; }
 
@@ -50,7 +61,7 @@ public:
 
 	//편성 확정 시 호출, 이전 런의 흔적이 남지 않도록 진행 상태를 새로 만든다
 	//스토리가 아니면 storyRouteId는 NAME_None
-	void StartRun(FName storyRouteId);
+	void StartRun(const TArray<FAllyRunState>& roster, FName storyRouteId);
 
 protected:
 	//현재 런의 난이도
@@ -69,6 +80,14 @@ protected:
 	//스토리 모드가 제공하는 줄기 목록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Story")
 	TArray<TObjectPtr<UStoryRouteData>> storyRoutes;
+
+	//편성 화면에 노출할 직업 목록
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
+	TArray<TSubclassOf<AAllyCharacterBase>> selectableJobs;
+
+	//로그라이크·악몽의 시작 편성 인원, 밸런스 값이라 에디터에서 조정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
+	int32 initialRosterSize = 4;
 
 private:
 	//런 진행 상태, 런 시작 시 통째로 교체
