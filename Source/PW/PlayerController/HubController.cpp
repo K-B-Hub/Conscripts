@@ -7,8 +7,10 @@
 #include "Widget/SettingsWidget.h"
 #include "Widget/FormationWidget.h"
 #include "GameInstance/PWGameInstance.h"
+#include "Run/RunProgress.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 void AHubController::BeginPlay()
 {
@@ -95,10 +97,18 @@ void AHubController::ConfirmFormation(const TArray<FAllyRunState>& roster)
 	UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
 	if (!gameInstance) return;
 
-	gameInstance->StartRun(roster, pendingStoryRouteId);
+	gameInstance->StartRun(roster, pendingStoryRouteId, gameInstance->GetDefaultStageSequence());
 
-	//TODO: 전투 맵과 Deploy 페이즈 구현 후 OpenLevel로 교체
-	UE_LOG(LogTemp, Log, TEXT("[Hub] 편성 확정 %d명 — 전투 맵 미구현"), roster.Num());
+	const URunProgress* runProgress = gameInstance->GetRunProgress();
+	const FStageEntry* stage = runProgress ? runProgress->GetCurrentStage() : nullptr;
+	if (!stage || stage->Map.IsNull())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Hub] 스테이지 시퀀스가 비어 있어 이동할 수 없습니다"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[Hub] 편성 확정 %d명 — 스테이지 1로 이동"), roster.Num());
+	UGameplayStatics::OpenLevelBySoftObjectPtr(this, stage->Map);
 }
 
 void AHubController::QuitGame()

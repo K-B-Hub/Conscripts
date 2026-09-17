@@ -12,6 +12,25 @@ class AEnemyBase;
 class ABattleController;
 class UActiveSkillBase;
 class ATerrainBase;
+class ADeploymentZone;
+class UMissionData;
+
+//전투 맵의 진행 단계, Deploy 동안에는 턴이 시작되지 않는다
+UENUM()
+enum class EBattlePhase : uint8
+{
+	Deploy,		//로스터를 배치 구획에 놓는 중
+	Battle,		//턴제 전투 진행 중
+	Result		//승패가 확정되어 턴 진행이 멈춘 상태
+};
+
+//전투 종료 사유
+UENUM()
+enum class EBattleResult : uint8
+{
+	Victory,	//임무 달성
+	Defeat		//아군 전멸
+};
 
 //캐릭터 한 명에 대해 상대 진영이 인지하고 있는 최대 위협 스냅샷, 진영 무관 관측 기반
 USTRUCT(BlueprintType)
@@ -31,6 +50,10 @@ struct FThreatProfile
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTurnOrderRebuilt, const TArray<ACharacterBase*>&, int32);
 //턴 전환 시 통지 (현재 턴 인덱스)
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnChanged, int32);
+//Deploy 페이즈 진입 시 통지, 컨트롤러가 배치 위젯을 띄운다
+DECLARE_MULTICAST_DELEGATE(FOnDeployPhaseStarted);
+//전투 종료 시 통지, 컨트롤러가 결과 위젯을 띄운다
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnBattleFinished, EBattleResult);
 
 UCLASS()
 class PW_API ABattleGameMode : public AGameModeBase
@@ -43,6 +66,27 @@ public:
 	//턴 순서 UI 갱신용 델리게이트
 	FOnTurnOrderRebuilt OnTurnOrderRebuilt;
 	FOnTurnChanged OnTurnChanged;
+
+	//Deploy 페이즈 진입 통지
+	FOnDeployPhaseStarted OnDeployPhaseStarted;
+
+	//전투 종료 통지
+	FOnBattleFinished OnBattleFinished;
+
+	EBattlePhase GetPhase() const { return phase; }
+
+	//로스터의 해당 인원을 지점에 배치, 이미 배치되어 있으면 위치만 옮긴다
+	//구획 밖이거나 Deploy 페이즈가 아니면 false
+	bool DeployAt(int32 rosterIndex, const FVector& location);
+
+	//해당 인원이 이미 배치되었는지, 배치 위젯의 표시용
+	bool IsDeployed(int32 rosterIndex) const;
+
+	//로스터 전원이 배치되었는지
+	bool IsDeploymentComplete() const;
+
+	//배치 확정, 전원 배치된 경우에만 전투를 시작한다
+	void ConfirmDeployment();
 
 	//턴 순서 UI가 생성 시점의 상태를 당겨올 때 사용
 	const TArray<ACharacterBase*>& GetTurnOrder() const { return turnOrder; }
@@ -86,6 +130,36 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	//현재 진행 단계
+	EBattlePhase phase = EBattlePhase::Deploy;
+
+	//배치 구획 수집 및 배치 위젯 표시
+	void StartDeployPhase();
+
+	//로스터 스폰 이후의 전투 개시, 기존 BeginPlay 초기화가 통째로 여기로 옮겨졌다
+	void StartBattlePhase();
+
+	//승패 판정, 사망 처리와 턴 종료 양쪽에서 호출된다
+	//사망 처리 도중 레벨 전환이 시작되지 않도록 판정만 하고 종료는 다음 틱으로 미룬다
+	void EvaluateMission();
+
+	//전투 종료 확정, 생존자 스냅샷을 회수하고 결과를 통지
+	void FinishBattle(EBattleResult result);
+
+	//이번 스테이지의 승리 조건, 시퀀스에서 가져온다
+	const UMissionData* GetCurrentMission() const;
+
+	//지점이 배치 구획 안인지
+	bool IsInsideDeploymentZone(const FVector& point) const;
+
+	//레벨에 놓인 배치 구획
+	UPROPERTY()
+	TArray<TObjectPtr<ADeploymentZone>> deploymentZones;
+
+	//로스터 인덱스 → 배치된 캐릭터
+	UPROPERTY()
+	TMap<int32, TObjectPtr<AAllyCharacterBase>> deployedAllies;
+
 	//레벨 내 모든 캐릭터를 GetTurnOrder() 내림차순으로 정렬한 배열
 	TArray<ACharacterBase*> turnOrder;
 

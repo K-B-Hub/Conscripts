@@ -19,6 +19,9 @@
 #include "Object/Ailment/AilmentBase.h"
 #include "GameInstance/PWGameInstance.h"
 #include "DataAsset/StressPoolData.h"
+#include "Actors/DeploymentZone.h"
+#include "Run/RunProgress.h"
+#include "DataAsset/MissionData.h"
 
 ABattleGameMode::ABattleGameMode()
 {
@@ -30,8 +33,54 @@ void ABattleGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//모든 액터의 BeginPlay 완료를 보장하기 위해 첫 턴 시작을 다음 틱으로 지연
+	//모든 액터의 BeginPlay 완료를 보장하기 위해 다음 틱으로 지연
 	GetWorldTimerManager().SetTimerForNextTick([this]()
+	{
+		StartDeployPhase();
+	});
+}
+
+void ABattleGameMode::StartDeployPhase()
+{
+	phase = EBattlePhase::Deploy;
+
+	for (TActorIterator<ADeploymentZone> It(GetWorld()); It; ++It)
+	{
+		deploymentZones.Add(*It);
+		It->SetZoneVisible(true);
+	}
+
+	//편성을 거치지 않고 전투 맵에 직접 들어온 테스트 상황에서는 배치 단계를 건너뛴다
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	const URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
+	if (!runProgress || runProgress->GetRoster().Num() == 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 로스터 없음 — 배치를 건너뛰고 전투 시작"));
+		StartBattlePhase();
+		return;
+	}
+
+	if (deploymentZones.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[BattleGameMode] 배치 구획이 없어 배치할 수 없습니다"));
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 배치 시작, 인원 %d명 / 구획 %d개"),
+		runProgress->GetRoster().Num(), deploymentZones.Num());
+
+	OnDeployPhaseStarted.Broadcast();
+}
+
+void ABattleGameMode::StartBattlePhase()
+{
+	phase = EBattlePhase::Battle;
+
+	//배치가 끝났으므로 구획 표시를 거둔다
+	for (ADeploymentZone* zone : deploymentZones)
+	{
+		if (zone) zone->SetZoneVisible(false);
+	}
+
 	{
 		//아군/적군 분류 및 사망 델리게이트 바인딩, 턴 순서는 전투 참여자만 담으므로 전 캐릭터를 별도 순회
 		for (TActorIterator<ACharacterBase> It(GetWorld()); It; ++It)
@@ -67,7 +116,86 @@ void ABattleGameMode::BeginPlay()
 			BroadcastRoundStart();
 			StartCurrentTurn();
 		}
-	});
+	}
+}
+
+bool ABattleGameMode::IsInsideDeploymentZone(const FVector& point) const
+{
+	for (const ADeploymentZone* zone : deploymentZones)
+	{
+		if (zone && zone->ContainsPoint(point)) return true;
+	}
+	return false;
+}
+
+bool ABattleGameMode::DeployAt(int32 rosterIndex, const FVector& location)
+{
+	if (phase != EBattlePhase::Deploy) return false;
+	if (!IsInsideDeploymentZone(location)) return false;
+
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	const URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
+	if (!runProgress) return false;
+
+	const TArray<FAllyRunState>& roster = runProgress->GetRoster();
+	if (!roster.IsValidIndex(rosterIndex)) return false;
+
+	//이미 배치된 인원이면 옮기기만 한다
+	if (const TObjectPtr<AAllyCharacterBase>* existing = deployedAllies.Find(rosterIndex))
+	{
+		if (IsValid(*existing))
+		{
+			(*existing)->SetActorLocation(location);
+			return true;
+		}
+	}
+
+	const FAllyRunState& state = roster[rosterIndex];
+	if (!state.AllyClass) return false;
+
+	FActorSpawnParameters params;
+	params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	AAllyCharacterBase* ally = GetWorld()->SpawnActor<AAllyCharacterBase>(
+		state.AllyClass, location, FRotator::ZeroRotator, params);
+	if (!ally) return false;
+
+	//스폰으로 BeginPlay가 끝난 뒤에 복원해야 기본 스킬·패시브 위에 스냅샷이 덮인다
+	ally->RestoreRunState(state);
+	deployedAllies.Add(rosterIndex, ally);
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 배치: [%d] %s"), rosterIndex, *state.DisplayName);
+	return true;
+}
+
+bool ABattleGameMode::IsDeployed(int32 rosterIndex) const
+{
+	const TObjectPtr<AAllyCharacterBase>* found = deployedAllies.Find(rosterIndex);
+	return found && IsValid(*found);
+}
+
+bool ABattleGameMode::IsDeploymentComplete() const
+{
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	const URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
+	if (!runProgress) return false;
+
+	const int32 rosterNum = runProgress->GetRoster().Num();
+	if (rosterNum == 0) return false;
+
+	for (int32 i = 0; i < rosterNum; ++i)
+	{
+		if (!IsDeployed(i)) return false;
+	}
+	return true;
+}
+
+void ABattleGameMode::ConfirmDeployment()
+{
+	if (phase != EBattlePhase::Deploy) return;
+	if (!IsDeploymentComplete()) return;
+
+	StartBattlePhase();
 }
 
 void ABattleGameMode::BuildTurnOrder()
@@ -224,6 +352,12 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 	//AllyDeath/EnemyDeath Conditional 패시브, 캐시 정리 후 생존자에게만 통지
 	BroadcastUnitDeath(DeadCharacter);
 
+	//사망 처리 콜 스택 안에서 레벨 전환이 시작되지 않도록 판정을 다음 틱으로 미룬다
+	GetWorldTimerManager().SetTimerForNextTick([this]()
+	{
+		EvaluateMission();
+	});
+
 	//활성 턴 보유자가 사망한 경우 콜 스택을 빠져나간 뒤 다음 턴으로 진행
 	if (bActiveUnitDied)
 	{
@@ -281,8 +415,71 @@ void ABattleGameMode::OnEnemyDeath(AEnemyBase* DeadEnemy, AAllyCharacterBase* Ki
 		allies.Num());
 }
 
+const UMissionData* ABattleGameMode::GetCurrentMission() const
+{
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	const URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
+	const FStageEntry* stage = runProgress ? runProgress->GetCurrentStage() : nullptr;
+
+	return stage ? stage->Mission : nullptr;
+}
+
+void ABattleGameMode::EvaluateMission()
+{
+	if (phase != EBattlePhase::Battle) return;
+
+	//아군 전멸은 임무와 무관한 공통 패배 조건
+	if (allies.Num() == 0)
+	{
+		FinishBattle(EBattleResult::Defeat);
+		return;
+	}
+
+	const UMissionData* mission = GetCurrentMission();
+	if (mission && mission->IsComplete(this))
+	{
+		FinishBattle(EBattleResult::Victory);
+	}
+}
+
+void ABattleGameMode::FinishBattle(EBattleResult result)
+{
+	if (phase == EBattlePhase::Result) return;
+
+	//턴 진행을 즉시 멈춘다, 이후 StartCurrentTurn이 돌지 않도록
+	phase = EBattlePhase::Result;
+
+	//승리한 경우에만 회수한다. 패배면 allies가 비어 있어 회수할 것이 없다
+	if (result == EBattleResult::Victory)
+	{
+		UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+		if (URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr)
+		{
+			TArray<AAllyCharacterBase*> survivors;
+			survivors.Reserve(allies.Num());
+			for (const TObjectPtr<AAllyCharacterBase>& ally : allies)
+			{
+				survivors.Add(ally);
+			}
+			runProgress->CaptureFromWorld(survivors);
+		}
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 전투 종료: %s (생존 아군 %d)"),
+		result == EBattleResult::Victory ? TEXT("승리") : TEXT("패배"), allies.Num());
+
+	OnBattleFinished.Broadcast(result);
+}
+
 void ABattleGameMode::OnTurnEnd()
 {
+	//승패가 확정된 뒤에는 턴을 더 진행하지 않는다
+	if (phase == EBattlePhase::Result) return;
+
+	//턴 기반 목표(생존 N턴 등)를 위해 턴이 넘어갈 때마다 판정
+	EvaluateMission();
+	if (phase == EBattlePhase::Result) return;
+
 	currentTurnIndex++;
 
 	//모든 캐릭터가 행동하면 라운드 종료, 다음 라운드 시작

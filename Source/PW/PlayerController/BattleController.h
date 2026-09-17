@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "GameMode/BattleGameMode.h"
 #include "BattleController.generated.h"
 
 struct FInputActionValue;
@@ -19,6 +20,8 @@ class UUpgradeSelectWidget;
 class USkillBase;
 class UDebugWidget;
 class USkillComponent;
+class UDeployWidget;
+class UBattleResultWidget;
 
 //전투 씬 플레이어 컨트롤러, EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
 UCLASS()
@@ -32,6 +35,12 @@ public:
 	//턴 시작 시 GameMode에서 호출
 	void InitTurn(AAllyCharacterBase* TurnUnit);
 	void EndTurn();
+
+	//배치 확정, DeployWidget에서 호출. 전투로 넘어가면 배치 UI를 거둔다
+	void ConfirmDeployment();
+
+	//결과 화면의 버튼에서 호출, 다음 스테이지나 허브로 이동한다
+	void LeaveBattle(EBattleResult result);
 
 	//적 턴 시작 시 GameMode에서 호출, 카메라 폰 스프링암을 피벗으로 AI 추적
 	void BeginAITurnFollow(ACharacterBase* AIUnit);
@@ -187,6 +196,35 @@ private:
 	//생성된 디버그 위젯 인스턴스
 	UPROPERTY()
 	TObjectPtr<UDebugWidget> debugWidgetInstance = nullptr;
+
+	//출격 배치 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UDeployWidget> deployWidgetClass;
+
+	//생성된 배치 위젯 인스턴스, 전투 개시 시 제거
+	UPROPERTY()
+	TObjectPtr<UDeployWidget> deployWidgetInstance = nullptr;
+
+	//배치 시 지면에서 띄울 높이, 캡슐이 지면에 박히지 않게 하고 중력으로 안착시킨다
+	UPROPERTY(EditDefaultsOnly, Category = "Deploy")
+	float deploySpawnZOffset = 100.f;
+
+	//전투 결과 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UBattleResultWidget> resultWidgetClass;
+
+	//생성된 결과 위젯 인스턴스
+	UPROPERTY()
+	TObjectPtr<UBattleResultWidget> resultWidgetInstance = nullptr;
+
+	//Deploy 페이즈 진입 통지 수신, 배치 위젯 생성
+	void OnDeployPhaseStarted();
+
+	//Deploy 중 클릭 처리, 커서 아래 지점에 선택된 인원을 배치
+	void HandleDeployClick();
+
+	//전투 종료 통지 수신, 결과 위젯 생성
+	void OnBattleFinished(EBattleResult result);
 
 	//대기 중인 강화 선택을 하나 표시, 후보는 UUpgradeLibrary에서 추첨
 	void ShowUpgradeSelect();

@@ -63,12 +63,12 @@ const UStoryRouteData* UPWGameInstance::FindStoryRoute(FName routeId) const
 	return nullptr;
 }
 
-void UPWGameInstance::StartRun(const TArray<FAllyRunState>& roster, FName storyRouteId)
+void UPWGameInstance::StartRun(const TArray<FAllyRunState>& roster, FName storyRouteId, const TArray<FStageEntry>& stages)
 {
 	//이전 런의 값이 새 런에 새어 들지 않도록 필드 리셋이 아니라 객체를 통째로 교체
 	runProgress = NewObject<URunProgress>(this);
-	runProgress->StartRun(roster, storyRouteId);
+	runProgress->StartRun(roster, storyRouteId, stages);
 
-	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 런 시작, 모드=%d 줄기=%s 인원=%d"),
-		static_cast<int32>(difficulty), *storyRouteId.ToString(), roster.Num());
+	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 런 시작, 모드=%d 줄기=%s 인원=%d 스테이지=%d개"),
+		static_cast<int32>(difficulty), *storyRouteId.ToString(), roster.Num(), stages.Num());
 }

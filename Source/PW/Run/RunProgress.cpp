@@ -3,12 +3,24 @@
 #include "Run/RunProgress.h"
 #include "Characters/AllyCharacterBase.h"
 
-void URunProgress::StartRun(const TArray<FAllyRunState>& initialRoster, FName inStoryRouteId)
+void URunProgress::StartRun(const TArray<FAllyRunState>& initialRoster, FName inStoryRouteId, const TArray<FStageEntry>& inStages)
 {
 	roster = initialRoster;
+	stages = inStages;
 	stageIndex = 0;
 	bRunActive = true;
 	storyRouteId = inStoryRouteId;
+}
+
+const FStageEntry* URunProgress::GetCurrentStage() const
+{
+	return stages.IsValidIndex(stageIndex) ? &stages[stageIndex] : nullptr;
+}
+
+bool URunProgress::AdvanceStage()
+{
+	++stageIndex;
+	return stages.IsValidIndex(stageIndex);
 }
 
 void URunProgress::EndRun()
