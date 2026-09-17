@@ -21,6 +21,11 @@
 #include "Landscape.h"
 #include "Widget/UpgradeSelectWidget.h"
 #include "Widget/DebugWidget.h"
+#include "Widget/DeployWidget.h"
+#include "Widget/BattleResultWidget.h"
+#include "GameInstance/PWGameInstance.h"
+#include "Run/RunProgress.h"
+#include "Kismet/GameplayStatics.h"
 #include "DataAsset/UpgradeLibrary.h"
 #include "DataAsset/FixedUpgradeTableData.h"
 #include "GameInstance/PWGameInstance.h"
@@ -46,6 +51,11 @@ void ABattleController::BeginPlay()
 		}
 	}
 
+	//Hub의 FInputModeUIOnly가 GameViewportClient에 SetIgnoreInput(true)를 남긴다
+	//뷰포트 클라이언트는 GameInstance 소유라 OpenLevel을 넘어 살아남으므로 여기서 되돌린다
+	//전투는 월드 클릭과 UMG 버튼을 모두 쓰므로 GameAndUI
+	SetInputMode(FInputModeGameAndUI());
+
 	//카메라 폰 스프링암 캐시 및 초기 Yaw/Pitch 동기화
 	if (USpringArmComponent* SpringArm = ResolveSpringArm())
 	{
@@ -62,6 +72,111 @@ void ABattleController::BeginPlay()
 		{
 			debugWidgetInstance->AddToViewport();
 		}
+	}
+
+	//GameMode의 Deploy 진입은 다음 틱이라 여기서 먼저 구독해도 늦지 않는다
+	if (ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		gameMode->OnDeployPhaseStarted.AddUObject(this, &ABattleController::OnDeployPhaseStarted);
+		gameMode->OnBattleFinished.AddUObject(this, &ABattleController::OnBattleFinished);
+	}
+}
+
+void ABattleController::OnBattleFinished(EBattleResult result)
+{
+	//전투 HUD를 거두어 결과 화면 위에서 조작이 남지 않게 한다
+	if (turnHudWidgetInstance)
+	{
+		turnHudWidgetInstance->RemoveFromParent();
+		turnHudWidgetInstance = nullptr;
+	}
+
+	if (!resultWidgetClass) return;
+
+	resultWidgetInstance = CreateWidget<UBattleResultWidget>(this, resultWidgetClass);
+	if (!resultWidgetInstance) return;
+
+	resultWidgetInstance->AddToViewport();
+	resultWidgetInstance->SetResult(result);
+}
+
+void ABattleController::LeaveBattle(EBattleResult result)
+{
+	UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
+	if (!gameInstance || !runProgress) return;
+
+	//패배는 런을 닫고 허브로, 승리는 다음 스테이지가 있으면 그쪽으로
+	if (result == EBattleResult::Victory && runProgress->AdvanceStage())
+	{
+		if (const FStageEntry* next = runProgress->GetCurrentStage())
+		{
+			if (!next->Map.IsNull())
+			{
+				UE_LOG(LogTemp, Log, TEXT("[BattleController] 다음 스테이지로 이동"));
+				UGameplayStatics::OpenLevelBySoftObjectPtr(this, next->Map);
+				return;
+			}
+		}
+	}
+
+	runProgress->EndRun();
+
+	const TSoftObjectPtr<UWorld>& hubMap = gameInstance->GetHubMap();
+	if (hubMap.IsNull())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[BattleController] 허브 맵이 지정되지 않아 복귀할 수 없습니다"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleController] 런 종료, 허브로 복귀"));
+	UGameplayStatics::OpenLevelBySoftObjectPtr(this, hubMap);
+}
+
+void ABattleController::OnDeployPhaseStarted()
+{
+	if (!deployWidgetClass) return;
+
+	deployWidgetInstance = CreateWidget<UDeployWidget>(this, deployWidgetClass);
+	if (!deployWidgetInstance) return;
+
+	deployWidgetInstance->AddToViewport();
+}
+
+void ABattleController::HandleDeployClick()
+{
+	if (!deployWidgetInstance) return;
+
+	const int32 rosterIndex = deployWidgetInstance->GetSelectedIndex();
+	if (rosterIndex == INDEX_NONE) return;
+
+	FHitResult hit;
+	if (!GetHitResultUnderCursor(ECC_Visibility, false, hit)) return;
+
+	ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>();
+	if (!gameMode) return;
+
+	//지면에서 띄워 스폰하고 중력으로 안착시킨다, 캡슐 높이를 클래스마다 알 필요가 없다
+	const FVector spawnPoint = hit.ImpactPoint + FVector(0.f, 0.f, deploySpawnZOffset);
+
+	if (gameMode->DeployAt(rosterIndex, spawnPoint))
+	{
+		deployWidgetInstance->RefreshList();
+	}
+}
+
+void ABattleController::ConfirmDeployment()
+{
+	ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gameMode) return;
+
+	gameMode->ConfirmDeployment();
+
+	//전투로 넘어간 경우에만 배치 UI를 거둔다
+	if (gameMode->GetPhase() == EBattlePhase::Battle && deployWidgetInstance)
+	{
+		deployWidgetInstance->RemoveFromParent();
+		deployWidgetInstance = nullptr;
 	}
 }
 
@@ -375,6 +490,16 @@ void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 
 void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 {
+	//Deploy 페이즈에서는 같은 클릭이 배치 명령이 된다
+	if (const ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr)
+	{
+		if (gameMode->GetPhase() == EBattlePhase::Deploy)
+		{
+			HandleDeployClick();
+			return;
+		}
+	}
+
 	if (!activeUnit) return;
 
 	//상태이상이 턴을 진행 중이면 조작 불가, HUD 잠금이 막지 못하는 입력 경로 차단

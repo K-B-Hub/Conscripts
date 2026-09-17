@@ -6,6 +6,7 @@
 #include "Engine/GameInstance.h"
 #include "Enum/GameDifficulty.h"
 #include "Run/AllyRunState.h"
+#include "Run/StageEntry.h"
 #include "PWGameInstance.generated.h"
 
 class UStressPoolData;
@@ -50,6 +51,13 @@ public:
 	//로그라이크·악몽의 시작 편성 인원
 	int32 GetInitialRosterSize() const { return initialRosterSize; }
 
+	//현재 유일한 스테이지 시퀀스 출처
+	//줄기별 고정 시퀀스나 로그라이크 랜덤 생성이 붙으면 호출자가 다른 목록을 넘기면 된다
+	const TArray<FStageEntry>& GetDefaultStageSequence() const { return defaultStageSequence; }
+
+	//런 종료·패배 시 돌아갈 허브 레벨
+	const TSoftObjectPtr<UWorld>& GetHubMap() const { return hubMap; }
+
 	//현재 런의 진행 상태, Init 이후 항상 유효
 	URunProgress* GetRunProgress() const { return runProgress; }
 
@@ -61,7 +69,7 @@ public:
 
 	//편성 확정 시 호출, 이전 런의 흔적이 남지 않도록 진행 상태를 새로 만든다
 	//스토리가 아니면 storyRouteId는 NAME_None
-	void StartRun(const TArray<FAllyRunState>& roster, FName storyRouteId);
+	void StartRun(const TArray<FAllyRunState>& roster, FName storyRouteId, const TArray<FStageEntry>& stages);
 
 protected:
 	//현재 런의 난이도
@@ -88,6 +96,14 @@ protected:
 	//로그라이크·악몽의 시작 편성 인원, 밸런스 값이라 에디터에서 조정
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
 	int32 initialRosterSize = 4;
+
+	//런이 진행할 스테이지 순서, 지금은 테스트 맵 하나만 넣어둔다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stage")
+	TArray<FStageEntry> defaultStageSequence;
+
+	//런이 끝나면 돌아갈 허브 레벨
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stage")
+	TSoftObjectPtr<UWorld> hubMap;
 
 private:
 	//런 진행 상태, 런 시작 시 통째로 교체

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "Run/AllyRunState.h"
+#include "Run/StageEntry.h"
 #include "RunProgress.generated.h"
 
 class AAllyCharacterBase;
@@ -18,13 +19,22 @@ class PW_API URunProgress : public UObject
 
 public:
 	//편성 확정 시 호출, 런을 연다. 스토리가 아니면 routeId는 NAME_None
-	void StartRun(const TArray<FAllyRunState>& initialRoster, FName inStoryRouteId);
+	void StartRun(const TArray<FAllyRunState>& initialRoster, FName inStoryRouteId, const TArray<FStageEntry>& inStages);
 
 	//런 종료, 메인메뉴 복귀 시 호출
 	void EndRun();
 
 	//현재 스테이지 번호, 0부터 시작
 	int32 GetStageIndex() const { return stageIndex; }
+
+	//현재 진행할 스테이지, 시퀀스를 벗어났으면 nullptr
+	const FStageEntry* GetCurrentStage() const;
+
+	//아직 진행할 스테이지가 남아 있는지
+	bool HasMoreStages() const { return stages.IsValidIndex(stageIndex); }
+
+	//다음 스테이지로 진행, 시퀀스가 끝나면 false
+	bool AdvanceStage();
 
 	bool IsRunActive() const { return bRunActive; }
 
@@ -48,6 +58,10 @@ private:
 	//현재 런의 아군 구성, 사망 시 줄고 영입 시 늘어난다
 	UPROPERTY()
 	TArray<FAllyRunState> roster;
+
+	//이번 런이 진행할 스테이지 순서, 런 시작 시 받아서 보관한다
+	UPROPERTY()
+	TArray<FStageEntry> stages;
 
 	//진행 중인 스테이지 번호
 	int32 stageIndex = 0;
