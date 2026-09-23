@@ -22,6 +22,8 @@ class UDebugWidget;
 class USkillComponent;
 class UDeployWidget;
 class UBattleResultWidget;
+class UStagePreviewWidget;
+class UCampRecruitWidget;
 
 //전투 씬 플레이어 컨트롤러, EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
 UCLASS()
@@ -39,8 +41,21 @@ public:
 	//배치 확정, DeployWidget에서 호출. 전투로 넘어가면 배치 UI를 거둔다
 	void ConfirmDeployment();
 
-	//결과 화면의 버튼에서 호출, 다음 스테이지나 허브로 이동한다
+	//결과 화면의 버튼에서 호출, 스테이지를 진행시키고 예고 화면을 연다
+	//패배나 완주면 예고 없이 허브로 돌아간다
 	void LeaveBattle(EBattleResult result);
+
+	//예고 화면의 버튼에서 호출, 예고한 스테이지로 실제 이동한다
+	void TravelToNextStage();
+
+	//예고 화면의 야영지 버튼, 끼워 넣었으면 true
+	bool InsertCampVisit();
+
+	//증원 강화가 호출, 직업 선택은 강화 선택이 모두 끝난 뒤로 미룬다
+	void RequestReinforcement(AAllyCharacterBase* caller, int32 count);
+
+	//직업 선택 화면이 호출, 신병 한 명을 합류시킨다. 남은 인원이 없으면 턴을 이어간다
+	void ChooseReinforcementJob(int32 jobIndex);
 
 	//적 턴 시작 시 GameMode에서 호출, 카메라 폰 스프링암을 피벗으로 AI 추적
 	void BeginAITurnFollow(ACharacterBase* AIUnit);
@@ -216,6 +231,33 @@ private:
 	//생성된 결과 위젯 인스턴스
 	UPROPERTY()
 	TObjectPtr<UBattleResultWidget> resultWidgetInstance = nullptr;
+
+	//다음 스테이지 예고 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UStagePreviewWidget> previewWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UStagePreviewWidget> previewWidgetInstance = nullptr;
+
+	//증원 직업 선택 화면, 야영지 충원과 같은 위젯
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UCampRecruitWidget> recruitWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UCampRecruitWidget> recruitWidgetInstance = nullptr;
+
+	//증원을 요청한 아군, 신병이 설 기준 위치이자 요청 대기 표시
+	UPROPERTY()
+	TObjectPtr<AAllyCharacterBase> reinforcementCaller = nullptr;
+
+	//아직 직업을 고르지 않은 증원 인원
+	int32 remainingReinforcements = 0;
+
+	//대기 중인 증원 요청이 있으면 직업 선택을 연다, 없으면 HUD 잠금을 푼다
+	void ShowReinforcementSelect();
+
+	//증원 흐름 종료, 위젯을 거두고 요청자의 턴을 이어간다
+	void FinishReinforcement();
 
 	//Deploy 페이즈 진입 통지 수신, 배치 위젯 생성
 	void OnDeployPhaseStarted();

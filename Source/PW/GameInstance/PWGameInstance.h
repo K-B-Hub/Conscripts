@@ -12,6 +12,7 @@
 class UStressPoolData;
 class UUpgradeTableData;
 class UStoryRouteData;
+class URunModeData;
 class URunProgress;
 class UPWSaveGame;
 class AAllyCharacterBase;
@@ -45,18 +46,26 @@ public:
 	//식별자로 줄기 조회, 없으면 nullptr
 	const UStoryRouteData* FindStoryRoute(FName routeId) const;
 
-	//편성에서 고를 수 있는 직업 목록, 해금 필터는 콘텐츠를 채울 때 적용
-	const TArray<TSubclassOf<AAllyCharacterBase>>& GetSelectableJobs() const { return selectableJobs; }
+	//지금 고를 수 있는 직업, 기본 직업 + 클리어한 줄기가 여는 직업
+	//편성과 야영지 충원이 같은 목록을 쓰므로 인덱스도 서로 맞는다
+	TArray<TSubclassOf<AAllyCharacterBase>> GetUnlockedJobs() const;
 
 	//로그라이크·악몽의 시작 편성 인원
 	int32 GetInitialRosterSize() const { return initialRosterSize; }
 
-	//현재 유일한 스테이지 시퀀스 출처
-	//줄기별 고정 시퀀스나 로그라이크 랜덤 생성이 붙으면 호출자가 다른 목록을 넘기면 된다
-	const TArray<FStageEntry>& GetDefaultStageSequence() const { return defaultStageSequence; }
+	//로스터가 이 수를 넘지 못한다, 야영지 자리 수와 별개로 규칙으로 두는 상한
+	int32 GetMaxRosterSize() const { return maxRosterSize; }
 
 	//런 종료·패배 시 돌아갈 허브 레벨
 	const TSoftObjectPtr<UWorld>& GetHubMap() const { return hubMap; }
+
+	//현재 스테이지 맵을 연다, 시퀀스를 벗어났거나 맵이 없으면 false
+	//편성 확정·전투 종료·야영지 퇴장이 모두 같은 판단을 하므로 시퀀스를 소유한 이쪽에 둔다
+	bool TravelToCurrentStage(const UObject* worldContext);
+
+	//런을 닫고 허브로 복귀, bCleared면 줄기 클리어를 기록한다
+	//런이 닫히는 유일한 지점이라 클리어 기록도 여기 한 곳에서만 일어난다
+	void EndRunAndReturnToHub(const UObject* worldContext, bool bCleared);
 
 	//현재 런의 진행 상태, Init 이후 항상 유효
 	URunProgress* GetRunProgress() const { return runProgress; }
@@ -68,8 +77,8 @@ public:
 	void SaveProgress();
 
 	//편성 확정 시 호출, 이전 런의 흔적이 남지 않도록 진행 상태를 새로 만든다
-	//스토리가 아니면 storyRouteId는 NAME_None
-	void StartRun(const TArray<FAllyRunState>& roster, FName storyRouteId, const TArray<FStageEntry>& stages);
+	//시퀀스를 고정으로 줄지 규칙으로 만들지는 난이도를 아는 이쪽이 판단한다
+	void StartRun(const TArray<FAllyRunState>& roster, FName storyRouteId);
 
 protected:
 	//현재 런의 난이도
@@ -89,17 +98,29 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Story")
 	TArray<TObjectPtr<UStoryRouteData>> storyRoutes;
 
-	//편성 화면에 노출할 직업 목록
+	//해금과 무관하게 언제나 고를 수 있는 기본 직업
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
 	TArray<TSubclassOf<AAllyCharacterBase>> selectableJobs;
 
 	//로그라이크·악몽의 시작 편성 인원, 밸런스 값이라 에디터에서 조정
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
-	int32 initialRosterSize = 4;
+	int32 initialRosterSize = 6;
 
-	//런이 진행할 스테이지 순서, 지금은 테스트 맵 하나만 넣어둔다
+	//로스터 상한, 야영지 자리가 모자라 못 세우는 것과 달리 이쪽은 의도된 규칙이다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
+	int32 maxRosterSize = 12;
+
+	//줄기나 모드 설정이 비어 있을 때 쓰는 대체 시퀀스
+	//콘텐츠가 채워지기 전까지 모든 모드가 이걸로 돌아간다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stage")
 	TArray<FStageEntry> defaultStageSequence;
+
+	//시퀀스를 규칙으로 만드는 모드의 설정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stage")
+	TObjectPtr<URunModeData> roguelikeMode;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stage")
+	TObjectPtr<URunModeData> nightmareMode;
 
 	//런이 끝나면 돌아갈 허브 레벨
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stage")

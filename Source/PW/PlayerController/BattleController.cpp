@@ -23,12 +23,11 @@
 #include "Widget/DebugWidget.h"
 #include "Widget/DeployWidget.h"
 #include "Widget/BattleResultWidget.h"
+#include "Widget/StagePreviewWidget.h"
+#include "Widget/CampRecruitWidget.h"
 #include "GameInstance/PWGameInstance.h"
 #include "Run/RunProgress.h"
-#include "Kismet/GameplayStatics.h"
 #include "DataAsset/UpgradeLibrary.h"
-#include "DataAsset/FixedUpgradeTableData.h"
-#include "GameInstance/PWGameInstance.h"
 
 ABattleController::ABattleController()
 {
@@ -106,31 +105,64 @@ void ABattleController::LeaveBattle(EBattleResult result)
 	URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
 	if (!gameInstance || !runProgress) return;
 
-	//패배는 런을 닫고 허브로, 승리는 다음 스테이지가 있으면 그쪽으로
-	if (result == EBattleResult::Victory && runProgress->AdvanceStage())
+	if (result == EBattleResult::Defeat)
 	{
-		if (const FStageEntry* next = runProgress->GetCurrentStage())
-		{
-			if (!next->Map.IsNull())
-			{
-				UE_LOG(LogTemp, Log, TEXT("[BattleController] 다음 스테이지로 이동"));
-				UGameplayStatics::OpenLevelBySoftObjectPtr(this, next->Map);
-				return;
-			}
-		}
-	}
-
-	runProgress->EndRun();
-
-	const TSoftObjectPtr<UWorld>& hubMap = gameInstance->GetHubMap();
-	if (hubMap.IsNull())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[BattleController] 허브 맵이 지정되지 않아 복귀할 수 없습니다"));
+		gameInstance->EndRunAndReturnToHub(this, false);
 		return;
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[BattleController] 런 종료, 허브로 복귀"));
-	UGameplayStatics::OpenLevelBySoftObjectPtr(this, hubMap);
+	if (!runProgress->AdvanceStage())
+	{
+		//목표 전투를 다 치렀다, 런 완주
+		gameInstance->EndRunAndReturnToHub(this, true);
+		return;
+	}
+
+	//결과 화면을 예고 화면으로 바꾼다, 이동은 예고 화면의 버튼이 시작한다
+	if (resultWidgetInstance)
+	{
+		resultWidgetInstance->RemoveFromParent();
+		resultWidgetInstance = nullptr;
+	}
+
+	if (previewWidgetClass)
+	{
+		previewWidgetInstance = CreateWidget<UStagePreviewWidget>(this, previewWidgetClass);
+	}
+
+	//예고 위젯이 없으면 예고를 건너뛰고 바로 넘어간다, 흐름이 멈추지 않도록
+	if (!previewWidgetInstance)
+	{
+		TravelToNextStage();
+		return;
+	}
+
+	previewWidgetInstance->AddToViewport();
+}
+
+void ABattleController::TravelToNextStage()
+{
+	UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	if (!gameInstance) return;
+
+	if (previewWidgetInstance)
+	{
+		previewWidgetInstance->RemoveFromParent();
+		previewWidgetInstance = nullptr;
+	}
+
+	if (gameInstance->TravelToCurrentStage(this)) return;
+
+	//맵 지정이 빠져 더 갈 수 없는 것뿐이라 완주로 치지 않는다
+	gameInstance->EndRunAndReturnToHub(this, false);
+}
+
+bool ABattleController::InsertCampVisit()
+{
+	UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
+
+	return runProgress && runProgress->InsertCampVisit();
 }
 
 void ABattleController::OnDeployPhaseStarted()
@@ -264,31 +296,8 @@ void ABattleController::ShowUpgradeSelect()
 	const UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
 	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
 
-	//가장 앞 대기 강화의 부여 레벨로 종류를 복원해 분기
-	const int32 pendingLevel = activeUnit->PeekPendingUpgradeLevel();
-	const ELevelUpUpgradeKind kind = UUpgradeLibrary::ClassifyLevelUpUpgrade(pendingLevel);
-
-	TArray<TSubclassOf<USkillBase>> choices;
-	switch (kind)
-	{
-	case ELevelUpUpgradeKind::ClassFixed:
-	{
-		//직업별 레벨 고정 강화, 단일 카드로 제시
-		const UFixedUpgradeTableData* fixedTable = activeUnit->GetFixedUpgradeTable();
-		const TSubclassOf<USkillBase> fixed = fixedTable ? fixedTable->GetFixedUpgrade(pendingLevel) : nullptr;
-		if (fixed) choices.Add(fixed);
-		break;
-	}
-	case ELevelUpUpgradeKind::HighRandom:
-		//하급 풀 제외 고급 랜덤
-		choices = UUpgradeLibrary::BuildChoices(
-			activeUnit, activeUnit->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Mid);
-		break;
-	default:
-		choices = UUpgradeLibrary::BuildChoices(
-			activeUnit, activeUnit->GetClassUpgradeTable(), commonTable, 3);
-		break;
-	}
+	//후보 생성은 야영지 충원과 공유하므로 UUpgradeLibrary에 있다
+	const TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildPendingChoices(activeUnit, commonTable);
 
 	//후보가 하나도 없으면 큐만 소비하고 종료
 	if (choices.Num() == 0)
@@ -331,15 +340,88 @@ void ABattleController::OnUpgradeChosen(TSubclassOf<USkillBase> Chosen)
 		upgradeSelectWidgetInstance = nullptr;
 	}
 
-	//남은 강화 선택이 있으면 이어서 표시, 없으면 HUD 잠금 해제
+	//남은 강화 선택이 있으면 이어서 표시, 없으면 증원 요청을 처리하고 HUD 잠금 해제
 	if (IsValid(activeUnit) && activeUnit->GetPendingUpgradeCount() > 0)
 	{
 		ShowUpgradeSelect();
 	}
-	else if (IsValid(turnHudWidgetInstance))
+	else
 	{
-		turnHudWidgetInstance->SetIsEnabled(true);
+		ShowReinforcementSelect();
 	}
+}
+
+void ABattleController::RequestReinforcement(AAllyCharacterBase* caller, int32 count)
+{
+	//지금은 강화 선택 한가운데라 위젯을 띄우지 않는다, 표식만 남긴다
+	//한 번의 강화 소진 중에 증원을 여러 번 고를 수 있어 인원은 더해야 한다
+	reinforcementCaller = caller;
+	remainingReinforcements += count;
+}
+
+void ABattleController::ShowReinforcementSelect()
+{
+	//요청이 없거나 위젯이 없으면 턴을 그대로 이어간다
+	if (IsValid(reinforcementCaller) && remainingReinforcements > 0 && recruitWidgetClass)
+	{
+		recruitWidgetInstance = CreateWidget<UCampRecruitWidget>(this, recruitWidgetClass);
+	}
+
+	if (!recruitWidgetInstance)
+	{
+		FinishReinforcement();
+		return;
+	}
+
+	recruitWidgetInstance->OnJobChosen.BindUObject(this, &ABattleController::ChooseReinforcementJob);
+	recruitWidgetInstance->AddToViewport(10);
+	recruitWidgetInstance->SetRemaining(remainingReinforcements);
+}
+
+void ABattleController::ChooseReinforcementJob(int32 jobIndex)
+{
+	ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	if (!gameMode || !gameInstance || !IsValid(reinforcementCaller))
+	{
+		FinishReinforcement();
+		return;
+	}
+
+	//위젯이 같은 목록으로 버튼을 만들었으므로 인덱스가 그대로 통한다
+	const TArray<TSubclassOf<AAllyCharacterBase>> jobs = gameInstance->GetUnlockedJobs();
+	if (!jobs.IsValidIndex(jobIndex)) return;
+
+	//자리가 없으면 남은 인원을 포기한다, 고를 수 없는 화면에 갇히지 않도록
+	if (!gameMode->JoinReinforcement(jobs[jobIndex], reinforcementCaller))
+	{
+		FinishReinforcement();
+		return;
+	}
+
+	--remainingReinforcements;
+	if (remainingReinforcements > 0 && IsValid(recruitWidgetInstance))
+	{
+		recruitWidgetInstance->SetRemaining(remainingReinforcements);
+		return;
+	}
+
+	FinishReinforcement();
+}
+
+void ABattleController::FinishReinforcement()
+{
+	reinforcementCaller = nullptr;
+	remainingReinforcements = 0;
+
+	if (IsValid(recruitWidgetInstance))
+	{
+		recruitWidgetInstance->RemoveFromParent();
+		recruitWidgetInstance = nullptr;
+	}
+
+	//증원까지 끝났으니 요청자의 턴을 이어간다
+	if (IsValid(turnHudWidgetInstance)) turnHudWidgetInstance->SetIsEnabled(true);
 }
 
 void ABattleController::EndTurn()
