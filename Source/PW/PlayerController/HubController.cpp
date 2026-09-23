@@ -97,18 +97,10 @@ void AHubController::ConfirmFormation(const TArray<FAllyRunState>& roster)
 	UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
 	if (!gameInstance) return;
 
-	gameInstance->StartRun(roster, pendingStoryRouteId, gameInstance->GetDefaultStageSequence());
+	gameInstance->StartRun(roster, pendingStoryRouteId);
 
-	const URunProgress* runProgress = gameInstance->GetRunProgress();
-	const FStageEntry* stage = runProgress ? runProgress->GetCurrentStage() : nullptr;
-	if (!stage || stage->Map.IsNull())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Hub] 스테이지 시퀀스가 비어 있어 이동할 수 없습니다"));
-		return;
-	}
-
-	UE_LOG(LogTemp, Log, TEXT("[Hub] 편성 확정 %d명 — 스테이지 1로 이동"), roster.Num());
-	UGameplayStatics::OpenLevelBySoftObjectPtr(this, stage->Map);
+	UE_LOG(LogTemp, Log, TEXT("[Hub] 편성 확정 %d명"), roster.Num());
+	gameInstance->TravelToCurrentStage(this);
 }
 
 void AHubController::QuitGame()

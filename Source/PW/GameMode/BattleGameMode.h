@@ -108,6 +108,14 @@ public:
 	//AI가 아군(같은 진영) 대상 스킬 후보를 만들 때 사용, 적군(AI 진영) 목록 조회
 	const TArray<TObjectPtr<AEnemyBase>>& GetEnemies() const { return enemies; }
 
+	//전투 중 아군 합류, 증원 강화가 호출한다
+	//caller 옆에 레벨 1로 세운 뒤 평균 레벨까지 올리고, 현재 턴 바로 다음 순서에 끼워 넣는다
+	//쌓인 대기 강화는 신병의 턴 시작에서 기존 경로대로 소비된다
+	AAllyCharacterBase* JoinReinforcement(TSubclassOf<AAllyCharacterBase> jobClass, const AAllyCharacterBase* caller);
+
+	//생존 아군의 평균 레벨, 최소 1
+	int32 GetAverageAllyLevel() const;
+
 	//지형 자기 등록, AI가 경로마다 액터를 순회하지 않도록 캐시
 	void RegisterTerrain(ATerrainBase* Terrain);
 	void UnregisterTerrain(ATerrainBase* Terrain);
@@ -171,6 +179,12 @@ private:
 
 	//레벨 내 CharacterBase를 수집하고 turnOrder 배열을 구성
 	void BuildTurnOrder();
+
+	//caller 옆에서 NavMesh 위 빈 지점을 찾는다, 못 찾으면 false
+	bool FindReinforcementSpot(const AAllyCharacterBase* caller, FVector& outLocation) const;
+
+	//해당 지점 주변 clearance 안에 다른 캐릭터가 없는지, 높이는 무시하고 평면 거리로 본다
+	bool IsSpotClear(const FVector& location, float clearance) const;
 
 	//적 초기 레벨 스케일링, 아군 평균 레벨 +2까지 레벨업하며 랜덤 강화 자동 습득
 	void ApplyEnemyLevelScaling();

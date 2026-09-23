@@ -2,12 +2,49 @@
 
 #include "DataAsset/UpgradeLibrary.h"
 #include "DataAsset/UpgradeTableData.h"
+#include "DataAsset/FixedUpgradeTableData.h"
 #include "Characters/CharacterBase.h"
+#include "Characters/AllyCharacterBase.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Object/Skill/PassiveSkillBase.h"
 #include "Object/Rest/RestBase.h"
+#include "Object/CommonUpgrade/Middle/Rest/ReinforcementRest.h"
+#include "GameMode/BattleGameMode.h"
+#include "GameInstance/PWGameInstance.h"
+
+TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildPendingChoices(
+	const AAllyCharacterBase* character, const UUpgradeTableData* commonTable)
+{
+	TArray<TSubclassOf<USkillBase>> choices;
+	if (!character) return choices;
+
+	//가장 앞 대기 강화의 부여 레벨로 종류를 복원해 분기
+	const int32 pendingLevel = character->PeekPendingUpgradeLevel();
+
+	switch (ClassifyLevelUpUpgrade(pendingLevel))
+	{
+	case ELevelUpUpgradeKind::ClassFixed:
+	{
+		//직업별 레벨 고정 강화, 단일 카드로 제시
+		const UFixedUpgradeTableData* fixedTable = character->GetFixedUpgradeTable();
+		const TSubclassOf<USkillBase> fixed = fixedTable ? fixedTable->GetFixedUpgrade(pendingLevel) : nullptr;
+		if (fixed) choices.Add(fixed);
+		break;
+	}
+	case ELevelUpUpgradeKind::HighRandom:
+		//하급 풀 제외 고급 랜덤
+		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Mid);
+		break;
+
+	default:
+		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3);
+		break;
+	}
+
+	return choices;
+}
 
 ELevelUpUpgradeKind UUpgradeLibrary::ClassifyLevelUpUpgrade(int32 level)
 {
@@ -50,6 +87,11 @@ bool UUpgradeLibrary::CanAcquire(const ACharacterBase* character, TSubclassOf<US
 	//1회성 즉시 효과는 보유 개념이 없어 항상 습득 가능
 	if (skillClass->IsChildOf(URestBase::StaticClass()))
 	{
+		//증원만은 예외, 세울 자리가 없으면 발동해도 허사라 후보에서 뺀다
+		if (skillClass->IsChildOf(UReinforcementRest::StaticClass()))
+		{
+			return CanReinforce(character);
+		}
 		return true;
 	}
 
@@ -68,6 +110,26 @@ bool UUpgradeLibrary::CanAcquire(const ACharacterBase* character, TSubclassOf<US
 	}
 
 	return false;
+}
+
+bool UUpgradeLibrary::CanReinforce(const ACharacterBase* character)
+{
+	const UWorld* world = character ? character->GetWorld() : nullptr;
+	if (!world) return false;
+
+	//야영지에는 ABattleGameMode가 없어 자연히 제외된다, 증원은 전투 전용이다
+	const ABattleGameMode* battle = world->GetAuthGameMode<ABattleGameMode>();
+	if (!battle) return false;
+
+	const UPWGameInstance* gameInstance = world->GetGameInstance<UPWGameInstance>();
+	if (!gameInstance) return false;
+
+	const bool bRoomLeft = battle->GetAllies().Num() < gameInstance->GetMaxRosterSize();
+	if (!bRoomLeft)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Upgrade] 제외(로스터 상한): 증원"));
+	}
+	return bRoomLeft;
 }
 
 void UUpgradeLibrary::CollectAcquirable(

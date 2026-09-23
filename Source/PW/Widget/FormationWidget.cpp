@@ -64,7 +64,7 @@ void UFormationWidget::BuildJobList()
 
 	JobContainer->ClearChildren();
 
-	const TArray<TSubclassOf<AAllyCharacterBase>>& jobs = gameInstance->GetSelectableJobs();
+	const TArray<TSubclassOf<AAllyCharacterBase>> jobs = gameInstance->GetUnlockedJobs();
 	for (int32 i = 0; i < jobs.Num(); ++i)
 	{
 		if (!jobs[i]) continue;
@@ -122,7 +122,7 @@ void UFormationWidget::HandleJobClicked(int32 jobIndex)
 	const UPWGameInstance* gameInstance = world ? world->GetGameInstance<UPWGameInstance>() : nullptr;
 	if (!gameInstance) return;
 
-	const TArray<TSubclassOf<AAllyCharacterBase>>& jobs = gameInstance->GetSelectableJobs();
+	const TArray<TSubclassOf<AAllyCharacterBase>> jobs = gameInstance->GetUnlockedJobs();
 	if (!jobs.IsValidIndex(jobIndex) || !jobs[jobIndex]) return;
 
 	//같은 직업을 여러 명 뽑을 수 있으므로 순번을 붙여 개체를 구분한다

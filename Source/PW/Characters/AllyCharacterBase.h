@@ -9,6 +9,7 @@
 
 class UUpgradeTableData;
 class UFixedUpgradeTableData;
+class UWidgetComponent;
 
 //플레이어가 조작하는 아군 캐릭터 베이스
 UCLASS()
@@ -17,7 +18,18 @@ class PW_API AAllyCharacterBase : public ACharacterBase
 	GENERATED_BODY()
 
 public:
+	AAllyCharacterBase();
+
 	virtual bool IsAlly() const override { return true; }
+
+	//야영지 말풍선을 켜고 끈다, 대사가 비어 있으면 표시하지 않는다
+	void ShowCampLine(const FText& line);
+	void HideCampLine();
+
+	//야영지 정비 회복
+	//ReceiveDamage(음수)는 추가 스트레스 감소와 Damaged 패시브를 함께 일으켜
+	//정비 선택지의 설계 수치를 넘기므로 부수효과 없는 전용 경로를 쓴다
+	void RestAtCamp(int32 healAmount, int32 stressRelief);
 
 	//편성·출격 화면에 표시할 직업 이름, 파생 직업 BP에서 지정
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
@@ -26,6 +38,18 @@ public:
 	//개체 이름, 로스터 항목마다 다르며 복원 시 주입된다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Job")
 	FString displayName;
+
+	//야영지 대기 애니메이션 후보, 파생 직업 BP에서 지정
+	//몽타주는 스켈레톤에 묶여 직업 간 공유가 불가능하므로 자리가 아니라 캐릭터가 들고 있는다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camp")
+	TArray<TObjectPtr<UAnimMontage>> campIdleMontages;
+
+	//야영지 말풍선, 머리 위에 표시되며 야영지 밖에서는 꺼져 있다
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camp")
+	TObjectPtr<UWidgetComponent> campDialogueComponent;
+
+	//후보 중 하나를 무작위로 재생, 비어 있으면 아무것도 하지 않는다
+	void PlayRandomCampIdle();
 
 	//현재 상태를 스냅샷으로 추출, CDO에 대해 호출하면 직업 기본 스탯이 나온다
 	FAllyRunState CaptureRunState() const;

@@ -22,6 +22,8 @@
 #include "Actors/DeploymentZone.h"
 #include "Run/RunProgress.h"
 #include "DataAsset/MissionData.h"
+#include "NavigationSystem.h"
+#include "Components/CapsuleComponent.h"
 
 ABattleGameMode::ABattleGameMode()
 {
@@ -240,17 +242,121 @@ void ABattleGameMode::BuildTurnOrder()
 	OnTurnOrderRebuilt.Broadcast(turnOrder, currentTurnIndex);
 }
 
+int32 ABattleGameMode::GetAverageAllyLevel() const
+{
+	int32 sum = 0;
+	int32 count = 0;
+	for (const AAllyCharacterBase* Ally : allies)
+	{
+		if (!IsValid(Ally)) continue;
+
+		sum += Ally->GetLevel();
+		++count;
+	}
+
+	//내림으로 처리, 최소 1레벨은 보장
+	return (count > 0) ? FMath::Max(1, sum / count) : 1;
+}
+
+bool ABattleGameMode::IsSpotClear(const FVector& location, float clearance) const
+{
+	const float clearanceSq = clearance * clearance;
+	for (TActorIterator<ACharacterBase> It(GetWorld()); It; ++It)
+	{
+		const ACharacterBase* other = *It;
+		if (!IsValid(other)) continue;
+
+		//서로 다른 층에 있을 일이 없어 평면 거리로 충분하다
+		if (FVector::DistSquared2D(other->GetActorLocation(), location) < clearanceSq) return false;
+	}
+	return true;
+}
+
+bool ABattleGameMode::FindReinforcementSpot(const AAllyCharacterBase* caller, FVector& outLocation) const
+{
+	UNavigationSystemV1* navSys = UNavigationSystemV1::GetCurrent(GetWorld());
+	if (!navSys || !caller) return false;
+
+	const UCapsuleComponent* capsule = caller->GetCapsuleComponent();
+	const float radius = capsule->GetScaledCapsuleRadius();
+	const float halfHeight = capsule->GetScaledCapsuleHalfHeight();
+	const FVector base = caller->GetActorLocation();
+
+	//요청자에 가까운 고리부터 넓혀가며 8방향을 훑는다
+	for (int32 ring = 2; ring <= 5; ++ring)
+	{
+		const float distance = radius * ring;
+		for (int32 i = 0; i < 8; ++i)
+		{
+			const FVector dir = FRotator(0.f, i * 45.f, 0.f).RotateVector(caller->GetActorRightVector());
+
+			FNavLocation projected;
+			if (!navSys->ProjectPointToNavigation(base + dir * distance, projected,
+				FVector(radius, radius, halfHeight * 2.f))) continue;
+
+			//캡슐 지름만큼은 비어 있어야 스폰이 충돌로 막히지 않는다
+			if (!IsSpotClear(projected.Location, radius * 2.f)) continue;
+
+			//NavMesh 지점은 바닥 높이라 캡슐 절반만큼 띄워야 바닥에 끼지 않는다
+			outLocation = projected.Location + FVector(0.f, 0.f, halfHeight);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacterBase> jobClass, const AAllyCharacterBase* caller)
+{
+	//연속 증원 중 상한에 닿을 수 있어 후보 필터와 별개로 여기서도 막는다
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	if (gameInstance && allies.Num() >= gameInstance->GetMaxRosterSize())
+	{
+		UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 로스터가 가득 차 증원하지 않습니다"));
+		return nullptr;
+	}
+
+	FVector spawnLocation;
+	if (!jobClass || !caller || !FindReinforcementSpot(caller, spawnLocation))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[BattleGameMode] 증원을 세울 자리를 찾지 못했습니다"));
+		return nullptr;
+	}
+
+	//평균은 합류 전 기준이라 신병 자신이 평균에 섞이지 않는다
+	const int32 targetLevel = GetAverageAllyLevel();
+
+	//빈자리를 골랐어도 지형 굴곡으로 걸릴 수 있어 배치와 같은 보정을 건다
+	FActorSpawnParameters params;
+	params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	AAllyCharacterBase* recruit = GetWorld()->SpawnActor<AAllyCharacterBase>(
+		jobClass, spawnLocation, caller->GetActorRotation(), params);
+	if (!recruit) return nullptr;
+
+	//전투 참여자와 같은 초기화, 사망 시 배열 정리가 신병에게도 걸려야 한다
+	recruit->OnCharacterDeath.AddDynamic(this, &ABattleGameMode::OnCharacterDeath);
+	recruit->SetNavObstacleEnabled(true);
+	allies.Add(recruit);
+
+	//레벨당 대기 강화가 쌓이고, 소비는 신병의 턴 시작이 맡는다
+	recruit->ForceLevelUpTo(targetLevel);
+
+	//현재 턴 바로 다음에 끼워 넣어 같은 라운드에 행동시킨다, currentTurnIndex는 밀리지 않는다
+	turnOrder.Insert(recruit, FMath::Min(currentTurnIndex + 1, turnOrder.Num()));
+	OnTurnOrderRebuilt.Broadcast(turnOrder, currentTurnIndex);
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 증원 합류: %s Lv.%d, 아군 %d명"),
+		*recruit->GetName(), recruit->GetLevel(), allies.Num());
+
+	return recruit;
+}
+
 void ABattleGameMode::ApplyEnemyLevelScaling()
 {
 	if (allies.Num() == 0) return;
 
-	//아군 평균 레벨 계산
-	int32 sum = 0;
-	for (const AAllyCharacterBase* Ally : allies)
-	{
-		if (IsValid(Ally)) sum += Ally->GetLevel();
-	}
-	const int32 targetLevel = sum / allies.Num() + 2;
+	const int32 targetLevel = GetAverageAllyLevel() + 2;
 
 	UE_LOG(LogTemp, Log, TEXT("[Upgrade] 적 레벨 스케일링 → 아군 평균+2 = Lv.%d, 적 %d체"), targetLevel, enemies.Num());
 

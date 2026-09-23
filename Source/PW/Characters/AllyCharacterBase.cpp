@@ -4,7 +4,58 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameMode/BattleGameMode.h"
 #include "Widget/HealthWidget.h"
+#include "Widget/CampDialogueWidget.h"
 #include "Components/WidgetComponent.h"
+
+AAllyCharacterBase::AAllyCharacterBase()
+{
+	campDialogueComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("CampDialogueWidget"));
+	campDialogueComponent->SetupAttachment(RootComponent);
+	campDialogueComponent->SetRelativeLocation(FVector(0.f, 0.f, 160.f)); //체력 바보다 위
+	campDialogueComponent->SetWidgetSpace(EWidgetSpace::Screen);
+	campDialogueComponent->SetDrawSize(FVector2D(260.f, 60.f));
+
+	//야영지에서 마우스를 올렸을 때만 켠다
+	campDialogueComponent->SetVisibility(false);
+}
+
+void AAllyCharacterBase::ShowCampLine(const FText& line)
+{
+	if (!campDialogueComponent) return;
+
+	//대사 풀이 비어 있으면 빈 말풍선을 띄우지 않는다
+	if (line.IsEmpty())
+	{
+		HideCampLine();
+		return;
+	}
+
+	if (UCampDialogueWidget* bubble = Cast<UCampDialogueWidget>(campDialogueComponent->GetWidget()))
+	{
+		bubble->SetLine(line);
+	}
+	campDialogueComponent->SetVisibility(true);
+}
+
+void AAllyCharacterBase::HideCampLine()
+{
+	if (campDialogueComponent) campDialogueComponent->SetVisibility(false);
+}
+
+void AAllyCharacterBase::RestAtCamp(int32 healAmount, int32 stressRelief)
+{
+	hp = FMath::Clamp(hp + healAmount, 1, maxHp);
+	RelieveStress(stressRelief);
+
+	if (healthWidgetComponent)
+	{
+		if (UHealthWidget* healthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
+		{
+			healthWidget->InitHealth(maxHp, hp);
+		}
+	}
+	OnVitalsChanged.Broadcast();
+}
 
 FAllyRunState AAllyCharacterBase::CaptureRunState() const
 {
@@ -96,6 +147,18 @@ void AAllyCharacterBase::RestoreRunState(const FAllyRunState& state)
 		}
 	}
 	OnVitalsChanged.Broadcast();
+}
+
+void AAllyCharacterBase::PlayRandomCampIdle()
+{
+	//지정되지 않은 직업은 기본 대기 포즈로 둔다
+	if (campIdleMontages.Num() == 0) return;
+
+	UAnimMontage* picked = campIdleMontages[FMath::RandRange(0, campIdleMontages.Num() - 1)];
+	if (!picked) return;
+
+	//야영지는 턴이 없으므로 몽타주가 끝나도 되돌릴 상태가 없다
+	PlayAnimMontage(picked);
 }
 
 void AAllyCharacterBase::InitTurn()
