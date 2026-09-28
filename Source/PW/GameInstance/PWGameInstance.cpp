@@ -15,6 +15,26 @@ namespace
 	constexpr int32 SaveUserIndex = 0;
 }
 
+UPWGameInstance::UPWGameInstance()
+{
+	//난이도가 올라갈수록 전장 규모가 커진다
+	enemyCountByDifficulty.Add(EGameDifficulty::Stage, FEnemyCountRange(25, 35));
+	enemyCountByDifficulty.Add(EGameDifficulty::Roguelike, FEnemyCountRange(40, 50));
+	enemyCountByDifficulty.Add(EGameDifficulty::Nightmare, FEnemyCountRange(60, 70));
+}
+
+const FEnemyCountRange& UPWGameInstance::GetEnemyCountRange() const
+{
+	if (const FEnemyCountRange* range = enemyCountByDifficulty.Find(difficulty))
+	{
+		return *range;
+	}
+
+	//BP에서 키를 지웠을 때의 폴백, 스테이지 모드 기준
+	static const FEnemyCountRange fallback;
+	return fallback;
+}
+
 void UPWGameInstance::Init()
 {
 	Super::Init();

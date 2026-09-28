@@ -20,6 +20,8 @@
 #include "GameInstance/PWGameInstance.h"
 #include "DataAsset/StressPoolData.h"
 #include "Actors/DeploymentZone.h"
+#include "Actors/SquadSpawnPoint.h"
+#include "DataAsset/SquadData.h"
 #include "Run/RunProgress.h"
 #include "DataAsset/MissionData.h"
 #include "NavigationSystem.h"
@@ -38,6 +40,8 @@ void ABattleGameMode::BeginPlay()
 	//모든 액터의 BeginPlay 완료를 보장하기 위해 다음 틱으로 지연
 	GetWorldTimerManager().SetTimerForNextTick([this]()
 	{
+		//적을 먼저 세운다, 플레이어가 적 배치를 보고 아군을 놓는 것이 Deploy의 목적이다
+		SpawnEnemySquads();
 		StartDeployPhase();
 	});
 }
@@ -272,27 +276,25 @@ bool ABattleGameMode::IsSpotClear(const FVector& location, float clearance) cons
 	return true;
 }
 
-bool ABattleGameMode::FindReinforcementSpot(const AAllyCharacterBase* caller, FVector& outLocation) const
+bool ABattleGameMode::FindClearSpotNear(const FVector& base, float radius, float halfHeight, FVector& outLocation) const
 {
 	UNavigationSystemV1* navSys = UNavigationSystemV1::GetCurrent(GetWorld());
-	if (!navSys || !caller) return false;
+	if (!navSys) return false;
 
-	const UCapsuleComponent* capsule = caller->GetCapsuleComponent();
-	const float radius = capsule->GetScaledCapsuleRadius();
-	const float halfHeight = capsule->GetScaledCapsuleHalfHeight();
-	const FVector base = caller->GetActorLocation();
+	const FVector queryExtent(radius, radius, halfHeight * 2.f);
 
-	//요청자에 가까운 고리부터 넓혀가며 8방향을 훑는다
-	for (int32 ring = 2; ring <= 5; ++ring)
+	//원하는 자리부터 시도하고, 막히면 가까운 고리부터 넓혀가며 8방향을 훑는다
+	for (int32 ring = 0; ring <= 5; ++ring)
 	{
 		const float distance = radius * ring;
-		for (int32 i = 0; i < 8; ++i)
+		const int32 dirCount = (ring == 0) ? 1 : 8;
+
+		for (int32 i = 0; i < dirCount; ++i)
 		{
-			const FVector dir = FRotator(0.f, i * 45.f, 0.f).RotateVector(caller->GetActorRightVector());
+			const FVector dir = FRotator(0.f, i * 45.f, 0.f).RotateVector(FVector::ForwardVector);
 
 			FNavLocation projected;
-			if (!navSys->ProjectPointToNavigation(base + dir * distance, projected,
-				FVector(radius, radius, halfHeight * 2.f))) continue;
+			if (!navSys->ProjectPointToNavigation(base + dir * distance, projected, queryExtent)) continue;
 
 			//캡슐 지름만큼은 비어 있어야 스폰이 충돌로 막히지 않는다
 			if (!IsSpotClear(projected.Location, radius * 2.f)) continue;
@@ -304,6 +306,17 @@ bool ABattleGameMode::FindReinforcementSpot(const AAllyCharacterBase* caller, FV
 	}
 
 	return false;
+}
+
+bool ABattleGameMode::FindReinforcementSpot(const AAllyCharacterBase* caller, FVector& outLocation) const
+{
+	if (!caller) return false;
+
+	const UCapsuleComponent* capsule = caller->GetCapsuleComponent();
+
+	//caller 자신이 IsSpotClear를 막으므로 자기 자리가 선택되는 일은 없다
+	return FindClearSpotNear(caller->GetActorLocation(), capsule->GetScaledCapsuleRadius(),
+		capsule->GetScaledCapsuleHalfHeight(), outLocation);
 }
 
 AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacterBase> jobClass, const AAllyCharacterBase* caller)
@@ -350,6 +363,156 @@ AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacte
 		*recruit->GetName(), recruit->GetLevel(), allies.Num());
 
 	return recruit;
+}
+
+void ABattleGameMode::SpawnEnemySquads()
+{
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	if (!gameInstance) return;
+
+	//분대 풀이 비면 맵에 직접 놓인 적으로 간다
+	const TArray<TObjectPtr<USquadData>>& squadPool = gameInstance->GetSquadPool();
+	if (squadPool.Num() == 0) return;
+
+	TArray<ASquadSpawnPoint*> anchors;
+	for (TActorIterator<ASquadSpawnPoint> It(GetWorld()); It; ++It)
+	{
+		anchors.Add(*It);
+	}
+
+	if (anchors.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[BattleGameMode] 분대 앵커가 없어 적을 스폰하지 못했습니다"));
+		return;
+	}
+
+	//맵에 직접 놓인 적은 필수 배치로 본다, 놓았다는 것 자체가 그 자리에 있어야 한다는 의도다
+	//Deploy 이전이라 아군은 아직 없고, 랜덤 스폰도 시작되지 않아 여기서 세면 수동 배치만 잡힌다
+	int32 requiredCount = 0;
+	for (TActorIterator<AEnemyBase> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It)) ++requiredCount;
+	}
+
+	//총원은 난이도가 정하고, 필수 배치를 뺀 나머지만 랜덤으로 채운다
+	const FEnemyCountRange& range = gameInstance->GetEnemyCountRange();
+	const int32 totalCount = FMath::RandRange(range.Min, FMath::Max(range.Min, range.Max));
+	const int32 targetCount = FMath::Max(0, totalCount - requiredCount);
+
+	//가중치 계산의 기준, 뽑은 앵커의 위치만 쌓는다
+	TArray<FVector> chosenLocations;
+	int32 spawnedUnits = 0;
+
+	//분대를 쪼개지 않으므로 마지막 분대가 목표를 조금 넘길 수 있다
+	while (spawnedUnits < targetCount)
+	{
+		const int32 pick = PickWeightedAnchor(anchors, chosenLocations);
+		if (pick == INDEX_NONE) break;
+
+		const ASquadSpawnPoint* anchor = anchors[pick];
+
+		//한 앵커에 두 분대가 겹치지 않도록 후보에서 빼낸다
+		anchors.RemoveAtSwap(pick);
+
+		const USquadData* squad = squadPool[FMath::RandRange(0, squadPool.Num() - 1)];
+		spawnedUnits += SpawnSquadAt(anchor, squad);
+
+		chosenLocations.Add(anchor->GetActorLocation());
+	}
+
+	if (spawnedUnits < targetCount)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[BattleGameMode] 앵커가 모자라 랜덤 %d체 중 %d체만 세웠습니다"),
+			targetCount, spawnedUnits);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 적 %d체 = 필수 %d + 랜덤 %d (총원 목표 %d, 분대 %d개, 남은 앵커 %d개)"),
+		requiredCount + spawnedUnits, requiredCount, spawnedUnits, totalCount,
+		chosenLocations.Num(), anchors.Num());
+}
+
+int32 ABattleGameMode::SpawnSquadAt(const ASquadSpawnPoint* anchor, const USquadData* squad)
+{
+	if (!anchor || !squad) return 0;
+
+	const FVector anchorLocation = anchor->GetActorLocation();
+	const FRotator anchorRotation = anchor->GetActorRotation();
+
+	int32 spawned = 0;
+
+	for (const FSquadMember& member : squad->GetMembers())
+	{
+		if (!member.EnemyClass) continue;
+
+		//스폰 전이라 캡슐 규격은 CDO에서 읽는다
+		const AEnemyBase* defaults = member.EnemyClass->GetDefaultObject<AEnemyBase>();
+		const UCapsuleComponent* capsule = defaults->GetCapsuleComponent();
+		const float radius = capsule->GetScaledCapsuleRadius();
+		const float halfHeight = capsule->GetScaledCapsuleHalfHeight();
+
+		//대형은 앵커 방향을 따라 돌아간다, 스케일은 쓰지 않아 앵커를 키워도 대형이 늘어나지 않는다
+		const FVector desired = anchorLocation + anchorRotation.RotateVector(FVector(member.Offset.X, member.Offset.Y, 0.f));
+
+		FVector spawnLocation;
+		if (!FindClearSpotNear(desired, radius, halfHeight, spawnLocation))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[BattleGameMode] %s의 분대원 자리를 찾지 못해 건너뜁니다"), *anchor->GetName());
+			continue;
+		}
+
+		//빈자리를 골랐어도 지형 굴곡으로 걸릴 수 있어 증원과 같은 보정을 건다
+		FActorSpawnParameters params;
+		params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+		const FRotator spawnRotation(0.f, anchorRotation.Yaw + member.YawOffset, 0.f);
+
+		//전투 참여자 초기화는 StartBattlePhase의 순회가 맡으므로 여기서는 세우기만 한다
+		if (GetWorld()->SpawnActor<AEnemyBase>(member.EnemyClass, spawnLocation, spawnRotation, params))
+		{
+			++spawned;
+		}
+	}
+
+	return spawned;
+}
+
+int32 ABattleGameMode::PickWeightedAnchor(const TArray<ASquadSpawnPoint*>& candidates, const TArray<FVector>& chosenLocations) const
+{
+	if (candidates.Num() == 0) return INDEX_NONE;
+
+	//첫 분대는 제약이 없다
+	if (chosenLocations.Num() == 0) return FMath::RandRange(0, candidates.Num() - 1);
+
+	TArray<float> weights;
+	weights.Reserve(candidates.Num());
+
+	for (const ASquadSpawnPoint* candidate : candidates)
+	{
+		//가장 가까운 기존 분대와의 거리만 본다, 이웃 수를 곱해 누적하지 않아 분대가 적당히 붙기도 한다
+		float nearest = TNumericLimits<float>::Max();
+		for (const FVector& chosen : chosenLocations)
+		{
+			nearest = FMath::Min(nearest, FVector::Dist2D(candidate->GetActorLocation(), chosen));
+		}
+
+		//거리가 minSquadDistance에 차면 감쇠가 사라지고, 붙어 있으면 0에 가까워진다
+		weights.Add(FMath::Min(1.f, nearest / minSquadDistance));
+	}
+
+	float total = 0.f;
+	for (float w : weights) total += w;
+
+	//전부 깎여 나갔으면 뽑을 자리가 없다
+	if (total <= 0.f) return INDEX_NONE;
+
+	float roll = FMath::FRand() * total;
+	for (int32 i = 0; i < weights.Num(); ++i)
+	{
+		roll -= weights[i];
+		if (roll <= 0.f) return i;
+	}
+
+	return candidates.Num() - 1;
 }
 
 void ABattleGameMode::ApplyEnemyLevelScaling()

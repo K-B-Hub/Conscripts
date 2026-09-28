@@ -14,6 +14,8 @@ class UActiveSkillBase;
 class ATerrainBase;
 class ADeploymentZone;
 class UMissionData;
+class ASquadSpawnPoint;
+class USquadData;
 
 //전투 맵의 진행 단계, Deploy 동안에는 턴이 시작되지 않는다
 UENUM()
@@ -183,8 +185,28 @@ private:
 	//caller 옆에서 NavMesh 위 빈 지점을 찾는다, 못 찾으면 false
 	bool FindReinforcementSpot(const AAllyCharacterBase* caller, FVector& outLocation) const;
 
+	//base 주변에서 NavMesh 위 빈 자리를 찾는다, base 자체를 먼저 보고 막히면 고리를 넓혀간다
+	//증원과 분대 슬롯이 같은 판정을 쓰므로 한곳에 둔다
+	bool FindClearSpotNear(const FVector& base, float radius, float halfHeight, FVector& outLocation) const;
+
 	//해당 지점 주변 clearance 안에 다른 캐릭터가 없는지, 높이는 무시하고 평면 거리로 본다
 	bool IsSpotClear(const FVector& location, float clearance) const;
+
+	//적 분대 스폰, 앵커를 추첨해 분대 단위로 세운다
+	//Deploy 시작 전에 돌아야 플레이어가 적 배치를 보고 아군을 놓을 수 있다
+	void SpawnEnemySquads();
+
+	//앵커 하나에 분대 하나를 세운다, 실제로 세운 인원 수를 반환
+	int32 SpawnSquadAt(const ASquadSpawnPoint* anchor, const USquadData* squad);
+
+	//후보 앵커 중 하나를 가중 추첨, 이미 뽑힌 앵커에 가까운 후보는 확률이 낮아진다
+	//후보가 전부 가중치 0이면 INDEX_NONE
+	int32 PickWeightedAnchor(const TArray<ASquadSpawnPoint*>& candidates, const TArray<FVector>& chosenLocations) const;
+
+	//분대끼리 이 거리보다 가까우면 추첨 확률이 선형으로 깎인다, 완전히 막지는 않는다
+	//가중치 계산의 분모라 0이 되면 안 된다
+	UPROPERTY(EditDefaultsOnly, Category = "Enemy Spawn", meta = (ClampMin = "1.0"))
+	float minSquadDistance = 1500.f;
 
 	//적 초기 레벨 스케일링, 아군 평균 레벨 +2까지 레벨업하며 랜덤 강화 자동 습득
 	void ApplyEnemyLevelScaling();

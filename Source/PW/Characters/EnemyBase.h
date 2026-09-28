@@ -108,7 +108,9 @@ protected:
 	TObjectPtr<UUtilityAIComponent> utilityAI;
 
 	//관측 여부, 한번 관측되면 영구 유지
-	bool bVisibleToPlayers = false;
+	//임시로 true — 시야 밖 적도 보이게 둔다, 시야 시스템 재검토 시 false로 원복
+	//UpdatePlayerVisibility가 첫 줄에서 조기 반환하므로 판정 자체가 돌지 않는다
+	bool bVisibleToPlayers = true;
 
 	//아군 시야 스탯(XY 반경) 기준 가시성 갱신, Tick에서 호출, 미관측 상태에서만 판정
 	void UpdatePlayerVisibility();
