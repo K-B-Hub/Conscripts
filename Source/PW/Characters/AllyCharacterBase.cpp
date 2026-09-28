@@ -14,6 +14,8 @@ AAllyCharacterBase::AAllyCharacterBase()
 	campDialogueComponent->SetRelativeLocation(FVector(0.f, 0.f, 160.f)); //체력 바보다 위
 	campDialogueComponent->SetWidgetSpace(EWidgetSpace::Screen);
 	campDialogueComponent->SetDrawSize(FVector2D(260.f, 60.f));
+	//navObstacle이 이 위젯 위치를 형상으로 잡으면 통행 불가 영역이 머리 위로 뜬다
+	campDialogueComponent->SetCanEverAffectNavigation(false);
 
 	//야영지에서 마우스를 올렸을 때만 켠다
 	campDialogueComponent->SetVisibility(false);
