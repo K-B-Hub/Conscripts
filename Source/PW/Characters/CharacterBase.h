@@ -20,6 +20,7 @@ class UActiveSkillBase;
 class USkillBase;
 class UTerrainComponent;
 class ATerrainBase;
+class UNavModifierComponent;
 class UAnimMontage;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
@@ -82,6 +83,11 @@ protected:
 	//무기 메시 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UStaticMeshComponent> WeaponMeshComp;
+
+	//캐릭터가 차지한 자리를 통행 불가로 칠하는 컴포넌트
+	//캡슐 지오메트리 대신 이 modifier를 쓰면 NavMesh 재생성이 voxelize를 건너뛴다
+	UPROPERTY(VisibleAnywhere, Category = "Navigation")
+	TObjectPtr<UNavModifierComponent> navObstacle;
 
 	//스킬 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Skill")

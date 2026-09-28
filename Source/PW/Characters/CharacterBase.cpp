@@ -6,6 +6,8 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
 #include "NavigationSystem.h"
+#include "NavModifierComponent.h"
+#include "NavAreas/NavArea_Null.h"
 #include "ActorComponent/AilmentComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/PassiveSkillBase.h"
@@ -104,7 +106,23 @@ ACharacterBase::ACharacterBase()
 	passiveSkillComponent = CreateDefaultSubobject<UPassiveSkillComponent>(TEXT("PassiveSkillComponent"));
 	terrainComponent = CreateDefaultSubobject<UTerrainComponent>(TEXT("TerrainComponent"));
 
-	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
+	//캡슐은 NavMesh 지오메트리에 관여하지 않는다, 자리 차지는 navObstacle이 맡는다
+	GetCapsuleComponent()->SetCanEverAffectNavigation(false);
+
+	//modifier는 owner의 nav 관여 컴포넌트에서 형상을 찾으므로 메시가 잡히면 영역이 엉뚱해진다
+	//특히 무기는 칼 길이만큼 통행 불가가 번져 나간다, 전부 빼서 FailsafeExtent를 쓰게 한다
+	GetMesh()->SetCanEverAffectNavigation(false);
+	WeaponMeshComp->SetCanEverAffectNavigation(false);
+	healthWidgetComponent->SetCanEverAffectNavigation(false);
+	skillInfoWidgetComponent->SetCanEverAffectNavigation(false);
+
+	navObstacle = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavObstacle"));
+	navObstacle->AreaClass = UNavArea_Null::StaticClass();
+
+	//형상을 못 찾을 때 쓰는 크기, 기본값 (100,100,100)은 캡슐의 3배라 구멍이 과하게 넓다
+	//bounds가 컴포넌트 등록 시 캐시되므로 BeginPlay에서 늦게 넣으면 첫 턴 전까지 반영되지 않는다
+	//모든 캐릭터의 캡슐이 34/88로 같다는 전제, 캡슐 규격을 바꾸면 이 값도 함께 고칠 것
+	navObstacle->FailsafeExtent = FVector(34.f, 34.f, 88.f);
 
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
@@ -134,6 +152,7 @@ void ACharacterBase::BeginPlay()
 	{
 		baseWalkSpeed = move->MaxWalkSpeed;
 	}
+
 }
 
 void ACharacterBase::SetProne(bool bNewProne)
@@ -1142,13 +1161,18 @@ void ACharacterBase::ClearPendingDamage()
 
 void ACharacterBase::SetNavObstacleEnabled(bool bEnabled)
 {
-	GetCapsuleComponent()->SetCanEverAffectNavigation(bEnabled);
+	if (!navObstacle) return;
+
+	//통행 불가 영역을 켜고 끈다, 자기 턴에는 시작점이 막히지 않도록 꺼야 한다
+	navObstacle->SetNavigationRelevancy(bEnabled);
 
 	if (UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld()))
 	{
 		NavSys->UpdateActorInNavOctree(*this);
 		//월드 시작 직후 등 옥트리 갱신이 타일 재빌드로 이어지지 않는 경우 대비, 캡슐 영역 명시적 dirty
-		NavSys->AddDirtyArea(GetCapsuleComponent()->Bounds.GetBox().ExpandBy(100.f), ENavigationDirtyFlag::All);
+		//지오메트리는 변하지 않으므로 modifier만 dirty로 잡아 voxelize를 건너뛴다
+		NavSys->AddDirtyArea(GetCapsuleComponent()->Bounds.GetBox().ExpandBy(100.f),
+			ENavigationDirtyFlag::DynamicModifier);
 	}
 }
 
