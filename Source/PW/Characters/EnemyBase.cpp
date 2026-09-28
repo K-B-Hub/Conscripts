@@ -57,12 +57,8 @@ void AEnemyBase::BeginPlay()
 	//원위치(상대좌표 0)를 순찰 지점에 추가 — 1개만 입력해도 원위치와 왕복
 	patrolPoints.AddUnique(FVector::ZeroVector);
 
-	//시야 판정 전 기본 숨김, 첫 Tick에서 갱신
-	SetActorHiddenInGame(true);
-	if (healthWidgetComponent)
-	{
-		healthWidgetComponent->SetVisibility(false);
-	}
+	//시야 밖 적도 보이게 둔 임시 설정, 원래는 여기서 숨기고 첫 Tick의 가시성 판정이 드러냈다
+	//시야 시스템 재검토 시 bVisibleToPlayers 초기값과 함께 원복
 }
 
 FVector AEnemyBase::GetCurrentPatrolWorldLocation() const

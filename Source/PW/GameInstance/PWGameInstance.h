@@ -16,6 +16,23 @@ class URunModeData;
 class URunProgress;
 class UPWSaveGame;
 class AAllyCharacterBase;
+class USquadData;
+
+//전투 맵 하나에 나올 적 인원 범위, 분대는 쪼개지 않으므로 Max를 조금 넘을 수 있다
+USTRUCT(BlueprintType)
+struct FEnemyCountRange
+{
+	GENERATED_BODY()
+
+	FEnemyCountRange() = default;
+	FEnemyCountRange(int32 inMin, int32 inMax) : Min(inMin), Max(inMax) {}
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int32 Min = 25;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int32 Max = 35;
+};
 
 //레벨 전환 간 유지되는 런 상태 보관(난이도, 추후 캐릭터 상태·특전 등)
 UCLASS()
@@ -24,6 +41,8 @@ class PW_API UPWGameInstance : public UGameInstance
 	GENERATED_BODY()
 
 public:
+	UPWGameInstance();
+
 	//런 진행 상태 생성 및 영구 진행도 로드
 	virtual void Init() override;
 
@@ -33,6 +52,12 @@ public:
 	//메인메뉴에서 전투 시작 시 호출
 	UFUNCTION(BlueprintCallable, Category = "Game")
 	void SetDifficulty(EGameDifficulty newDifficulty) { difficulty = newDifficulty; }
+
+	//현재 난이도의 적 인원 범위, 키가 없으면 기본값을 돌려준다
+	const FEnemyCountRange& GetEnemyCountRange() const;
+
+	//적 분대 후보 풀, 비어 있으면 맵에 직접 놓인 적만 쓴다
+	const TArray<TObjectPtr<USquadData>>& GetSquadPool() const { return squadPool; }
 
 	//스트레스 이벤트 풀 조회, 미설정 시 nullptr
 	UStressPoolData* GetStressPool() const { return stressPool; }
@@ -85,6 +110,16 @@ protected:
 	//메인메뉴를 거치지 않고 전투 맵에 직접 들어가 테스트할 때의 기본값 역할도 한다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game")
 	EGameDifficulty difficulty = EGameDifficulty::Stage;
+
+	//난이도별 적 인원 범위, 맵이 아니라 난이도가 규모를 정한다
+	//생성자가 세 난이도를 모두 채우므로 BP에서 값만 조정한다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy Spawn")
+	TMap<EGameDifficulty, FEnemyCountRange> enemyCountByDifficulty;
+
+	//적 분대 후보, 런 전체가 공유한다
+	//FStageEntry에 두면 시퀀스가 사는 세 곳(줄기·모드 풀·기본 시퀀스)에 같은 목록을 중복 입력해야 한다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy Spawn")
+	TArray<TObjectPtr<USquadData>> squadPool;
 
 	//스트레스 한계 도달 시 사용할 이벤트 풀, 런 전체에서 공유
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stress")
