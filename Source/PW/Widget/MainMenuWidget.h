@@ -19,6 +19,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> StartButton;
+	//저장된 런이 없으면 비활성, 편성을 건너뛰고 그 스테이지로 바로 들어간다
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UButton> ContinueButton;
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> SettingsButton;
 	UPROPERTY(meta = (BindWidget))
@@ -27,6 +30,8 @@ protected:
 private:
 	UFUNCTION()
 	void HandleStartClicked();
+	UFUNCTION()
+	void HandleContinueClicked();
 	UFUNCTION()
 	void HandleSettingsClicked();
 	UFUNCTION()

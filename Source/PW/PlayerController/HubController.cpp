@@ -23,7 +23,7 @@ void AHubController::BeginPlay()
 	ShowMainMenu();
 }
 
-void AHubController::SwapScreen(TSubclassOf<UUserWidget> widgetClass)
+UUserWidget* AHubController::SwapScreen(TSubclassOf<UUserWidget> widgetClass)
 {
 	if (currentWidget)
 	{
@@ -31,13 +31,14 @@ void AHubController::SwapScreen(TSubclassOf<UUserWidget> widgetClass)
 		currentWidget = nullptr;
 	}
 
-	if (!widgetClass) return;
+	if (!widgetClass) return nullptr;
 
 	UUserWidget* widget = CreateWidget<UUserWidget>(this, widgetClass);
-	if (!widget) return;
+	if (!widget) return nullptr;
 
 	widget->AddToViewport();
 	currentWidget = widget;
+	return widget;
 }
 
 void AHubController::ShowMainMenu()
@@ -57,12 +58,28 @@ void AHubController::ShowStoryRouteSelect()
 
 void AHubController::ShowSettings()
 {
-	SwapScreen(settingsWidgetClass);
+	//허브에서 열면 뒤로가기가 메인메뉴로 간다, 전투 일시정지에서 열면 그쪽이 다르게 바인딩한다
+	if (USettingsWidget* settings = Cast<USettingsWidget>(SwapScreen(settingsWidgetClass)))
+	{
+		settings->onClosed.BindUObject(this, &AHubController::ShowMainMenu);
+	}
 }
 
 void AHubController::ShowFormation()
 {
 	SwapScreen(formationWidgetClass);
+}
+
+void AHubController::ContinueRun()
+{
+	UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	if (!gameInstance) return;
+
+	//실패하면 레벨 전환이 일어나지 않아 메뉴에 그대로 머문다
+	if (!gameInstance->ContinueSavedRun(this))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[HubController] 런 이어하기 실패"));
+	}
 }
 
 void AHubController::ChooseMode(EGameDifficulty mode)

@@ -1009,14 +1009,14 @@ void UUtilityAIComponent::StepNext()
 
 void UUtilityAIComponent::ScheduleStepNext()
 {
-	if (bFastForward) { StepNext(); return; }
-	GetWorld()->GetTimerManager().SetTimer(stepTimerHandle, this, &UUtilityAIComponent::StepNext, actionDelay, false);
+	GetWorld()->GetTimerManager().SetTimer(stepTimerHandle, this, &UUtilityAIComponent::StepNext,
+		actionDelay / turnSpeedScale, false);
 }
 
 void UUtilityAIComponent::SchedulePendingAfterMove()
 {
-	if (bFastForward) { ExecutePendingAfterMove(); return; }
-	GetWorld()->GetTimerManager().SetTimer(stepTimerHandle, this, &UUtilityAIComponent::ExecutePendingAfterMove, actionDelay, false);
+	GetWorld()->GetTimerManager().SetTimer(stepTimerHandle, this, &UUtilityAIComponent::ExecutePendingAfterMove,
+		actionDelay / turnSpeedScale, false);
 }
 
 void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)

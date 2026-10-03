@@ -9,6 +9,7 @@
 #include "GameMode/BattleGameMode.h"
 #include "AI/UtilityAIComponent.h"
 #include "AI/AINavigationHelper.h"
+#include "Settings/PWGameUserSettings.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 const FName AEnemyAIController::BBKey_TargetActor(TEXT("TargetActor"));
@@ -64,30 +65,37 @@ void AEnemyAIController::OnEnemyTurnStart()
 		return;
 	}
 
-	//시야 밖 턴은 연출 딜레이 생략 + 이동 배속으로 빠르게 진행
+	//이번 턴 배속 확정, 플레이어 설정과 시야 밖 배속 중 큰 쪽
+	//곱하지 않는 이유는 4x × 3x = 12x가 되어 딜레이가 사실상 0이 되고 이동이 지형을 뚫기 때문
 	AEnemyBase* enemyPawn = Cast<AEnemyBase>(GetPawn());
-	bFastForwardTurn = enemyPawn && !enemyPawn->IsVisibleToPlayers();
+	const UPWGameUserSettings* settings = UPWGameUserSettings::Get();
+	const float settingScale = settings ? settings->GetEnemyTurnSpeed() : 1.f;
+	const float offScreenScale = (enemyPawn && !enemyPawn->IsVisibleToPlayers()) ? fastForwardSpeedMultiplier : 1.f;
+	turnSpeedScale = FMath::Max(settingScale, offScreenScale);
+
 	if (enemyPawn)
 	{
 		if (UUtilityAIComponent* ai = enemyPawn->FindComponentByClass<UUtilityAIComponent>())
 		{
-			ai->SetFastForward(bFastForwardTurn);
+			ai->SetTurnSpeedScale(turnSpeedScale);
 		}
-		if (bFastForwardTurn)
+		if (turnSpeedScale > 1.f)
 		{
 			if (UCharacterMovementComponent* move = enemyPawn->GetCharacterMovement())
 			{
 				normalWalkSpeed = move->MaxWalkSpeed;
-				move->MaxWalkSpeed *= fastForwardSpeedMultiplier;
+				move->MaxWalkSpeed *= turnSpeedScale;
 			}
 		}
 	}
 
 	//행동 시작 연출 딜레이, 카메라가 행동 주체를 먼저 비추도록
-	if (!bFastForwardTurn && turnStartDelay > 0.f)
+	//배속은 딜레이를 줄이기만 하고 0으로 만들지 않는다
+	const float startDelay = turnStartDelay / turnSpeedScale;
+	if (startDelay > 0.f)
 	{
 		GetWorld()->GetTimerManager().SetTimer(turnPacingTimerHandle, this,
-			&AEnemyAIController::BeginTurnAction, turnStartDelay, false);
+			&AEnemyAIController::BeginTurnAction, startDelay, false);
 		return;
 	}
 	BeginTurnAction();
@@ -146,11 +154,12 @@ void AEnemyAIController::OnUtilityAITurnComplete()
 
 void AEnemyAIController::OnEnemyTurnEnd()
 {
-	//고속 턴 종료, 이동 배속 복원
-	const bool bWasFastForward = bFastForwardTurn;
-	if (bWasFastForward)
+	//배속 턴 종료, 이동 속도 복원
+	//종료 딜레이도 이번 턴 배속을 따라야 하므로 리셋 전에 값을 챙긴다
+	const float endScale = turnSpeedScale;
+	turnSpeedScale = 1.f;
+	if (endScale > 1.f)
 	{
-		bFastForwardTurn = false;
 		if (ACharacterBase* pawnAsChar = Cast<ACharacterBase>(GetPawn()))
 		{
 			if (UCharacterMovementComponent* move = pawnAsChar->GetCharacterMovement())
@@ -191,9 +200,10 @@ void AEnemyAIController::OnEnemyTurnEnd()
 			gm->OnTurnEnd();
 		}
 	});
-	if (!bWasFastForward && turnEndDelay > 0.f)
+	const float endDelay = turnEndDelay / endScale;
+	if (endDelay > 0.f)
 	{
-		world->GetTimerManager().SetTimer(turnPacingTimerHandle, advanceTurn, turnEndDelay, false);
+		world->GetTimerManager().SetTimer(turnPacingTimerHandle, advanceTurn, endDelay, false);
 	}
 	else
 	{

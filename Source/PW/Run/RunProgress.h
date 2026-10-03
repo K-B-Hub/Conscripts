@@ -6,6 +6,7 @@
 #include "UObject/Object.h"
 #include "Run/AllyRunState.h"
 #include "Run/StageEntry.h"
+#include "Run/PWSaveGame.h"
 #include "RunProgress.generated.h"
 
 class AAllyCharacterBase;
@@ -28,6 +29,12 @@ public:
 
 	//런 종료, 메인메뉴 복귀 시 호출
 	void EndRun();
+
+	//세이브로 내보내기, 난이도는 GameInstance가 채운다
+	void ExportTo(FRunSaveState& outSave) const;
+
+	//세이브에서 복원, 복원했다는 사실 자체로 런이 열린다
+	void RestoreFrom(const FRunSaveState& save);
 
 	//현재 스테이지 번호, 0부터 시작
 	int32 GetStageIndex() const { return stageIndex; }

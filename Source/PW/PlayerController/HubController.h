@@ -29,6 +29,9 @@ public:
 	void ShowSettings();
 	void ShowFormation();
 
+	//저장된 런을 이어서 진행, 편성을 거치지 않고 그 스테이지로 바로 들어간다
+	void ContinueRun();
+
 	//모드 확정, 스토리는 줄기 선택으로 나머지는 편성으로 진행
 	void ChooseMode(EGameDifficulty mode);
 
@@ -59,8 +62,9 @@ protected:
 	TSubclassOf<UFormationWidget> formationWidgetClass;
 
 private:
-	//기존 화면을 제거하고 새 위젯을 생성해 표시
-	void SwapScreen(TSubclassOf<UUserWidget> widgetClass);
+	//기존 화면을 제거하고 새 위젯을 생성해 표시, 생성된 위젯을 돌려준다
+	//반환값은 생성 직후 설정이 필요한 화면만 쓴다
+	UUserWidget* SwapScreen(TSubclassOf<UUserWidget> widgetClass);
 
 	//현재 표시 중인 화면, 전환 시 제거 대상
 	UPROPERTY()

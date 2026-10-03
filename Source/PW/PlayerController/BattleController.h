@@ -24,6 +24,8 @@ class UDeployWidget;
 class UBattleResultWidget;
 class UStagePreviewWidget;
 class UCampRecruitWidget;
+class UPauseMenuWidget;
+class USettingsWidget;
 
 //전투 씬 플레이어 컨트롤러, EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
 UCLASS()
@@ -62,6 +64,21 @@ public:
 
 	//시야 밖 적 턴, 추적 대상만 해제하고 카메라는 무조작
 	void ClearAITurnFollow() { aiFollowTarget = nullptr; }
+
+	//일시정지 메뉴를 닫고 게임 진행을 재개
+	void ResumeFromPause();
+
+	//일시정지 메뉴 위에 설정 화면을 띄운다
+	void ShowSettingsFromPause();
+
+	//설정 화면을 닫고 일시정지 메뉴로 되돌아간다
+	void CloseSettingsFromPause();
+
+	//런을 유지한 채 허브로 복귀, 로스터와 진행도가 메모리에 남는다
+	void ReturnToMainMenu();
+
+	//런을 포기하고 허브로 복귀, 되돌릴 수 없으므로 위젯이 확인을 거친 뒤 호출한다
+	void AbandonRun();
 
 	//MoveWidget 버튼에서 호출, 이동 모드 토글
 	void ToggleMoveMode();
@@ -108,6 +125,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	TObjectPtr<UInputAction> iA_CameraReset;
 
+	//일시정지 메뉴 토글
+	//이 액션만 bTriggerWhenPaused = true여야 한다, 아니면 pause 중 메뉴를 닫을 수 없다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> iA_Pause;
+
 	//카메라 이동 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraMoveSpeed = 1200.f;
@@ -143,6 +165,13 @@ private:
 	void OnMoveCommand(const FInputActionValue& Value);
 	void OnCancelMove(const FInputActionValue& Value);
 	void OnCameraReset(const FInputActionValue& Value);
+	void OnPause(const FInputActionValue& Value);
+
+	//설정 → 일시정지 → 해제 순으로 한 단계씩 닫고, 아무것도 없으면 일시정지 메뉴를 연다
+	void TogglePauseMenu();
+
+	//pause가 적 턴 타이머·AI 이동·카메라 입력을 함께 멈춘다
+	void SetPaused(bool bPaused);
 
 	//현재 카메라가 바라보는 Yaw 각도, 회전 누적용
 	float currentCameraYaw = 0.f;
@@ -245,6 +274,20 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UCampRecruitWidget> recruitWidgetInstance = nullptr;
+
+	//일시정지 메뉴, 다른 HUD와 달리 교체가 아니라 겹쳐 띄운다
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UPauseMenuWidget> pauseMenuWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UPauseMenuWidget> pauseMenuInstance = nullptr;
+
+	//일시정지 메뉴에서 여는 설정 화면, 허브와 같은 위젯을 쓴다
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<USettingsWidget> settingsWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<USettingsWidget> settingsInstance = nullptr;
 
 	//증원을 요청한 아군, 신병이 설 기준 위치이자 요청 대기 표시
 	UPROPERTY()
