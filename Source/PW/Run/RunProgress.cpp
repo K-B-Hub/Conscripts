@@ -147,6 +147,33 @@ void URunProgress::EndRun()
 	bRunActive = false;
 }
 
+void URunProgress::ExportTo(FRunSaveState& outSave) const
+{
+	outSave.roster = roster;
+	outSave.stages = stages;
+	outSave.modeData = modeData;
+	outSave.battlesCleared = battlesCleared;
+	outSave.campSkipStreak = campSkipStreak;
+	outSave.campVisitsLeft = campVisitsLeft;
+	outSave.stageIndex = stageIndex;
+	outSave.storyRouteId = storyRouteId;
+}
+
+void URunProgress::RestoreFrom(const FRunSaveState& save)
+{
+	roster = save.roster;
+	stages = save.stages;
+	modeData = save.modeData;
+	battlesCleared = save.battlesCleared;
+	campSkipStreak = save.campSkipStreak;
+	campVisitsLeft = save.campVisitsLeft;
+	stageIndex = save.stageIndex;
+	storyRouteId = save.storyRouteId;
+
+	//bRunActive는 저장하지 않는다, 복원했다는 사실이 곧 런이 열려 있다는 뜻이다
+	bRunActive = true;
+}
+
 void URunProgress::AddToRoster(const FAllyRunState& newMember)
 {
 	if (!newMember.IsValid()) return;

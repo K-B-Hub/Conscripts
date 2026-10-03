@@ -92,9 +92,15 @@ void UPWGameInstance::EndRunAndReturnToHub(const UObject* worldContext, bool bCl
 {
 	//스토리가 아니면 routeId가 비어 있어 기록이 그냥 지나간다
 	const FName routeId = runProgress ? runProgress->GetStoryRouteId() : NAME_None;
-	if (bCleared && !routeId.IsNone() && saveGame)
+	if (saveGame)
 	{
-		saveGame->RegisterStoryClear(routeId);
+		if (bCleared && !routeId.IsNone())
+		{
+			saveGame->RegisterStoryClear(routeId);
+		}
+
+		//런이 닫히므로 이어할 대상도 사라진다, 남겨 두면 끝난 런이 메뉴에 되살아난다
+		saveGame->run = FRunSaveState();
 
 		//다음 실행에서 해금이 살아 있어야 하므로 즉시 디스크에 쓴다
 		SaveProgress();
@@ -111,6 +117,49 @@ void UPWGameInstance::EndRunAndReturnToHub(const UObject* worldContext, bool bCl
 	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 런 종료(%s), 허브로 복귀"),
 		bCleared ? TEXT("완주") : TEXT("중단"));
 	UGameplayStatics::OpenLevelBySoftObjectPtr(worldContext, hubMap);
+}
+
+void UPWGameInstance::ReturnToHubKeepingRun(const UObject* worldContext)
+{
+	//EndRun을 부르지 않는 것이 포기와의 차이다, 대신 진행 상태를 디스크에 남긴다
+	if (hubMap.IsNull())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GameInstance] 허브 맵이 지정되지 않아 복귀할 수 없습니다"));
+		return;
+	}
+
+	if (runProgress && runProgress->IsRunActive() && saveGame)
+	{
+		runProgress->ExportTo(saveGame->run);
+		saveGame->run.difficulty = difficulty;
+		SaveProgress();
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 런 유지, 허브로 복귀 (스테이지 %d)"),
+		runProgress ? runProgress->GetStageIndex() : -1);
+	UGameplayStatics::OpenLevelBySoftObjectPtr(worldContext, hubMap);
+}
+
+bool UPWGameInstance::HasSavedRun() const
+{
+	return saveGame && saveGame->run.IsValid();
+}
+
+bool UPWGameInstance::ContinueSavedRun(const UObject* worldContext)
+{
+	if (!HasSavedRun()) return false;
+
+	//D5에 따라 통째로 교체, 이어하기도 새 런과 같은 경로를 쓴다
+	runProgress = NewObject<URunProgress>(this);
+	runProgress->RestoreFrom(saveGame->run);
+
+	//적 인원과 경험치 계수를 정하므로 스테이지 진입 전에 복원해야 한다
+	difficulty = saveGame->run.difficulty;
+
+	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 런 이어하기 (스테이지 %d, 아군 %d명)"),
+		runProgress->GetStageIndex() + 1, runProgress->GetRoster().Num());
+
+	return TravelToCurrentStage(worldContext);
 }
 
 TArray<TSubclassOf<AAllyCharacterBase>> UPWGameInstance::GetUnlockedJobs() const
@@ -147,6 +196,13 @@ void UPWGameInstance::StartRun(const TArray<FAllyRunState>& roster, FName storyR
 {
 	//이전 런의 값이 새 런에 새어 들지 않도록 필드 리셋이 아니라 객체를 통째로 교체
 	runProgress = NewObject<URunProgress>(this);
+
+	//새 런을 시작한 순간 이전 런을 이어할 길은 없어진다
+	if (saveGame)
+	{
+		saveGame->run = FRunSaveState();
+		SaveProgress();
+	}
 
 	//스토리는 줄기가 시퀀스를 통째로 갖고, 나머지는 규칙으로 만들어 간다
 	if (difficulty == EGameDifficulty::Stage)

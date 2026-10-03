@@ -92,6 +92,17 @@ public:
 	//런이 닫히는 유일한 지점이라 클리어 기록도 여기 한 곳에서만 일어난다
 	void EndRunAndReturnToHub(const UObject* worldContext, bool bCleared);
 
+	//런을 닫지 않고 허브로 복귀, 진행 상태를 디스크에 기록한다
+	//runProgress를 건드리지 않으므로 D17의 "런이 닫히는 유일한 지점" 규칙을 깨지 않는다
+	void ReturnToHubKeepingRun(const UObject* worldContext);
+
+	//이어할 런이 세이브에 있는지, 메인메뉴의 이어하기 버튼 활성 조건
+	//Init이 세이브를 이미 읽어 두므로 디스크를 다시 보지 않는다
+	bool HasSavedRun() const;
+
+	//저장된 런을 복원하고 그 스테이지로 진입, 실패하면 false
+	bool ContinueSavedRun(const UObject* worldContext);
+
 	//현재 런의 진행 상태, Init 이후 항상 유효
 	URunProgress* GetRunProgress() const { return runProgress; }
 

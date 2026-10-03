@@ -180,8 +180,8 @@ public:
 	//적 턴 행동 시작
 	void ExecuteTurn();
 
-	//고속 모드, 시야 밖 턴은 행동 간 딜레이 생략
-	void SetFastForward(bool bEnabled) { bFastForward = bEnabled; }
+	//턴 연출 배속, 행동 간 딜레이를 이 값으로 나눈다
+	void SetTurnSpeedScale(float scale) { turnSpeedScale = scale; }
 
 	//턴 종료 신호
 	DECLARE_MULTICAST_DELEGATE(FOnAITurnComplete);
@@ -223,12 +223,12 @@ protected:
 	//이동 후 예약 공격 실행, 행동 간 딜레이 뒤 호출
 	void ExecutePendingAfterMove();
 
-	//다음 행동 예약, 고속 모드면 즉시 실행
+	//다음 행동 예약, 배속은 딜레이를 줄이기만 하고 생략하지 않는다
 	void ScheduleStepNext();
 	void SchedulePendingAfterMove();
 
-	//고속 모드 여부, EnemyAIController가 턴 시작 시 설정
-	bool bFastForward = false;
+	//턴 연출 배속, EnemyAIController가 턴 시작 시 설정하며 항상 1 이상
+	float turnSpeedScale = 1.f;
 
 	//AI 이동 시작
 	//MoveCostCm은 지형 배율을 반영한 실질 이동 비용, 실제 경로 길이가 아님

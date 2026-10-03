@@ -25,8 +25,12 @@
 #include "Widget/BattleResultWidget.h"
 #include "Widget/StagePreviewWidget.h"
 #include "Widget/CampRecruitWidget.h"
+#include "Widget/PauseMenuWidget.h"
+#include "Widget/SettingsWidget.h"
 #include "GameInstance/PWGameInstance.h"
+#include "Settings/PWGameUserSettings.h"
 #include "Run/RunProgress.h"
+#include "Kismet/GameplayStatics.h"
 #include "DataAsset/UpgradeLibrary.h"
 
 ABattleController::ABattleController()
@@ -480,6 +484,10 @@ void ABattleController::SetupInputComponent()
 	{
 		EIC->BindAction(iA_CancelMove, ETriggerEvent::Started, this, &ABattleController::OnCancelMove);
 	}
+	if (iA_Pause)
+	{
+		EIC->BindAction(iA_Pause, ETriggerEvent::Started, this, &ABattleController::OnPause);
+	}
 	if (iA_CameraReset)
 	{
 		EIC->BindAction(iA_CameraReset, ETriggerEvent::Started, this, &ABattleController::OnCameraReset);
@@ -657,9 +665,124 @@ void ABattleController::OnCameraReset(const FInputActionValue& Value)
 	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
+void ABattleController::OnPause(const FInputActionValue& Value)
+{
+	//결과 화면 위에 일시정지가 겹치면 복귀·포기 경로가 전투 종료 흐름과 충돌한다
+	const ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>();
+	if (gameMode && gameMode->GetPhase() == EBattlePhase::Result) return;
+
+	TogglePauseMenu();
+}
+
+void ABattleController::TogglePauseMenu()
+{
+	//설정이 위에 있으면 설정만 닫는다, 한 번에 전부 닫으면 실수로 전투에 복귀한다
+	if (settingsInstance)
+	{
+		CloseSettingsFromPause();
+		return;
+	}
+
+	if (pauseMenuInstance)
+	{
+		ResumeFromPause();
+		return;
+	}
+
+	if (!pauseMenuWidgetClass) return;
+
+	pauseMenuInstance = CreateWidget<UPauseMenuWidget>(this, pauseMenuWidgetClass);
+	if (!pauseMenuInstance) return;
+
+	pauseMenuInstance->AddToViewport();
+	SetPaused(true);
+}
+
+void ABattleController::SetPaused(bool bPaused)
+{
+	//입력 모드는 GameAndUI를 유지한다
+	//FInputModeUIOnly는 GameInstance 소유 뷰포트에 SetIgnoreInput(true)를 남겨 다음 레벨의 입력을 죽인다
+	//카메라 조작은 UInputAction의 bTriggerWhenPaused 기본값이 false라 pause만으로 차단된다
+	UGameplayStatics::SetGamePaused(this, bPaused);
+}
+
+void ABattleController::ResumeFromPause()
+{
+	if (settingsInstance)
+	{
+		settingsInstance->RemoveFromParent();
+		settingsInstance = nullptr;
+	}
+
+	if (pauseMenuInstance)
+	{
+		pauseMenuInstance->RemoveFromParent();
+		pauseMenuInstance = nullptr;
+	}
+
+	SetPaused(false);
+}
+
+void ABattleController::ShowSettingsFromPause()
+{
+	if (!settingsWidgetClass || settingsInstance) return;
+
+	settingsInstance = CreateWidget<USettingsWidget>(this, settingsWidgetClass);
+	if (!settingsInstance) return;
+
+	//뒤로가기는 메인메뉴가 아니라 일시정지 메뉴로 돌아와야 한다
+	settingsInstance->onClosed.BindUObject(this, &ABattleController::CloseSettingsFromPause);
+	settingsInstance->AddToViewport();
+
+	//제거하지 않고 숨기기만 한다, 복귀 시 런 포기 확인 패널 상태까지 그대로 살아 있다
+	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Collapsed);
+}
+
+void ABattleController::CloseSettingsFromPause()
+{
+	if (settingsInstance)
+	{
+		settingsInstance->RemoveFromParent();
+		settingsInstance = nullptr;
+	}
+
+	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Visible);
+}
+
+void ABattleController::ReturnToMainMenu()
+{
+	//pause 상태로 OpenLevel하면 새 월드가 pause를 물고 시작할 수 있다
+	SetPaused(false);
+
+	if (UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>())
+	{
+		gameInstance->ReturnToHubKeepingRun(this);
+	}
+}
+
+void ABattleController::AbandonRun()
+{
+	//pause 상태로 OpenLevel하면 새 월드가 pause를 물고 시작할 수 있다
+	SetPaused(false);
+
+	if (UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>())
+	{
+		gameInstance->EndRunAndReturnToHub(this, false);
+	}
+}
+
 void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
 {
 	if (!IsValid(AIUnit)) return;
+
+	//설정이 꺼져 있으면 대상을 잡지 않는다, 소비 지점 두 곳(Tick·OnCameraReset)이 자동으로 걸러진다
+	//직전 적 턴이 남긴 대상을 반드시 비워야 한다 — 전투 중 설정을 끄면 그 대상이 계속 추적된다
+	const UPWGameUserSettings* settings = UPWGameUserSettings::Get();
+	if (settings && !settings->IsEnemyTurnCameraFollowEnabled())
+	{
+		aiFollowTarget = nullptr;
+		return;
+	}
 
 	aiFollowTarget = AIUnit;
 
