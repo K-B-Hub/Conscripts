@@ -10,6 +10,7 @@
 class UUpgradeTableData;
 class UFixedUpgradeTableData;
 class UWidgetComponent;
+class UTexture2D;
 
 //플레이어가 조작하는 아군 캐릭터 베이스
 UCLASS()
@@ -34,6 +35,10 @@ public:
 	//편성·출격 화면에 표시할 직업 이름, 파생 직업 BP에서 지정
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
 	FText jobName;
+
+	//출격 화면 목록·정보 패널에 표시할 직업 이미지, 파생 직업 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
+	TObjectPtr<UTexture2D> jobIcon;
 
 	//개체 이름, 로스터 항목마다 다르며 복원 시 주입된다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Job")

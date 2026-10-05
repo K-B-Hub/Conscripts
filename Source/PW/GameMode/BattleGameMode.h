@@ -87,6 +87,9 @@ public:
 	//로스터 전원이 배치되었는지
 	bool IsDeploymentComplete() const;
 
+	//배치된 인원을 모두 거둬 배치 전 상태로 되돌린다, Deploy 페이즈에서만 동작
+	void ResetDeployment();
+
 	//배치 확정, 전원 배치된 경우에만 전투를 시작한다
 	void ConfirmDeployment();
 

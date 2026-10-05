@@ -201,6 +201,16 @@ void ABattleController::HandleDeployClick()
 	}
 }
 
+void ABattleController::ResetDeployment()
+{
+	ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gameMode) return;
+
+	gameMode->ResetDeployment();
+
+	if (deployWidgetInstance) deployWidgetInstance->RefreshList();
+}
+
 void ABattleController::ConfirmDeployment()
 {
 	ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
