@@ -43,6 +43,9 @@ public:
 	//배치 확정, DeployWidget에서 호출. 전투로 넘어가면 배치 UI를 거둔다
 	void ConfirmDeployment();
 
+	//배치 초기화, DeployWidget에서 호출. 배치된 인원을 모두 거둔다
+	void ResetDeployment();
+
 	//결과 화면의 버튼에서 호출, 스테이지를 진행시키고 예고 화면을 연다
 	//패배나 완주면 예고 없이 허브로 돌아간다
 	void LeaveBattle(EBattleResult result);
