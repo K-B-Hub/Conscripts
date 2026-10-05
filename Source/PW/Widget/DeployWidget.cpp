@@ -70,17 +70,13 @@ void UDeployWidget::RefreshList()
 	{
 		DeployCompletePanel->SetVisibility(bComplete ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
-	if (DeployCompleteText && !deployCompleteFormat.IsEmpty())
-	{
-		DeployCompleteText->SetText(FText::Format(deployCompleteFormat, FText::AsNumber(deployedCount), FText::AsNumber(roster.Num())));
-	}
 
 	if (HintText)
 	{
 		FString hint;
 		if (roster.IsValidIndex(selectedIndex))
 		{
-			hint = FString::Printf(TEXT("%s 배치할 위치를 클릭하세요"), *roster[selectedIndex].DisplayName);
+			hint = TEXT("배치할 위치를 클릭하세요");
 		}
 		else
 		{

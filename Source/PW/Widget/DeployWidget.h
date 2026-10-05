@@ -52,13 +52,9 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UButton> ResetButton;
 
-	//전원 배치 시에만 표시, 이미지 위에 "배치 완료" 문구를 얹어 BP에서 구성
+	//전원 배치 시에만 표시, 표시/숨김만 토글하고 문구는 BP 정적 텍스트를 그대로 쓴다
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UWidget> DeployCompletePanel;
-
-	//완료 표시 문구, 비워 두면 BP에 적힌 문구를 그대로 쓴다
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UTextBlock> DeployCompleteText;
 
 	//선택된 인원의 정보 패널, 선택이 없으면 숨긴다
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -92,10 +88,6 @@ protected:
 	//목록 항목 위젯 클래스, BP에서 지정
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UDeployMemberEntry> memberEntryClass;
-
-	//완료 표시 문구 서식, {0} 배치 수 {1} 전체 수
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	FText deployCompleteFormat = FText::FromString(TEXT("배치 완료 {0} / {1}"));
 
 private:
 	//로스터 수가 바뀌었을 때만 항목을 새로 만든다, 매번 다시 만들면 스크롤 위치가 초기화된다
