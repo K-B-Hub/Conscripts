@@ -196,6 +196,18 @@ bool ABattleGameMode::IsDeploymentComplete() const
 	return true;
 }
 
+void ABattleGameMode::ResetDeployment()
+{
+	if (phase != EBattlePhase::Deploy) return;
+
+	//전투 개시 전이라 allies·턴 순서에 등록되지 않았으므로 액터만 지우면 된다
+	for (const TPair<int32, TObjectPtr<AAllyCharacterBase>>& pair : deployedAllies)
+	{
+		if (IsValid(pair.Value)) pair.Value->Destroy();
+	}
+	deployedAllies.Empty();
+}
+
 void ABattleGameMode::ConfirmDeployment()
 {
 	if (phase != EBattlePhase::Deploy) return;

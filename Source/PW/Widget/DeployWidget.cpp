@@ -1,14 +1,17 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Widget/DeployWidget.h"
-#include "Widget/JobSelectButton.h"
+#include "Widget/DeployMemberEntry.h"
 #include "PlayerController/BattleController.h"
 #include "GameMode/BattleGameMode.h"
 #include "GameInstance/PWGameInstance.h"
 #include "Run/RunProgress.h"
+#include "Characters/AllyCharacterBase.h"
 #include "Components/Button.h"
+#include "Components/Image.h"
 #include "Components/PanelWidget.h"
 #include "Components/TextBlock.h"
+#include "Engine/Texture2D.h"
 
 void UDeployWidget::NativeConstruct()
 {
@@ -20,13 +23,14 @@ void UDeployWidget::NativeConstruct()
 	SetIsFocusable(false);
 
 	if (ConfirmButton) ConfirmButton->OnClicked.AddDynamic(this, &UDeployWidget::HandleConfirmClicked);
+	if (ResetButton)   ResetButton->OnClicked.AddDynamic(this, &UDeployWidget::HandleResetClicked);
 
 	RefreshList();
 }
 
 void UDeployWidget::RefreshList()
 {
-	if (!MemberContainer || !memberButtonClass) return;
+	if (!MemberContainer || !memberEntryClass) return;
 
 	const UWorld* world = GetWorld();
 	if (!world) return;
@@ -36,36 +40,129 @@ void UDeployWidget::RefreshList()
 	const URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
 	if (!gameMode || !runProgress) return;
 
-	MemberContainer->ClearChildren();
-
 	const TArray<FAllyRunState>& roster = runProgress->GetRoster();
-	for (int32 i = 0; i < roster.Num(); ++i)
+
+	//로스터가 줄어 선택이 범위를 벗어났으면 해제한다
+	if (!roster.IsValidIndex(selectedIndex)) selectedIndex = INDEX_NONE;
+
+	if (memberEntries.Num() != roster.Num()) RebuildEntries(roster);
+
+	int32 deployedCount = 0;
+	for (int32 i = 0; i < memberEntries.Num(); ++i)
 	{
-		UJobSelectButton* entry = CreateWidget<UJobSelectButton>(this, memberButtonClass);
-		if (!entry) continue;
+		const bool bDeployed = gameMode->IsDeployed(i);
+		if (bDeployed) ++deployedCount;
 
-		//항목 위젯이 텍스트 한 줄만 받으므로 선택·배치 상태를 문구로 표시한다
-		FString label = roster[i].DisplayName;
-		if (gameMode->IsDeployed(i)) label += TEXT(" (배치됨)");
-		if (i == selectedIndex)      label = TEXT("▶ ") + label;
-
-		entry->InitEntry(FText::FromString(label), i);
-		entry->OnClicked.BindUObject(this, &UDeployWidget::HandleMemberClicked);
-		MemberContainer->AddChild(entry);
+		if (memberEntries[i]) memberEntries[i]->SetEntryState(i == selectedIndex, bDeployed);
 	}
 
-	if (ConfirmButton)
+	const bool bComplete = gameMode->IsDeploymentComplete();
+
+	if (ConfirmButton) ConfirmButton->SetIsEnabled(bComplete);
+	if (ResetButton)   ResetButton->SetIsEnabled(deployedCount > 0);
+
+	if (DeployCountText)
 	{
-		ConfirmButton->SetIsEnabled(gameMode->IsDeploymentComplete());
+		DeployCountText->SetText(FText::FromString(FString::Printf(TEXT("%d / %d"), deployedCount, roster.Num())));
+	}
+
+	if (DeployCompletePanel)
+	{
+		DeployCompletePanel->SetVisibility(bComplete ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	}
+	if (DeployCompleteText && !deployCompleteFormat.IsEmpty())
+	{
+		DeployCompleteText->SetText(FText::Format(deployCompleteFormat, FText::AsNumber(deployedCount), FText::AsNumber(roster.Num())));
 	}
 
 	if (HintText)
 	{
-		const FString hint = roster.IsValidIndex(selectedIndex)
-			? FString::Printf(TEXT("%s 배치할 위치를 클릭하세요"), *roster[selectedIndex].DisplayName)
-			: TEXT("배치할 인원을 선택하세요");
+		FString hint;
+		if (roster.IsValidIndex(selectedIndex))
+		{
+			hint = FString::Printf(TEXT("%s 배치할 위치를 클릭하세요"), *roster[selectedIndex].DisplayName);
+		}
+		else
+		{
+			hint = bComplete ? TEXT("출격 준비가 끝났습니다") : TEXT("배치할 인원을 선택하세요");
+		}
 		HintText->SetText(FText::FromString(hint));
 	}
+
+	RefreshInfoPanel(roster);
+}
+
+void UDeployWidget::RebuildEntries(const TArray<FAllyRunState>& roster)
+{
+	MemberContainer->ClearChildren();
+	memberEntries.Reset();
+
+	for (int32 i = 0; i < roster.Num(); ++i)
+	{
+		//생성에 실패해도 자리를 채워 로스터 인덱스와 항목 인덱스를 어긋나지 않게 한다
+		UDeployMemberEntry* entry = CreateWidget<UDeployMemberEntry>(this, memberEntryClass);
+		memberEntries.Add(entry);
+		if (!entry) continue;
+
+		entry->InitEntry(roster[i], GetJobIcon(roster[i].AllyClass), i);
+		entry->OnClicked.BindUObject(this, &UDeployWidget::HandleMemberClicked);
+		MemberContainer->AddChild(entry);
+	}
+}
+
+void UDeployWidget::RefreshInfoPanel(const TArray<FAllyRunState>& roster)
+{
+	if (!roster.IsValidIndex(selectedIndex))
+	{
+		if (InfoPanel) InfoPanel->SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
+
+	const FAllyRunState& state = roster[selectedIndex];
+
+	if (InfoPanel) InfoPanel->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+
+	if (InfoJobImage)
+	{
+		if (UTexture2D* icon = GetJobIcon(state.AllyClass))
+		{
+			InfoJobImage->SetBrushFromTexture(icon);
+			InfoJobImage->SetVisibility(ESlateVisibility::HitTestInvisible);
+		}
+		else
+		{
+			InfoJobImage->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+
+	if (InfoNameText)  InfoNameText->SetText(FText::FromString(state.DisplayName));
+	if (InfoJobText)   InfoJobText->SetText(GetJobName(state.AllyClass));
+	if (InfoLevelText) InfoLevelText->SetText(FText::FromString(FString::Printf(TEXT("LV. %d"), state.Level)));
+
+	if (InfoHpText)    InfoHpText->SetText(FText::AsNumber(state.MaxHp));
+	if (InfoAtkText)   InfoAtkText->SetText(FText::AsNumber(state.Atk));
+	if (InfoDefText)   InfoDefText->SetText(FText::AsNumber(state.Def));
+	if (InfoSpeedText) InfoSpeedText->SetText(FText::AsNumber(state.Speed));
+	if (InfoSkillText) InfoSkillText->SetText(FText::AsNumber(state.Skill));
+	if (InfoApText)    InfoApText->SetText(FText::AsNumber(state.ActionPoint));
+}
+
+FText UDeployWidget::GetJobName(TSubclassOf<AAllyCharacterBase> jobClass)
+{
+	if (!jobClass) return FText::GetEmpty();
+
+	const AAllyCharacterBase* jobCDO = jobClass->GetDefaultObject<AAllyCharacterBase>();
+	if (!jobCDO || jobCDO->jobName.IsEmpty()) return FText::FromString(jobClass->GetName());
+
+	return jobCDO->jobName;
+}
+
+UTexture2D* UDeployWidget::GetJobIcon(TSubclassOf<AAllyCharacterBase> jobClass)
+{
+	if (!jobClass) return nullptr;
+
+	const AAllyCharacterBase* jobCDO = jobClass->GetDefaultObject<AAllyCharacterBase>();
+	return jobCDO ? jobCDO->jobIcon.Get() : nullptr;
 }
 
 void UDeployWidget::HandleMemberClicked(int32 rosterIndex)
@@ -82,5 +179,16 @@ void UDeployWidget::HandleConfirmClicked()
 	if (ABattleController* battleController = GetOwningPlayer<ABattleController>())
 	{
 		battleController->ConfirmDeployment();
+	}
+}
+
+void UDeployWidget::HandleResetClicked()
+{
+	selectedIndex = INDEX_NONE;
+
+	//목록 갱신까지 컨트롤러가 처리한다
+	if (ABattleController* battleController = GetOwningPlayer<ABattleController>())
+	{
+		battleController->ResetDeployment();
 	}
 }
