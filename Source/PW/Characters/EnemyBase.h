@@ -40,9 +40,6 @@ public:
 	float GetDetectionAngle() const { return detectionAngle; }
 	float GetProximityWaveRadius() const { return proximityWaveRadius; }
 
-	//플레이어 진영 시야 내 여부, 시야 밖 적은 숨김·카메라 추적 제외
-	bool IsVisibleToPlayers() const { return bVisibleToPlayers; }
-
 	//보스 유닛 여부, 경험치 유닛 계수(보스 2 / 일반 1) 판정용
 	bool IsBoss() const { return bIsBoss; }
 
@@ -107,11 +104,4 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "AI")
 	TObjectPtr<UUtilityAIComponent> utilityAI;
 
-	//관측 여부, 한번 관측되면 영구 유지
-	//임시로 true — 시야 밖 적도 보이게 둔다, 시야 시스템 재검토 시 false로 원복
-	//UpdatePlayerVisibility가 첫 줄에서 조기 반환하므로 판정 자체가 돌지 않는다
-	bool bVisibleToPlayers = true;
-
-	//아군 시야 스탯(XY 반경) 기준 가시성 갱신, Tick에서 호출, 미관측 상태에서만 판정
-	void UpdatePlayerVisibility();
 };

@@ -17,14 +17,14 @@ USingleAilment::USingleAilment()
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 500.f;
 
-	pickRange = 800.f;
+	pickRange = 2000.f;
 	pickCount = 1;
 
 	battleResourceCost = 0;
 	actionPointCost = 1;
 
 	damageRatio = 0.f;
-	bonusAccuracy = 20.f;
+	bonusAccuracy = 80.f;
 	bonusCritical = 0.f;
 	baseDamage = 0;
 	bonusPenetration = 0;

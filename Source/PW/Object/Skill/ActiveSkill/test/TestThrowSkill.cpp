@@ -17,14 +17,14 @@ UTestThrowSkill::UTestThrowSkill()
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 200.f;
 
-	pickRange = 800.f;
+	pickRange = 2000.f;
 	pickCount = 1;
 
 	battleResourceCost = 0;
 	actionPointCost = 1;
 
 	damageRatio = 1.0f;
-	bonusAccuracy = 35.f;
+	bonusAccuracy = 95.f;
 	bonusCritical = 0.f;
 	baseDamage = 1;
 	bonusPenetration = 0;

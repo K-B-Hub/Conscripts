@@ -17,14 +17,14 @@ UMultiPick::UMultiPick()
 	areaParameter1 = 100.f;				//단일 공격이니 확인 안함
 	areaParameter2 = 0.f;				//단일 공격이니 확인 안함
 
-	pickRange = 1200.f;
+	pickRange = 2800.f;
 	pickCount = 2;
 	
 	battleResourceCost = 0;
 	actionPointCost = 2;
 	
 	damageRatio = 1.0f;
-	bonusAccuracy = 35.f;
+	bonusAccuracy = 95.f;
 	bonusCritical = 0.f;
 	baseDamage = 1;
 	bonusPenetration = 0;

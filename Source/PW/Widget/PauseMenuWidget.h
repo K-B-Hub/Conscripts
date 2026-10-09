@@ -22,7 +22,7 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> ResumeButton;
 
-	//부대 정보 화면, 아직 구현되지 않아 비활성으로 둔다
+	//부대 정보표, 아군 전원의 스탯을 한 줄씩 보여준다
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> SquadInfoButton;
 
@@ -62,6 +62,8 @@ private:
 
 	UFUNCTION()
 	void HandleResumeClicked();
+	UFUNCTION()
+	void HandleSquadInfoClicked();
 	UFUNCTION()
 	void HandleSettingsClicked();
 	UFUNCTION()

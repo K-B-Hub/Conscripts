@@ -9,6 +9,7 @@ void UPauseMenuWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	if (ResumeButton)         ResumeButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleResumeClicked);
+	if (SquadInfoButton)      SquadInfoButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleSquadInfoClicked);
 	if (SettingsButton)       SettingsButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleSettingsClicked);
 	if (MainMenuButton)        MainMenuButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleMainMenuClicked);
 	if (MainMenuConfirmButton) MainMenuConfirmButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleMainMenuConfirmClicked);
@@ -16,9 +17,6 @@ void UPauseMenuWidget::NativeConstruct()
 	if (AbandonButton)         AbandonButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleAbandonClicked);
 	if (AbandonConfirmButton)  AbandonConfirmButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleAbandonConfirmClicked);
 	if (AbandonCancelButton)   AbandonCancelButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleAbandonCancelClicked);
-
-	//부대 정보 화면이 아직 없다, 눌러도 아무 일이 없는 버튼을 두지 않기 위해 비활성
-	if (SquadInfoButton) SquadInfoButton->SetIsEnabled(false);
 
 	CollapseConfirmPanels();
 }
@@ -34,6 +32,14 @@ void UPauseMenuWidget::HandleResumeClicked()
 	if (ABattleController* battle = GetOwningPlayer<ABattleController>())
 	{
 		battle->ResumeFromPause();
+	}
+}
+
+void UPauseMenuWidget::HandleSquadInfoClicked()
+{
+	if (ABattleController* battle = GetOwningPlayer<ABattleController>())
+	{
+		battle->ShowSquadInfoFromPause();
 	}
 }
 

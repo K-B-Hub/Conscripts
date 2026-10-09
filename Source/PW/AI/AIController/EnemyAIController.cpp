@@ -65,13 +65,10 @@ void AEnemyAIController::OnEnemyTurnStart()
 		return;
 	}
 
-	//이번 턴 배속 확정, 플레이어 설정과 시야 밖 배속 중 큰 쪽
-	//곱하지 않는 이유는 4x × 3x = 12x가 되어 딜레이가 사실상 0이 되고 이동이 지형을 뚫기 때문
+	//이번 턴 배속은 플레이어 설정값만, 모든 적이 항상 보이므로 시야 밖 배속 항은 없다
 	AEnemyBase* enemyPawn = Cast<AEnemyBase>(GetPawn());
 	const UPWGameUserSettings* settings = UPWGameUserSettings::Get();
-	const float settingScale = settings ? settings->GetEnemyTurnSpeed() : 1.f;
-	const float offScreenScale = (enemyPawn && !enemyPawn->IsVisibleToPlayers()) ? fastForwardSpeedMultiplier : 1.f;
-	turnSpeedScale = FMath::Max(settingScale, offScreenScale);
+	turnSpeedScale = settings ? settings->GetEnemyTurnSpeed() : 1.f;
 
 	if (enemyPawn)
 	{

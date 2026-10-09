@@ -9,7 +9,6 @@
 #include "Widget/MoveIndicatorWidget.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/AllyCharacterBase.h"
-#include "Characters/EnemyBase.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
@@ -540,12 +539,6 @@ bool AAttackRangeIndicator::IsAreaTarget(ACharacterBase* Character) const
 {
 	if (!cachedSkill || !Character || !caster.IsValid()) return false;
 
-	//시야 밖 적은 범위 대상에서 제외
-	if (const AEnemyBase* enemy = Cast<AEnemyBase>(Character))
-	{
-		if (!enemy->IsVisibleToPlayers()) return false;
-	}
-
 	//caster 팀 기준 판단
 	const bool bSameTeam = (Cast<AAllyCharacterBase>(caster.Get()) != nullptr)
 		== (Cast<AAllyCharacterBase>(Character) != nullptr);
@@ -567,12 +560,6 @@ bool AAttackRangeIndicator::IsAreaTarget(ACharacterBase* Character) const
 bool AAttackRangeIndicator::IsPickTarget(ACharacterBase* Character) const
 {
 	if (!cachedSkill || !Character || !caster.IsValid()) return false;
-
-	//시야 밖 적은 조준 불가
-	if (const AEnemyBase* enemy = Cast<AEnemyBase>(Character))
-	{
-		if (!enemy->IsVisibleToPlayers()) return false;
-	}
 
 	//caster 팀 기준 판단
 	const bool bSameTeam = (Cast<AAllyCharacterBase>(caster.Get()) != nullptr)

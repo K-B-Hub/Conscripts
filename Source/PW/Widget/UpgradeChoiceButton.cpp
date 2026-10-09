@@ -2,6 +2,7 @@
 
 #include "Widget/UpgradeChoiceButton.h"
 #include "Components/Button.h"
+#include "Components/Image.h"
 #include "Components/TextBlock.h"
 #include "Object/Skill/SkillBase.h"
 
@@ -34,6 +35,20 @@ void UUpgradeChoiceButton::InitChoice(TSubclassOf<USkillBase> InSkillClass)
 	{
 		DescText->SetText(cdo->skillDescription);
 		DescText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	}
+	if (SkillIcon)
+	{
+		//ImageSize는 WBP에 잡아둔 값을 유지한다, 아이콘 해상도가 카드 크기를 흔들지 않게
+		if (cdo->skillIcon)
+		{
+			SkillIcon->SetBrushFromTexture(cdo->skillIcon);
+			SkillIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		else
+		{
+			//Hidden으로 자리를 남긴다, Collapsed면 이름·설명이 위로 밀려 카드마다 배치가 달라진다
+			SkillIcon->SetVisibility(ESlateVisibility::Hidden);
+		}
 	}
 }
 

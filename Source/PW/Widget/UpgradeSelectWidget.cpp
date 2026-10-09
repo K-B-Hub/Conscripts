@@ -3,6 +3,7 @@
 #include "Widget/UpgradeSelectWidget.h"
 #include "Widget/UpgradeChoiceButton.h"
 #include "Components/Button.h"
+#include "Components/PanelWidget.h"
 
 void UUpgradeSelectWidget::NativeConstruct()
 {
@@ -26,24 +27,46 @@ void UUpgradeSelectWidget::HandleToggleClicked()
 	}
 }
 
-void UUpgradeSelectWidget::SetChoices(const TArray<TSubclassOf<USkillBase>>& Choices)
+void UUpgradeSelectWidget::SetChoices(const TArray<TSubclassOf<USkillBase>>& Choices, EUpgradeGrade grade)
 {
-	UUpgradeChoiceButton* buttons[3] = { Choice0, Choice1, Choice2 };
-	for (int32 i = 0; i < 3; ++i)
+	UPanelWidget* const containers[] = { LowChoices, MidChoices, HighChoices, TopChoices };
+	UPanelWidget* const active = ContainerForGrade(grade);
+
+	for (UPanelWidget* container : containers)
 	{
-		if (!buttons[i]) continue;
+		if (!container) continue;
+		container->SetVisibility(container == active ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+
+	if (!active) return;
+
+	for (int32 i = 0; i < active->GetChildrenCount(); ++i)
+	{
+		UUpgradeChoiceButton* button = Cast<UUpgradeChoiceButton>(active->GetChildAt(i));
+		if (!button) continue;
 
 		if (Choices.IsValidIndex(i))
 		{
-			buttons[i]->InitChoice(Choices[i]);
-			buttons[i]->OnClicked.BindUObject(this, &UUpgradeSelectWidget::HandleChoiceClicked);
-			buttons[i]->SetVisibility(ESlateVisibility::Visible);
+			button->InitChoice(Choices[i]);
+			button->OnClicked.BindUObject(this, &UUpgradeSelectWidget::HandleChoiceClicked);
+			button->SetVisibility(ESlateVisibility::Visible);
 		}
 		else
 		{
 			//후보보다 슬롯이 많으면 남는 슬롯 숨김
-			buttons[i]->SetVisibility(ESlateVisibility::Collapsed);
+			button->SetVisibility(ESlateVisibility::Collapsed);
 		}
+	}
+}
+
+UPanelWidget* UUpgradeSelectWidget::ContainerForGrade(EUpgradeGrade grade) const
+{
+	switch (grade)
+	{
+	case EUpgradeGrade::Mid:  return MidChoices;
+	case EUpgradeGrade::High: return HighChoices;
+	case EUpgradeGrade::Top:  return TopChoices;
+	default:                  return LowChoices;
 	}
 }
 

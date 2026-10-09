@@ -15,6 +15,7 @@
 #include "Object/Rest/RestBase.h"
 #include "Widget/HealthWidget.h"
 #include "Widget/SkillInfoWidget.h"
+#include "Widget/CharacterDetailButtonWidget.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
@@ -26,7 +27,7 @@
 //데미지 산식의 단일 출처, CalculateDamage와 PreviewDamage가 공유
 static void ComputeDamageNumbers(const ACharacterBase* Target,
 	float Damage, float Accuracy, float Critical, int32 DamageAmplfication, int32 Penetration,
-	ESkillType SkillType, bool bAllyTarget,
+	ESkillType SkillType, bool bAllyTarget, float AttackerSight, float DistanceCm,
 	float& OutDmg, float& OutAccuracy, float& OutCritical)
 {
 	if (!Target)
@@ -35,10 +36,13 @@ static void ComputeDamageNumbers(const ACharacterBase* Target,
 		return;
 	}
 
-	//대결형 비율 명중, 명중과 회피의 상대비로 판정해 저명중이 무력화되지 않게 함
-	const float acc = FMath::Max(0.f, Accuracy);
-	const float eva = FMath::Max(0.f, Target->GetEvasion());
-	const float hitChance = 100.f * acc / FMath::Max(KINDA_SMALL_NUMBER, acc + eva);
+	//시야 초과 거리 1m당 명중 수치 차감, 고명중은 페널티를 뚫고 맞출 수 있다
+	//고저차는 제외(2D), 고지에서 쏘는 쪽이 불리해지지 않게 함
+	const float overMeters = FMath::Max(0.f, DistanceCm / 100.f - AttackerSight);
+	const float acc = Accuracy - overMeters * ACharacterBase::AccuracyLossPerMeterBeyondSight;
+	//명중 - 회피 뺄셈식, 결과가 곧 %p
+	//음수 명중·음수 회피는 클램프가 흡수하므로 개별 가드 없음
+	const float hitChance = FMath::Clamp(acc - Target->GetEvasion(), 0.f, 100.f);
 
 	if (SkillType == ESkillType::Heal)
 	{
@@ -91,6 +95,16 @@ ACharacterBase::ACharacterBase()
 	skillInfoWidgetComponent->SetDrawSize(FVector2D(200.f, 60.f));
 	skillInfoWidgetComponent->SetVisibility(false);
 
+	detailButtonWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("DetailButtonWidget"));
+	detailButtonWidgetComponent->SetupAttachment(RootComponent);
+	detailButtonWidgetComponent->SetRelativeLocation(FVector(0.f, 0.f, 45.f)); //캐릭터 중앙 부근을 앵커로
+	detailButtonWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
+	//앵커가 왼쪽 변이 되어 캐릭터 오른편으로 펼쳐진다, 왼편 아래로 펼쳐지는 스킬 정보 위젯과 겹치지 않게
+	detailButtonWidgetComponent->SetPivot(FVector2D(0.f, 0.f));
+	//호버 텍스처(174x54)가 왼쪽 여백 50px 뒤에 들어가는 크기, 가장 큰 상태를 기준으로 잡아야 눌림이 없다
+	detailButtonWidgetComponent->SetDrawSize(FVector2D(224.f, 54.f));
+	detailButtonWidgetComponent->SetVisibility(false);
+
 	WeaponMeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMeshComp->SetupAttachment(GetMesh(), FName("WeaponSocket_R"));
 	WeaponMeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -115,6 +129,7 @@ ACharacterBase::ACharacterBase()
 	WeaponMeshComp->SetCanEverAffectNavigation(false);
 	healthWidgetComponent->SetCanEverAffectNavigation(false);
 	skillInfoWidgetComponent->SetCanEverAffectNavigation(false);
+	detailButtonWidgetComponent->SetCanEverAffectNavigation(false);
 
 	navObstacle = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavObstacle"));
 	navObstacle->AreaClass = UNavArea_Null::StaticClass();
@@ -520,8 +535,13 @@ void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critica
 	//치명타 배율은 공격자 측 값, ReflectDamage는 피격자에서 실행되므로 여기서 스냅샷
 	pendingCriticalDamage = CriticalDamage;
 	const bool bAllyTarget = Attacker && (Attacker->IsAlly() == IsAlly());
+	//시야 감쇠는 공격자의 현재 위치 기준, 인디케이터는 이동 확정 후 재계산되어 위치가 일치함
+	const float attackerSight = Attacker ? Attacker->GetSight() : 0.f;
+	const float distanceCm = Attacker
+		? FVector::Dist2D(Attacker->GetActorLocation(), GetActorLocation())
+		: 0.f;
 	ComputeDamageNumbers(this, Damage, Accuracy, Critical, DamageAmplfication, Penetration,
-		SkillType, bAllyTarget, pendingDMG, pendingAccuracy, pendingCritical);
+		SkillType, bAllyTarget, attackerSight, distanceCm, pendingDMG, pendingAccuracy, pendingCritical);
 }
 
 FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
@@ -549,9 +569,11 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 	}
 
 	const bool bAllyTarget = Attacker->IsAlly() == IsAlly();
+	//AI 후보 평가는 아직 이동하지 않은 가정 위치에서 쏘므로 실제 액터 위치가 아닌 AttackerLocation 기준
+	const float distanceCm = FVector::Dist2D(AttackerLocation, GetActorLocation());
 	float outDmg = 0.f, outAcc = 0.f, outCrit = 0.f;
 	ComputeDamageNumbers(this, dmg, acc, crit, amp, pen, Skill->skillType, bAllyTarget,
-		outDmg, outAcc, outCrit);
+		Attacker->GetSight(), distanceCm, outDmg, outAcc, outCrit);
 
 	result.HitChance   = outAcc;
 	result.CritChance  = outCrit;
@@ -1149,6 +1171,21 @@ void ACharacterBase::ShowSkillInfo()
 void ACharacterBase::HideSkillInfo()
 {
 	skillInfoWidgetComponent->SetVisibility(false);
+}
+
+void ACharacterBase::ShowDetailButton()
+{
+	detailButtonWidgetComponent->SetVisibility(true);
+}
+
+void ACharacterBase::HideDetailButton()
+{
+	detailButtonWidgetComponent->SetVisibility(false);
+}
+
+UCharacterDetailButtonWidget* ACharacterBase::GetDetailButtonWidget() const
+{
+	return Cast<UCharacterDetailButtonWidget>(detailButtonWidgetComponent->GetWidget());
 }
 
 void ACharacterBase::ClearPendingDamage()

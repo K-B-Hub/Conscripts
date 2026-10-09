@@ -8,6 +8,7 @@
 #include "CharacterBase.generated.h"
 
 class UHealthWidget;
+class UCharacterDetailButtonWidget;
 class UStaticMeshComponent;
 class UWidgetComponent;
 class USkillComponent;
@@ -22,6 +23,7 @@ class UTerrainComponent;
 class ATerrainBase;
 class UNavModifierComponent;
 class UAnimMontage;
+class UTexture2D;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 //hp/스트레스 변동 시 HUD 게이지 등 외부 통지
@@ -79,6 +81,10 @@ protected:
 	//스킬 정보 예측 위젯 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "UI")
 	TObjectPtr<UWidgetComponent> skillInfoWidgetComponent;
+
+	//상세보기 버튼 위젯 컴포넌트, 인디케이터 없는 일반 상태에서 캐릭터를 클릭하면 표시
+	UPROPERTY(VisibleAnywhere, Category = "UI")
+	TObjectPtr<UWidgetComponent> detailButtonWidgetComponent;
 
 	//무기 메시 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
@@ -317,6 +323,8 @@ public:
 	int32 GetMaxStress() const { return maxStress; }
 	bool IsDead() const { return hp <= 0; }
 	int32 GetCurrentActionPoint() const { return currentActionPoint; }
+	int32 GetActionPoint() const { return actionPoint; }
+	int32 GetMentality() const { return mentality; }
 	void ReduceActionPoint(int32 amount);
 	int32 GetBattleResource() const { return battleResource; }
 	int32 GetMaxBattleResource() const { return maxBattleResource; }
@@ -336,8 +344,19 @@ public:
 	float GetEvasion() const { return evasion; }
 	int32 GetDamageReduction() const { return damageReduction; }
 	
+	//화면에 표시할 직업 이름, 파생 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
+	FText jobName;
+
+	//화면에 표시할 직업 이미지, 파생 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
+	TObjectPtr<UTexture2D> jobIcon;
+
 	//아군 여부, AAllyCharacterBase에서 true로 override
 	virtual bool IsAlly() const { return false; }
+
+	//시야 초과 거리 1m당 차감되는 명중 수치, 명중률 산식에서만 사용
+	static constexpr float AccuracyLossPerMeterBeyondSight = 10.f;
 
 	//AttackRangeIndicator 오버렙 시 데미지 미리 계산
 	//Attacker: 실제 시전자, this와 IsAlly()가 같으면 아군 대상 취급(회피 차감 없이 반드시 명중)
@@ -396,6 +415,14 @@ public:
 	//스킬 정보 예측 위젯 표시/숨김
 	void ShowSkillInfo();
 	void HideSkillInfo();
+
+	//상세보기 버튼 표시/숨김
+	void ShowDetailButton();
+	void HideDetailButton();
+
+	//상세보기 버튼 위젯, 클릭 델리게이트 바인딩용. 위젯 클래스 미지정이면 nullptr
+	UCharacterDetailButtonWidget* GetDetailButtonWidget() const;
+
 	void ClearPendingDamage();
 	//AI 행동 평가용: 현재 스킬 흐름에서 대상에게 계산해둔 예측값 조회
 	void GetPendingSkillValues(float& OutDamage, float& OutAccuracy, float& OutCritical, ESkillType& OutSkillType) const

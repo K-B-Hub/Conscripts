@@ -26,6 +26,8 @@ class UStagePreviewWidget;
 class UCampRecruitWidget;
 class UPauseMenuWidget;
 class USettingsWidget;
+class UCharacterDetailWidget;
+class USquadInfoWidget;
 
 //전투 씬 플레이어 컨트롤러, EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
 UCLASS()
@@ -65,9 +67,6 @@ public:
 	//적 턴 시작 시 GameMode에서 호출, 카메라 폰 스프링암을 피벗으로 AI 추적
 	void BeginAITurnFollow(ACharacterBase* AIUnit);
 
-	//시야 밖 적 턴, 추적 대상만 해제하고 카메라는 무조작
-	void ClearAITurnFollow() { aiFollowTarget = nullptr; }
-
 	//일시정지 메뉴를 닫고 게임 진행을 재개
 	void ResumeFromPause();
 
@@ -76,6 +75,12 @@ public:
 
 	//설정 화면을 닫고 일시정지 메뉴로 되돌아간다
 	void CloseSettingsFromPause();
+
+	//일시정지 메뉴 위에 부대 정보표를 띄운다
+	void ShowSquadInfoFromPause();
+
+	//부대 정보표를 닫고 일시정지 메뉴로 되돌아간다
+	void CloseSquadInfoFromPause();
 
 	//런을 유지한 채 허브로 복귀, 로스터와 진행도가 메모리에 남는다
 	void ReturnToMainMenu();
@@ -292,6 +297,13 @@ private:
 	UPROPERTY()
 	TObjectPtr<USettingsWidget> settingsInstance = nullptr;
 
+	//일시정지 메뉴에서 여는 부대 정보표
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<USquadInfoWidget> squadInfoWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<USquadInfoWidget> squadInfoInstance = nullptr;
+
 	//증원을 요청한 아군, 신병이 설 기준 위치이자 요청 대기 표시
 	UPROPERTY()
 	TObjectPtr<AAllyCharacterBase> reinforcementCaller = nullptr;
@@ -345,4 +357,32 @@ private:
 	//적 턴에 카메라가 추적할 AI 유닛, activeUnit이 null인 동안만 유효
 	UPROPERTY()
 	TObjectPtr<ACharacterBase> aiFollowTarget = nullptr;
+
+	//상세보기 버튼을 띄워둔 캐릭터, 없으면 nullptr
+	UPROPERTY()
+	TObjectPtr<ACharacterBase> detailTarget = nullptr;
+
+	//커서 아래 캐릭터 탐색, 캡슐이 막는 Pawn 채널로 트레이스하므로 지형에 가려지면 집히지 않는다
+	ACharacterBase* FindCharacterUnderCursor() const;
+
+	//상세보기 버튼 대상 전환, 이전 대상의 버튼을 거두고 새 대상에 띄운다. nullptr이면 해제만
+	//같은 대상 재클릭은 무시 — 버튼을 닫지 않고 그대로 둔다
+	void SetDetailTarget(ACharacterBase* newTarget);
+
+	//상세보기 버튼 클릭 수신, 대상은 detailTarget
+	void HandleDetailButtonClicked();
+
+	//지정한 캐릭터의 상세 정보 창을 띄운다, 월드의 상세보기 버튼과 부대 정보표가 함께 쓴다
+	void OpenDetailWidget(ACharacterBase* target);
+
+	//상세 정보 창 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UCharacterDetailWidget> detailWidgetClass;
+
+	//생성된 상세 정보 창, 떠 있는 동안 월드 클릭과 턴 HUD를 잠근다
+	UPROPERTY()
+	TObjectPtr<UCharacterDetailWidget> detailWidgetInstance = nullptr;
+
+	//상세 정보 창을 거두고 HUD 잠금을 되돌린다, 떠 있지 않으면 아무것도 하지 않는다
+	void CloseDetailWidget();
 };

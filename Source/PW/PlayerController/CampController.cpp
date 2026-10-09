@@ -231,8 +231,9 @@ void ACampController::ShowUpgradeSelect()
 	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
 
 	//후보 생성은 전투와 같은 경로를 쓴다
+	EUpgradeGrade grade = EUpgradeGrade::Low;
 	const TArray<TSubclassOf<USkillBase>> choices =
-		UUpgradeLibrary::BuildPendingChoices(currentUpgradeAlly, commonTable);
+		UUpgradeLibrary::BuildPendingChoices(currentUpgradeAlly, commonTable, &grade);
 
 	//후보가 없으면 큐만 소비하고 다음으로
 	if (choices.Num() == 0)
@@ -250,7 +251,7 @@ void ACampController::ShowUpgradeSelect()
 		return;
 	}
 
-	upgradeSelectWidgetInstance->SetChoices(choices);
+	upgradeSelectWidgetInstance->SetChoices(choices, grade);
 	upgradeSelectWidgetInstance->OnUpgradeChosen.BindUObject(this, &ACampController::OnUpgradeChosen);
 	upgradeSelectWidgetInstance->AddToViewport(10);
 }
