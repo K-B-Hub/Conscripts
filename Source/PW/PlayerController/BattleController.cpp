@@ -27,6 +27,9 @@
 #include "Widget/CampRecruitWidget.h"
 #include "Widget/PauseMenuWidget.h"
 #include "Widget/SettingsWidget.h"
+#include "Widget/CharacterDetailButtonWidget.h"
+#include "Widget/CharacterDetailWidget.h"
+#include "Widget/SquadInfoWidget.h"
 #include "GameInstance/PWGameInstance.h"
 #include "Settings/PWGameUserSettings.h"
 #include "Run/RunProgress.h"
@@ -311,7 +314,8 @@ void ABattleController::ShowUpgradeSelect()
 	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
 
 	//후보 생성은 야영지 충원과 공유하므로 UUpgradeLibrary에 있다
-	const TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildPendingChoices(activeUnit, commonTable);
+	EUpgradeGrade grade = EUpgradeGrade::Low;
+	const TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildPendingChoices(activeUnit, commonTable, &grade);
 
 	//후보가 하나도 없으면 큐만 소비하고 종료
 	if (choices.Num() == 0)
@@ -323,7 +327,7 @@ void ABattleController::ShowUpgradeSelect()
 	upgradeSelectWidgetInstance = CreateWidget<UUpgradeSelectWidget>(this, upgradeSelectWidgetClass);
 	if (!upgradeSelectWidgetInstance) return;
 
-	upgradeSelectWidgetInstance->SetChoices(choices);
+	upgradeSelectWidgetInstance->SetChoices(choices, grade);
 	upgradeSelectWidgetInstance->OnUpgradeChosen.BindUObject(this, &ABattleController::OnUpgradeChosen);
 	upgradeSelectWidgetInstance->AddToViewport(10);
 
@@ -456,6 +460,10 @@ void ABattleController::EndTurn()
 		turnHudWidgetInstance->RemoveFromParent();
 		turnHudWidgetInstance = nullptr;
 	}
+	//턴이 넘어가면 띄워둔 상세보기 버튼과 창을 거둔다
+	//창을 남기면 다음 턴의 새 HUD는 잠겨 있지 않은데 월드 클릭만 막히는 어긋난 상태가 된다
+	CloseDetailWidget();
+	SetDetailTarget(nullptr);
 	activeUnit = nullptr;
 }
 
@@ -590,6 +598,10 @@ void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 
 void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 {
+	//모달 위젯이 떠 있는 동안 월드 클릭 차단
+	//HUD 잠금이 SetIsEnabled 단일 플래그라, 두 위젯이 겹치면 먼저 닫는 쪽이 남은 쪽의 잠금을 풀어버린다
+	if (detailWidgetInstance || upgradeSelectWidgetInstance || recruitWidgetInstance) return;
+
 	//Deploy 페이즈에서는 같은 클릭이 배치 명령이 된다
 	if (const ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr)
 	{
@@ -600,13 +612,12 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 		}
 	}
 
-	if (!activeUnit) return;
-
 	//상태이상이 턴을 진행 중이면 조작 불가, HUD 잠금이 막지 못하는 입력 경로 차단
-	if (activeUnit->IsAilmentDrivenTurn()) return;
+	if (activeUnit && activeUnit->IsAilmentDrivenTurn()) return;
 
 	//스킬 커밋 대기 중 신규 명령 차단, 효과 적용 전 다른 행동 방지
-	USkillComponent* SkillComp = activeUnit->GetSkillComponent();
+	//적 턴에는 activeUnit이 없으므로 아래 스킬·이동 분기가 모두 지나가고 상세보기로 떨어진다
+	USkillComponent* SkillComp = activeUnit ? activeUnit->GetSkillComponent() : nullptr;
 	if (SkillComp && SkillComp->HasPendingExecution()) return;
 
 	//스킬 모드 우선 처리
@@ -617,15 +628,99 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 	}
 
 	//이동 모드
-	if (!bIsMoveMode || !IsValid(cursorIndicatorInstance)) return;
+	if (bIsMoveMode)
+	{
+		if (!IsValid(cursorIndicatorInstance)) return;
 
-	const TArray<FVector>& PathPoints = cursorIndicatorInstance->GetCachedPathPoints();
-	if (PathPoints.Num() == 0) return;
+		const TArray<FVector>& PathPoints = cursorIndicatorInstance->GetCachedPathPoints();
+		if (PathPoints.Num() == 0) return;
 
-	cursorIndicatorInstance->LockAtCurrentPosition();
-	activeUnit->MoveAlongPath(PathPoints);
-	UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 명령: %s (%d개 경유점)"),
-		*PathPoints.Last().ToString(), PathPoints.Num());
+		cursorIndicatorInstance->LockAtCurrentPosition();
+		activeUnit->MoveAlongPath(PathPoints);
+		UE_LOG(LogTemp, Log, TEXT("[BattleController] 이동 명령: %s (%d개 경유점)"),
+			*PathPoints.Last().ToString(), PathPoints.Num());
+		return;
+	}
+
+	//인디케이터 없는 일반 상태, 커서 아래 캐릭터로 상세보기 대상 전환
+	//캐릭터가 없으면 nullptr이 넘어가 띄워둔 버튼을 거둔다
+	SetDetailTarget(FindCharacterUnderCursor());
+}
+
+ACharacterBase* ABattleController::FindCharacterUnderCursor() const
+{
+	//캐릭터 캡슐은 Pawn 프로필이라 Visibility를 무시한다, Pawn 채널로 트레이스해야 집힌다
+	//지형도 Pawn을 막으므로 벽 뒤 캐릭터는 최근접 히트가 되지 않는다
+	FHitResult hit;
+	if (!GetHitResultUnderCursorByChannel(UEngineTypes::ConvertToTraceType(ECC_Pawn), false, hit)) return nullptr;
+
+	return Cast<ACharacterBase>(hit.GetActor());
+}
+
+void ABattleController::SetDetailTarget(ACharacterBase* newTarget)
+{
+	if (detailTarget == newTarget) return;
+
+	//이전 대상 정리, 사망 등으로 파괴됐으면 건너뛴다
+	if (IsValid(detailTarget))
+	{
+		if (UCharacterDetailButtonWidget* oldWidget = detailTarget->GetDetailButtonWidget())
+		{
+			oldWidget->OnDetailClicked.Unbind();
+		}
+		detailTarget->HideDetailButton();
+	}
+
+	detailTarget = newTarget;
+	if (!IsValid(detailTarget)) return;
+
+	detailTarget->ShowDetailButton();
+	if (UCharacterDetailButtonWidget* newWidget = detailTarget->GetDetailButtonWidget())
+	{
+		newWidget->OnDetailClicked.BindUObject(this, &ABattleController::HandleDetailButtonClicked);
+	}
+}
+
+void ABattleController::HandleDetailButtonClicked()
+{
+	OpenDetailWidget(detailTarget);
+}
+
+void ABattleController::OpenDetailWidget(ACharacterBase* target)
+{
+	if (!IsValid(target) || !detailWidgetClass || detailWidgetInstance) return;
+
+	detailWidgetInstance = CreateWidget<UCharacterDetailWidget>(this, detailWidgetClass);
+	if (!detailWidgetInstance) return;
+
+	detailWidgetInstance->InitDetail(target);
+	detailWidgetInstance->OnClosed.BindUObject(this, &ABattleController::CloseDetailWidget);
+	detailWidgetInstance->AddToViewport(10);
+
+	//창이 떠 있는 동안 이동/스킬/턴종료 버튼 잠금, 강화 선택 잠금과 동일 방식
+	//적 턴에는 턴 HUD가 없으므로(InitTurn에서 생성, EndTurn에서 파괴) IsValid로 거른다
+	if (IsValid(turnHudWidgetInstance)) turnHudWidgetInstance->SetIsEnabled(false);
+
+	//창을 띄웠으면 캐릭터 위의 상세보기 버튼을 거둔다, 창이 이미 그 역할을 하고 있다
+	//SetDetailTarget(nullptr)을 쓰지 않는 이유 — 지금 이 호출은 그 버튼의 OnDetailClicked
+	//실행 중이고, SetDetailTarget은 실행 중인 바로 그 델리게이트를 Unbind한다
+	//숨기기만 하면 버튼을 다시 누를 수 없으므로 바인딩이 남아 있어도 무해하고,
+	//다음 SetDetailTarget이 새 바인딩으로 덮어쓴다
+	if (IsValid(detailTarget))
+	{
+		detailTarget->HideDetailButton();
+		detailTarget = nullptr;
+	}
+}
+
+void ABattleController::CloseDetailWidget()
+{
+	if (!IsValid(detailWidgetInstance)) return;
+
+	detailWidgetInstance->RemoveFromParent();
+	detailWidgetInstance = nullptr;
+
+	if (IsValid(turnHudWidgetInstance)) turnHudWidgetInstance->SetIsEnabled(true);
 }
 
 void ABattleController::OnCancelMove(const FInputActionValue& Value)
@@ -686,10 +781,24 @@ void ABattleController::OnPause(const FInputActionValue& Value)
 
 void ABattleController::TogglePauseMenu()
 {
+	//상세 정보 창이 떠 있으면 그것만 닫는다, 가장 위에 있는 창부터 한 단계씩 닫는다
+	if (detailWidgetInstance)
+	{
+		CloseDetailWidget();
+		return;
+	}
+
 	//설정이 위에 있으면 설정만 닫는다, 한 번에 전부 닫으면 실수로 전투에 복귀한다
 	if (settingsInstance)
 	{
 		CloseSettingsFromPause();
+		return;
+	}
+
+	//부대 정보표도 같은 층이다, 일시정지 메뉴보다 먼저 닫는다
+	if (squadInfoInstance)
+	{
+		CloseSquadInfoFromPause();
 		return;
 	}
 
@@ -724,6 +833,12 @@ void ABattleController::ResumeFromPause()
 		settingsInstance = nullptr;
 	}
 
+	if (squadInfoInstance)
+	{
+		squadInfoInstance->RemoveFromParent();
+		squadInfoInstance = nullptr;
+	}
+
 	if (pauseMenuInstance)
 	{
 		pauseMenuInstance->RemoveFromParent();
@@ -754,6 +869,37 @@ void ABattleController::CloseSettingsFromPause()
 	{
 		settingsInstance->RemoveFromParent();
 		settingsInstance = nullptr;
+	}
+
+	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Visible);
+}
+
+void ABattleController::ShowSquadInfoFromPause()
+{
+	if (!squadInfoWidgetClass || squadInfoInstance) return;
+
+	ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gameMode) return;
+
+	squadInfoInstance = CreateWidget<USquadInfoWidget>(this, squadInfoWidgetClass);
+	if (!squadInfoInstance) return;
+
+	squadInfoInstance->InitSquad(gameMode->GetAllies());
+	squadInfoInstance->OnClosed.BindUObject(this, &ABattleController::CloseSquadInfoFromPause);
+	//행 클릭은 상세 정보 창으로, 표는 그대로 아래 깔려 있고 창을 닫으면 다시 보인다
+	squadInfoInstance->OnMemberSelected.BindUObject(this, &ABattleController::OpenDetailWidget);
+	squadInfoInstance->AddToViewport();
+
+	//설정과 같은 방식, 제거하지 않고 숨기기만 해서 확인 패널 상태를 보존한다
+	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Collapsed);
+}
+
+void ABattleController::CloseSquadInfoFromPause()
+{
+	if (squadInfoInstance)
+	{
+		squadInfoInstance->RemoveFromParent();
+		squadInfoInstance = nullptr;
 	}
 
 	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Visible);
@@ -812,6 +958,9 @@ void ABattleController::ActivateSkill(UActiveSkillBase* Skill)
 	//이동 모드와 상호 배타
 	if (bIsMoveMode) ExitMoveMode();
 
+	//상세보기 버튼은 인디케이터와 공존하지 않는다
+	SetDetailTarget(nullptr);
+
 	//멀티픽 초기화
 	remainingPicks = (Skill->selectMode == ESelectMode::SinglePick && Skill->pickCount > 1)
 		? Skill->pickCount : 0;
@@ -853,6 +1002,9 @@ void ABattleController::EnterMoveMode()
 
 	//스킬 모드와 상호 배타
 	DeactivateSkill();
+
+	//상세보기 버튼은 인디케이터와 공존하지 않는다
+	SetDetailTarget(nullptr);
 
 	cursorIndicatorInstance = GetWorld()->SpawnActor<ACursorIndicator>(cursorIndicatorClass);
 	if (cursorIndicatorInstance)

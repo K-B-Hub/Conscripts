@@ -562,17 +562,10 @@ void ABattleGameMode::StartCurrentTurn()
 
 	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
 	{
-		//시야 내 적만 카메라 추적, 시야 밖 적 턴은 카메라 무조작
+		//적 턴은 항상 카메라 추적
 		if (ABattleController* BattleController = Cast<ABattleController>(GetWorld()->GetFirstPlayerController()))
 		{
-			if (Enemy->IsVisibleToPlayers())
-			{
-				BattleController->BeginAITurnFollow(Enemy);
-			}
-			else
-			{
-				BattleController->ClearAITurnFollow();
-			}
+			BattleController->BeginAITurnFollow(Enemy);
 		}
 
 		//적 턴 시작, InitTurn 내부에서 AIController에 통지되어 BT 실행
@@ -925,13 +918,14 @@ void ABattleGameMode::RecordSkillUse(ACharacterBase* Character, const UActiveSki
 	const float newCritChance= Skill->calcCritical;
 	const float newCritDamage= newDamage * Character->GetCriticalDamage();
 
-	const float newHitP  = newAccuracy / 100.f;
+	//명중 수치가 그대로 %p라 회피 0 기준 상한 확률, 100 초과분은 사거리 여유분이라 확률로는 잘림
+	const float newHitP  = FMath::Clamp(newAccuracy / 100.f, 0.f, 1.f);
 	const float newCritP = newCritChance / 100.f;
 	const float newExpected = newHitP * ((1.f - newCritP) * newDamage + newCritP * newCritDamage);
 
 	FThreatProfile& prof = threatProfiles.FindOrAdd(Character);
 
-	const float oldHitP  = prof.Accuracy / 100.f;
+	const float oldHitP  = FMath::Clamp(prof.Accuracy / 100.f, 0.f, 1.f);
 	const float oldCritP = prof.CritChance / 100.f;
 	const float oldExpected = oldHitP * ((1.f - oldCritP) * prof.NormalDamage + oldCritP * prof.CritDamage);
 

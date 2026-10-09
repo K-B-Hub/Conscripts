@@ -35,19 +35,23 @@ public:
 
 	//대기 중인 강화 하나에 대한 후보 목록, 부여 레벨로 종류를 복원해 분기
 	//전투 턴 시작과 야영지 충원이 공유한다. 후보 수 3은 선택 위젯 슬롯 수와 맞물려 있어 내부에 둔다
+	//outGrade는 버튼 아트용 등급, 고정 강화는 풀 소속이 없어 High로 돌려준다
 	static TArray<TSubclassOf<USkillBase>> BuildPendingChoices(
 		const AAllyCharacterBase* character,
-		const UUpgradeTableData* commonTable);
+		const UUpgradeTableData* commonTable,
+		EUpgradeGrade* outGrade = nullptr);
 
 	//강화 후보 count개를 추출, character는 보유 중복 필터용
 	//뽑힌 등급 후보가 부족하면 하위 등급으로 보충하되 minGrade 미만으로는 내려가지 않음
 	//등급 내 공용/직업 분배는 랜덤이며 부족 시 반대 풀에서 보충
+	//outGrade는 추첨된 등급, 폴백으로 하위 등급이 섞여도 추첨 등급 하나만 돌려준다
 	static TArray<TSubclassOf<USkillBase>> BuildChoices(
 		const ACharacterBase* character,
 		const UUpgradeTableData* classTable,
 		const UUpgradeTableData* commonTable,
 		int32 count,
-		EUpgradeGrade minGrade = EUpgradeGrade::Low);
+		EUpgradeGrade minGrade = EUpgradeGrade::Low,
+		EUpgradeGrade* outGrade = nullptr);
 
 private:
 	//해당 스킬을 이 캐릭터가 지금 습득 가능한지, 액티브/중복불가 패시브 보유 시 false

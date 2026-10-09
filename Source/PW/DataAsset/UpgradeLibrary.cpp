@@ -15,7 +15,7 @@
 #include "GameInstance/PWGameInstance.h"
 
 TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildPendingChoices(
-	const AAllyCharacterBase* character, const UUpgradeTableData* commonTable)
+	const AAllyCharacterBase* character, const UUpgradeTableData* commonTable, EUpgradeGrade* outGrade)
 {
 	TArray<TSubclassOf<USkillBase>> choices;
 	if (!character) return choices;
@@ -31,15 +31,17 @@ TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildPendingChoices(
 		const UFixedUpgradeTableData* fixedTable = character->GetFixedUpgradeTable();
 		const TSubclassOf<USkillBase> fixed = fixedTable ? fixedTable->GetFixedUpgrade(pendingLevel) : nullptr;
 		if (fixed) choices.Add(fixed);
+		//풀 소속이 없으므로 등급이 없다, 버튼 아트는 상급을 쓴다
+		if (outGrade) *outGrade = EUpgradeGrade::High;
 		break;
 	}
 	case ELevelUpUpgradeKind::HighRandom:
 		//하급 풀 제외 고급 랜덤
-		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Mid);
+		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Mid, outGrade);
 		break;
 
 	default:
-		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3);
+		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Low, outGrade);
 		break;
 	}
 
@@ -165,7 +167,8 @@ TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildChoices(
 	const UUpgradeTableData* classTable,
 	const UUpgradeTableData* commonTable,
 	int32 count,
-	EUpgradeGrade minGrade)
+	EUpgradeGrade minGrade,
+	EUpgradeGrade* outGrade)
 {
 	TArray<TSubclassOf<USkillBase>> result;
 	if (!character || count <= 0) return result;
@@ -173,6 +176,7 @@ TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildChoices(
 	//뽑힌 등급부터 하위 등급까지 내려가며 count를 채움, minGrade 미만은 배제
 	const EUpgradeGrade rolledRaw = RollGrade();
 	const EUpgradeGrade rolled = (rolledRaw < minGrade) ? minGrade : rolledRaw;
+	if (outGrade) *outGrade = rolled;
 	UE_LOG(LogTemp, Log, TEXT("[Upgrade] %s 강화 추첨 시작 → 등급: %s (요청 %d개, 하한 %s)"),
 		*character->GetName(), *UEnum::GetValueAsString(rolled), count, *UEnum::GetValueAsString(minGrade));
 

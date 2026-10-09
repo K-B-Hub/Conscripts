@@ -85,12 +85,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Pacing")
 	float turnEndDelay = 0.8f;
 
-	//시야 밖 턴 배속
-	UPROPERTY(EditDefaultsOnly, Category = "AI|Pacing")
-	float fastForwardSpeedMultiplier = 3.f;
-
 	//이번 턴의 연출 배속, 딜레이를 이 값으로 나누고 이동 속도에 곱한다
-	//설정의 적 턴 배속과 시야 밖 배속 중 큰 쪽이며 턴 시작 시 확정된다, 항상 1 이상
+	//설정의 적 턴 배속을 턴 시작 시 확정해 담는다, 항상 1 이상
 	float turnSpeedScale = 1.f;
 
 	//배속 복원용 원래 이동 속도

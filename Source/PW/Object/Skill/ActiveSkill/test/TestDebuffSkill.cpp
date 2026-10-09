@@ -19,14 +19,14 @@ UTestDebuffSkill::UTestDebuffSkill()
 	areaParameter1 = 50.f;
 	//areaParameter2 = 0.f;						//Circle이니 확인 안함
 
-	pickRange = 800.f;
+	pickRange = 2000.f;
 	pickCount = 1;
 	
 	battleResourceCost = 0;
 	actionPointCost = 2;
 	
 	damageRatio = 0.f;
-	bonusAccuracy = 20.f;
+	bonusAccuracy = 80.f;
 	bonusCritical = 0.f;
 	baseDamage = 0;
 	bonusPenetration = 0;

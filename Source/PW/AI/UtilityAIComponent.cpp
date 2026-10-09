@@ -1281,8 +1281,9 @@ float UUtilityAIComponent::ComputeExpectedOutput(const ACharacterBase* Target) c
 	if (!gm || !Target) return 0.f;
 
 	//상대 진영 평균 회피 기준 기대 산출, 특정 대상이 없는 일반 위협 지표
+	//대상이 없어 거리가 정의되지 않으므로 시야 감쇠는 제외
 	const FThreatProfile& prof = gm->GetThreatProfile(Target);
-	const float hitP  = prof.Accuracy / FMath::Max(1.f, prof.Accuracy + battlefieldAvg.evasion);
+	const float hitP  = FMath::Clamp(prof.Accuracy - battlefieldAvg.evasion, 0.f, 100.f) / 100.f;
 	const float critP = prof.CritChance / 100.f;
 	return hitP * ((1.f - critP) * prof.NormalDamage + critP * prof.CritDamage);
 }
@@ -1321,7 +1322,11 @@ float UUtilityAIComponent::ComputeIncomingFor(const ACharacterBase* Target, floa
 		//사거리 밖 위협 제외
 		if (prof.RangeCm > 0.f && FVector::Dist(threat->GetActorLocation(), targetLoc) > prof.RangeCm) continue;
 
-		const float hitP  = prof.Accuracy / FMath::Max(1.f, prof.Accuracy + Target->GetEvasion());
+		//시야 초과 감쇠 반영, 사거리 안이어도 시야 밖이면 기대 피해가 줄어든다
+		const float overMeters = FMath::Max(0.f,
+			FVector::Dist2D(threat->GetActorLocation(), targetLoc) / 100.f - threat->GetSight());
+		const float acc = prof.Accuracy - overMeters * ACharacterBase::AccuracyLossPerMeterBeyondSight;
+		const float hitP  = FMath::Clamp(acc - Target->GetEvasion(), 0.f, 100.f) / 100.f;
 		const float critP = prof.CritChance / 100.f;
 		const float raw = (1.f - critP) * prof.NormalDamage + critP * prof.CritDamage;
 		OutRawDamage += raw;
@@ -1375,7 +1380,7 @@ float UUtilityAIComponent::StatLeverage(EAIBuffStat Stat, const ACharacterBase* 
 
 	//퍼센트 스탯은 앵커의 1%, 프로파일 NormalDamage는 방어 적용 전 원시 일격 피해
 	const FThreatProfile& prof = gm->GetThreatProfile(Target);
-	const float hitP  = prof.Accuracy / FMath::Max(1.f, prof.Accuracy + battlefieldAvg.evasion);
+	const float hitP  = FMath::Clamp(prof.Accuracy - battlefieldAvg.evasion, 0.f, 100.f) / 100.f;
 	const float critP = prof.CritChance / 100.f;
 	const float strikeDmg = prof.NormalDamage;
 
@@ -1383,11 +1388,11 @@ float UUtilityAIComponent::StatLeverage(EAIBuffStat Stat, const ACharacterBase* 
 	const float critMul = Target->GetCriticalDamage();
 	const float critFactor = 1.f + critP * (critMul - 1.f);
 
-	//비율 명중의 기울기, 명중 1p당 eva/(acc+eva)^2 · 회피 1p당 acc/(acc+eva)^2
-	const float accSum = FMath::Max(1.f, Target->GetAccuracy() + battlefieldAvg.evasion);
-	const float accSlope = battlefieldAvg.evasion / (accSum * accSum);
-	const float evaSum = FMath::Max(1.f, battlefieldAvg.accuracy + Target->GetEvasion());
-	const float evaSlope = battlefieldAvg.accuracy / (evaSum * evaSum);
+	//뺄셈 명중의 기울기는 1p당 1%p 고정, 단 클램프에 걸린 구간에서는 한계 가치가 0
+	const float accHit = Target->GetAccuracy() - battlefieldAvg.evasion;
+	const float accSlope = (accHit > 0.f && accHit < 100.f) ? 0.01f : 0.f;
+	const float evaHit = battlefieldAvg.accuracy - Target->GetEvasion();
+	const float evaSlope = (evaHit > 0.f && evaHit < 100.f) ? 0.01f : 0.f;
 
 	switch (Stat)
 	{

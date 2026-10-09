@@ -7,6 +7,7 @@
 #include "UpgradeChoiceButton.generated.h"
 
 class UButton;
+class UImage;
 class UTextBlock;
 class USkillBase;
 
@@ -14,6 +15,7 @@ class USkillBase;
 DECLARE_DELEGATE_OneParam(FOnUpgradeChoiceClicked, TSubclassOf<USkillBase>);
 
 //강화 선택지 하나에 대응하는 버튼 위젯, 이름/설명은 스킬 CDO에서 표시
+//등급별 아트는 파생 WBP가 각자 들고 있다 — C++은 등급을 모른다
 UCLASS()
 class PW_API UUpgradeChoiceButton : public UUserWidget
 {
@@ -35,6 +37,10 @@ protected:
 	TObjectPtr<UTextBlock> NameText;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> DescText;
+
+	//강화 스킬 아이콘, 미지정 스킬이면 자리를 비운다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> SkillIcon;
 
 private:
 	UFUNCTION()

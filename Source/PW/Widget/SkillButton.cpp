@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Widget/SkillButton.h"
+#include "Widget/SkillTooltipWidget.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Object/Skill/ActiveSkillBase.h"
@@ -14,6 +15,17 @@ void USkillButton::NativeConstruct()
 	if (SkillButtonElement)
 	{
 		SkillButtonElement->OnClicked.AddDynamic(this, &USkillButton::OnSkillButtonClicked);
+	}
+
+	//버튼 루트에 달아 둔다, 내부 UButton이 비활성이어도 툴팁은 뜬다
+	//스킬이 바뀌지 않으므로 내용은 여기서 한 번만 채운다
+	if (skillTooltipClass && skill)
+	{
+		if (USkillTooltipWidget* tooltip = CreateWidget<USkillTooltipWidget>(GetOwningPlayer(), skillTooltipClass))
+		{
+			tooltip->InitTooltip(skill);
+			SetToolTip(tooltip);
+		}
 	}
 }
 

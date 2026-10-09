@@ -17,14 +17,14 @@ UTestHeal::UTestHeal()
 	areaParameter1 = 50.f;
 	//areaParameter2 = 0.f;						//Circle이니 확인 안함
 
-	pickRange = 1200.f;
+	pickRange = 2000.f;
 	pickCount = 1;
 	
 	battleResourceCost = 0;
 	actionPointCost = 2;
 	
 	damageRatio = 1.0f;
-	bonusAccuracy = 35.f;
+	bonusAccuracy = 95.f;
 	bonusCritical = 0.f;
 	baseDamage = 1;
 	bonusPenetration = 0;
