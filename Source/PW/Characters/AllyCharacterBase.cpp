@@ -91,6 +91,10 @@ FAllyRunState AAllyCharacterBase::CaptureRunState() const
 	state.BattleResource = battleResource;
 
 	state.AcquiredUpgrades = acquiredUpgrades;
+	state.SkillSlots = skillSlots;
+
+	//턴이 오지 않아 못 고른 강화, 저장하지 않으면 레벨만 오른 채 선택권이 사라진다
+	state.PendingUpgradeLevels = pendingUpgradeLevels;
 
 	return state;
 }
@@ -108,6 +112,12 @@ void AAllyCharacterBase::RestoreRunState(const FAllyRunState& state)
 
 	//AcquireUpgrade가 목록에 다시 쌓으므로 스냅샷 값으로 되돌린다
 	acquiredUpgrades = state.AcquiredUpgrades;
+
+	//스킬 슬롯 배치, 보유 스킬과의 정합은 InitSkills의 정규화가 맡는다
+	skillSlots = state.SkillSlots;
+
+	//못 고른 강화 큐, 다음 전투 첫 턴의 InitTurn이 기존 경로로 소비한다
+	pendingUpgradeLevels = state.PendingUpgradeLevels;
 
 	//2) 베이스 스탯 대입. 대입은 멱등이라 BeginPlay 기본 패시브와 1)의 이중 가산이 함께 사라진다
 	level = state.Level;

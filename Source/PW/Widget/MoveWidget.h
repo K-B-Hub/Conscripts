@@ -6,7 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "MoveWidget.generated.h"
 
-class UCircularButtonWidget;
+class UButton;
 
 UCLASS()
 class PW_API UMoveWidget : public UUserWidget
@@ -20,9 +20,10 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 
-	//BP에서 CircularButton 파생 BP를 "MoveButton" 이름으로 배치해야 자동 바인딩됨
+	//BP에서 버튼을 "MoveButton" 이름으로 배치해야 자동 바인딩됨
+	//상태 아트와 호버 처리는 UImageButton이 맡는다, 파생도 UButton이라 이 타입으로 받는다
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UCircularButtonWidget> MoveButton;
+	TObjectPtr<UButton> MoveButton;
 
 private:
 	UFUNCTION()

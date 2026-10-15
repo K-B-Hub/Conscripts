@@ -24,6 +24,7 @@ class ATerrainBase;
 class UNavModifierComponent;
 class UAnimMontage;
 class UTexture2D;
+class UMaterialInterface;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 //hp/스트레스 변동 시 HUD 게이지 등 외부 통지
@@ -257,7 +258,12 @@ protected:
 	//체력 비율 경계(50%/30%) 하향 통과 시 스트레스 부여
 	void ApplyHpThresholdStress(int32 hpBefore);
 
-	//캐릭터의 기본 스킬, 파생 클래스에서 구현
+	//캐릭터가 처음부터 가지는 스킬, BP에서 지정한다
+	//BP 서브클래스를 넣어야 아이콘 등 에셋 참조가 따라온다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
+	TArray<TSubclassOf<USkillBase>> defaultSkills;
+
+	//defaultSkills를 SkillComponent에 등록, 파생 클래스에서 더할 것이 있으면 override
 	virtual void SetDefaultSkills();
 	//캐릭터의 기본 패시브 스킬, 파생 클래스에서 구현
 	virtual void SetDefaultPassives();
@@ -352,6 +358,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
 	TObjectPtr<UTexture2D> jobIcon;
 
+	//호버 강조에 쓸 오버레이 머티리얼, 파생 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TObjectPtr<UMaterialInterface> highlightOverlayMaterial;
+
 	//아군 여부, AAllyCharacterBase에서 true로 override
 	virtual bool IsAlly() const { return false; }
 
@@ -422,6 +432,10 @@ public:
 
 	//상세보기 버튼 위젯, 클릭 델리게이트 바인딩용. 위젯 클래스 미지정이면 nullptr
 	UCharacterDetailButtonWidget* GetDetailButtonWidget() const;
+
+	//호버 강조, 메시에 오버레이 머티리얼을 덧씌워 가장자리를 밝힌다
+	//머티리얼 미지정 BP면 아무 일도 하지 않는다
+	void SetHighlighted(bool bHighlighted);
 
 	void ClearPendingDamage();
 	//AI 행동 평가용: 현재 스킬 흐름에서 대상에게 계산해둔 예측값 조회

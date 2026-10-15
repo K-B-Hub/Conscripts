@@ -8,6 +8,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Actors/CursorIndicator.h"
+#include "Widget/BattleHudWidget.h"
 #include "Widget/BattleTurnWidget.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
@@ -84,17 +85,41 @@ void ABattleController::BeginPlay()
 	if (ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>())
 	{
 		gameMode->OnDeployPhaseStarted.AddUObject(this, &ABattleController::OnDeployPhaseStarted);
+		gameMode->OnBattlePhaseStarted.AddUObject(this, &ABattleController::OnBattlePhaseStarted);
 		gameMode->OnBattleFinished.AddUObject(this, &ABattleController::OnBattleFinished);
 	}
 }
 
+void ABattleController::OnBattlePhaseStarted()
+{
+	if (!battleHudWidgetClass) return;
+
+	battleHudInstance = CreateWidget<UBattleHudWidget>(this, battleHudWidgetClass);
+	if (!battleHudInstance) return;
+
+	//ZOrder를 지정하지 않는다, 어떤 창보다 먼저 생기므로 기본값으로 맨 아래에 깔린다
+	battleHudInstance->AddToViewport();
+}
+
 void ABattleController::OnBattleFinished(EBattleResult result)
 {
+	//HUD를 거두기 전에 호버를 풀어야 강조가 켜진 채로 남지 않는다
+	//턴 순서 칸 위에서 전투가 끝나면 주도권 플래그가 켜진 채 남아 다음 전투의 커서 트레이스가 죽는다
+	bHoverOwnedByWidget = false;
+	SetHoverTarget(nullptr);
+
 	//전투 HUD를 거두어 결과 화면 위에서 조작이 남지 않게 한다
 	if (turnHudWidgetInstance)
 	{
 		turnHudWidgetInstance->RemoveFromParent();
 		turnHudWidgetInstance = nullptr;
+	}
+
+	//지속 HUD도 함께 거둔다, 남기면 결과·예고 화면 위로 턴 순서와 일시정지 버튼이 올라앉는다
+	if (battleHudInstance)
+	{
+		battleHudInstance->RemoveFromParent();
+		battleHudInstance = nullptr;
 	}
 
 	if (!resultWidgetClass) return;
@@ -471,8 +496,7 @@ void ABattleController::RefreshGauges()
 {
 	if (!IsValid(activeUnit) || !IsValid(turnHudWidgetInstance)) return;
 
-	turnHudWidgetInstance->RefreshGauges(activeUnit->GetMaxHp(), activeUnit->GetHp(),
-		activeUnit->GetMaxStress(), activeUnit->GetStress());
+	turnHudWidgetInstance->RefreshGauges(activeUnit);
 }
 
 void ABattleController::SetupInputComponent()
@@ -504,7 +528,8 @@ void ABattleController::SetupInputComponent()
 	}
 	if (iA_Pause)
 	{
-		EIC->BindAction(iA_Pause, ETriggerEvent::Started, this, &ABattleController::OnPause);
+		//무인자 핸들러 바인딩, ESC와 HUD 버튼이 같은 함수를 부른다
+		EIC->BindAction(iA_Pause, ETriggerEvent::Started, this, &ABattleController::TogglePauseMenu);
 	}
 	if (iA_CameraReset)
 	{
@@ -515,6 +540,15 @@ void ABattleController::SetupInputComponent()
 void ABattleController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	//커서 아래 캐릭터를 쓰로틀링해 추적, 매 프레임 트레이스할 이유가 없다
+	//위젯이 호버를 쥐고 있으면 멈춘다, 안 그러면 패널 뒤 월드 히트가 칸이 지정한 호버를 덮는다
+	hoverTraceCooldown -= DeltaTime;
+	if (!bHoverOwnedByWidget && hoverTraceCooldown <= 0.f)
+	{
+		hoverTraceCooldown = hoverTraceInterval;
+		SetHoverTarget(FindCharacterUnderCursor());
+	}
 
 	if (USpringArmComponent* SpringArm = ResolveSpringArm())
 	{
@@ -657,6 +691,48 @@ ACharacterBase* ABattleController::FindCharacterUnderCursor() const
 	return Cast<ACharacterBase>(hit.GetActor());
 }
 
+void ABattleController::SetHoverTarget(ACharacterBase* newTarget)
+{
+	if (hoverTarget == newTarget) return;
+
+	//이전 대상 강조 해제, 사망 등으로 파괴됐으면 건너뛴다
+	if (IsValid(hoverTarget)) hoverTarget->SetHighlighted(false);
+
+	hoverTarget = newTarget;
+	if (IsValid(hoverTarget)) hoverTarget->SetHighlighted(true);
+
+	if (IsValid(battleHudInstance)) battleHudInstance->SetHoverTarget(hoverTarget);
+}
+
+void ABattleController::SetHoverFromWidget(ACharacterBase* target)
+{
+	bHoverOwnedByWidget = true;
+	SetHoverTarget(target);
+}
+
+void ABattleController::ClearHoverFromWidget(const ACharacterBase* owner)
+{
+	if (hoverTarget != owner) return;
+
+	bHoverOwnedByWidget = false;
+
+	//쿨다운을 비워 다음 틱에 커서 트레이스가 곧바로 주도권을 되찾게 한다
+	hoverTraceCooldown = 0.f;
+	SetHoverTarget(nullptr);
+}
+
+void ABattleController::FocusCameraOn(ACharacterBase* target)
+{
+	USpringArmComponent* SpringArm = ResolveSpringArm();
+	if (!SpringArm || !IsValid(target)) return;
+
+	//추적을 켜면 다음 틱에 activeUnit·aiFollowTarget으로 되돌아간다, 위치만 옮기고 자유 모드로 둔다
+	//Yaw는 건드리지 않는다 — OnCameraReset과 달리 플레이어가 맞춰 둔 시야각을 뒤집을 이유가 없다
+	SpringArm->SetWorldLocation(target->GetActorLocation());
+	cameraVelocity = FVector::ZeroVector;
+	bIsFollowingCharacter = false;
+}
+
 void ABattleController::SetDetailTarget(ACharacterBase* newTarget)
 {
 	if (detailTarget == newTarget) return;
@@ -770,17 +846,12 @@ void ABattleController::OnCameraReset(const FInputActionValue& Value)
 	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
-void ABattleController::OnPause(const FInputActionValue& Value)
+void ABattleController::TogglePauseMenu()
 {
 	//결과 화면 위에 일시정지가 겹치면 복귀·포기 경로가 전투 종료 흐름과 충돌한다
 	const ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>();
 	if (gameMode && gameMode->GetPhase() == EBattlePhase::Result) return;
 
-	TogglePauseMenu();
-}
-
-void ABattleController::TogglePauseMenu()
-{
 	//상세 정보 창이 떠 있으면 그것만 닫는다, 가장 위에 있는 창부터 한 단계씩 닫는다
 	if (detailWidgetInstance)
 	{

@@ -2,7 +2,7 @@
 
 #include "Widget/TurnEndWidget.h"
 
-#include "Widget/CircularButtonWidget.h"
+#include "Components/Button.h"
 #include "GameMode/BattleGameMode.h"
 #include "PlayerController/BattleController.h"
 

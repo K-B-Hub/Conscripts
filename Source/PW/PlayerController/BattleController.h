@@ -13,6 +13,7 @@ class UInputAction;
 class ACursorIndicator;
 class AAllyCharacterBase;
 class ACharacterBase;
+class UBattleHudWidget;
 class UBattleTurnWidget;
 class UActiveSkillBase;
 class AAttackRangeIndicator;
@@ -66,6 +67,23 @@ public:
 
 	//적 턴 시작 시 GameMode에서 호출, 카메라 폰 스프링암을 피벗으로 AI 추적
 	void BeginAITurnFollow(ACharacterBase* AIUnit);
+
+	//턴 순서 칸이 호버 대상을 직접 지정한다, 대상은 hoverTarget 하나로 단일 출처다
+	//커서로 월드 캐릭터와 칸을 동시에 호버할 수는 없으므로 둘이 대상을 다툴 일이 없다
+	//다만 커서가 UMG 위에 있는 동안의 월드 트레이스 결과는 의미가 없어 트레이스를 멈춰 둔다
+	void SetHoverFromWidget(ACharacterBase* target);
+
+	//턴 순서 칸이 호버를 거두고 커서 트레이스에 주도권을 돌려준다
+	//owner가 현재 대상과 다르면 아무것도 하지 않는다 — 칸 사이를 옮길 때 Leave가 Enter보다
+	//늦게 와도 새 칸이 막 지정한 호버를 지우지 않기 위한 가드다
+	void ClearHoverFromWidget(const ACharacterBase* owner);
+
+	//턴 순서 칸 클릭 수신, 카메라를 대상 위치로 옮기지만 추적은 켜지 않는다
+	void FocusCameraOn(ACharacterBase* target);
+
+	//설정 → 일시정지 → 해제 순으로 한 단계씩 닫고, 아무것도 없으면 일시정지 메뉴를 연다
+	//ESC와 HUD의 일시정지 버튼이 함께 쓴다
+	void TogglePauseMenu();
 
 	//일시정지 메뉴를 닫고 게임 진행을 재개
 	void ResumeFromPause();
@@ -173,10 +191,6 @@ private:
 	void OnMoveCommand(const FInputActionValue& Value);
 	void OnCancelMove(const FInputActionValue& Value);
 	void OnCameraReset(const FInputActionValue& Value);
-	void OnPause(const FInputActionValue& Value);
-
-	//설정 → 일시정지 → 해제 순으로 한 단계씩 닫고, 아무것도 없으면 일시정지 메뉴를 연다
-	void TogglePauseMenu();
 
 	//pause가 적 턴 타이머·AI 이동·카메라 입력을 함께 멈춘다
 	void SetPaused(bool bPaused);
@@ -224,6 +238,14 @@ private:
 	//스폰된 인디케이터 인스턴스
 	UPROPERTY()
 	TObjectPtr<ACursorIndicator> cursorIndicatorInstance = nullptr;
+
+	//지속 HUD 위젯 클래스, 임무/턴순서/일시정지 버튼 일괄 포함
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UBattleHudWidget> battleHudWidgetClass;
+
+	//생성된 지속 HUD 인스턴스, 턴 HUD와 달리 턴 전환에 파괴되지 않는다
+	UPROPERTY()
+	TObjectPtr<UBattleHudWidget> battleHudInstance = nullptr;
 
 	//턴 HUD 위젯 클래스, 이동/스킬/턴종료/게이지 일괄 포함
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
@@ -320,6 +342,9 @@ private:
 	//Deploy 페이즈 진입 통지 수신, 배치 위젯 생성
 	void OnDeployPhaseStarted();
 
+	//전투 페이즈 진입 통지 수신, 지속 HUD 생성
+	void OnBattlePhaseStarted();
+
 	//Deploy 중 클릭 처리, 커서 아래 지점에 선택된 인원을 배치
 	void HandleDeployClick();
 
@@ -361,6 +386,24 @@ private:
 	//상세보기 버튼을 띄워둔 캐릭터, 없으면 nullptr
 	UPROPERTY()
 	TObjectPtr<ACharacterBase> detailTarget = nullptr;
+
+	//호버 미리보기 대상, 없으면 nullptr
+	UPROPERTY()
+	TObjectPtr<ACharacterBase> hoverTarget = nullptr;
+
+	//호버 대상 전환, 이전 대상의 강조를 끄고 새 대상을 켠 뒤 HUD에 알린다
+	void SetHoverTarget(ACharacterBase* newTarget);
+
+	//true면 커서 트레이스를 멈춘다, 커서가 UMG 위에 있는 동안 월드 히트는 의미가 없다
+	//호버 대상 자체는 hoverTarget 하나뿐이고 이 플래그는 "누가 쓸 차례인가"만 말한다
+	bool bHoverOwnedByWidget = false;
+
+	//커서 트레이스 쓰로틀 잔여 시간, 매 프레임 트레이스할 이유가 없다
+	float hoverTraceCooldown = 0.f;
+
+	//커서 트레이스 간격(초)
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	float hoverTraceInterval = 0.1f;
 
 	//커서 아래 캐릭터 탐색, 캡슐이 막는 Pawn 채널로 트레이스하므로 지형에 가려지면 집히지 않는다
 	ACharacterBase* FindCharacterUnderCursor() const;

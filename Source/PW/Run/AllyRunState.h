@@ -79,6 +79,15 @@ struct FAllyRunState
 	UPROPERTY(BlueprintReadWrite)
 	TArray<TSubclassOf<USkillBase>> AcquiredUpgrades;
 
+	//스킬 버튼 슬롯 배치, 빈 칸은 nullptr이고 배열 길이가 행 수를 함께 저장한다
+	UPROPERTY(BlueprintReadWrite)
+	TArray<TSubclassOf<USkillBase>> SkillSlots;
+
+	//아직 고르지 않은 레벨업 강화가 부여된 레벨들(FIFO), 배열 길이가 남은 횟수다
+	//횟수만 저장하면 BuildPendingChoices가 종류를 복원하지 못해 직업 고정 강화가 하급 랜덤으로 강등된다
+	UPROPERTY(BlueprintReadWrite)
+	TArray<int32> PendingUpgradeLevels;
+
 	//AllyCharacterBase가 전방 선언뿐이라 TSubclassOf 비교를 헤더에서 할 수 없어 .cpp에 정의
 	bool IsValid() const;
 

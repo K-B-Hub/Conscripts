@@ -14,9 +14,4 @@ class PW_API AEnemyTest : public AEnemyBase
 
 public:
 	AEnemyTest();
-
-protected:
-	//테스트 액티브 스킬 장착
-	virtual void SetDefaultSkills() override;
-	//virtual void SetDefaultPassives() override;
 };
