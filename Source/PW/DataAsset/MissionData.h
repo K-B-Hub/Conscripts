@@ -17,6 +17,11 @@ class PW_API UMissionData : public UDataAsset
 	GENERATED_BODY()
 
 public:
+	//전투 HUD에 표시할 임무 유형 이름 (예: "섬멸", "암살")
+	//클래스명을 쓰지 않는 이유는 한국어 표기와 번역 때문이다, 파생 클래스 하나에 인스턴스 여럿이 전제다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mission")
+	FText TypeName;
+
 	//출격 화면과 전투 HUD에 표시할 목표 설명
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mission")
 	FText Description;

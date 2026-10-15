@@ -1,22 +1,10 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Widget/SquadMemberRow.h"
+#include "Widget/StatTextHelpers.h"
 #include "Characters/CharacterBase.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
-
-namespace
-{
-	void SetCellInt(UTextBlock* text, int32 value)
-	{
-		if (text) text->SetText(FText::AsNumber(value));
-	}
-
-	void SetCellFloat(UTextBlock* text, float value)
-	{
-		if (text) text->SetText(FText::FromString(FString::Printf(TEXT("%.1f"), value)));
-	}
-}
 
 void USquadMemberRow::NativeConstruct()
 {
@@ -30,7 +18,7 @@ void USquadMemberRow::InitRow(ACharacterBase* target)
 	rowTarget = target;
 	if (!target) return;
 
-	SetCellInt(LevelText, target->GetLevel());
+	PWStatText::SetInt(LevelText, target->GetLevel());
 
 	if (JobText)
 	{
@@ -47,15 +35,15 @@ void USquadMemberRow::InitRow(ACharacterBase* target)
 			FString::Printf(TEXT("%d / %d"), target->GetHp(), target->GetMaxHp())));
 	}
 
-	SetCellInt(AtkText, target->GetAtk());
-	SetCellInt(DefText, target->GetDef());
-	SetCellInt(SpeedText, target->GetSpeed());
-	SetCellInt(SkillText, target->GetSkill());
+	PWStatText::SetInt(AtkText, target->GetAtk());
+	PWStatText::SetInt(DefText, target->GetDef());
+	PWStatText::SetInt(SpeedText, target->GetSpeed());
+	PWStatText::SetInt(SkillText, target->GetSkill());
 
 	//명중·회피는 백분율이 아니라 acc-eva 뺄셈식에 들어가는 원시 수치다
-	SetCellFloat(AccuracyText, target->GetAccuracy());
-	SetCellFloat(EvasionText, target->GetEvasion());
-	SetCellFloat(CriticalText, target->GetCritical());
+	PWStatText::SetFloat(AccuracyText, target->GetAccuracy());
+	PWStatText::SetFloat(EvasionText, target->GetEvasion());
+	PWStatText::SetFloat(CriticalText, target->GetCritical());
 }
 
 void USquadMemberRow::HandleClicked()

@@ -30,12 +30,13 @@ protected:
 	TSubclassOf<UTurnOrderEntryWidget> EntryClass;
 
 private:
-	//턴 순서 배열 변경 시(라운드 시작, 사망) 칸 전체 재생성
+	//턴 순서 배열 변경 시(라운드 시작, 사망, 증원) 칸 전체 재생성
 	void RebuildEntries(const TArray<ACharacterBase*>& InTurnOrder, int32 InCurrentIndex);
 
-	//턴 전환 시 각 칸의 상태만 갱신하고 현재 턴으로 스크롤
+	//턴 전환 시 현재 턴부터 라운드 끝까지만 다시 붙인다, 지나간 칸은 빠진다
 	void SetCurrentTurn(int32 InCurrentIndex);
 
+	//turnOrder 전체에 대응하는 칸, 인덱스가 turnOrder와 1:1이라 잘라내기만 하면 된다
 	UPROPERTY()
 	TArray<TObjectPtr<UTurnOrderEntryWidget>> entries;
 

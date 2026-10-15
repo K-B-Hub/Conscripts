@@ -5,6 +5,7 @@
 #include "Widget/MoveWidget.h"
 #include "Widget/SkillWidget.h"
 #include "Widget/CircularGaugeWidget.h"
+#include "Widget/MovingPointWidget.h"
 #include "Characters/AllyCharacterBase.h"
 #include "ActorComponent/SkillComponent.h"
 
@@ -22,18 +23,17 @@ void UBattleTurnWidget::InitTurnHUD(AAllyCharacterBase* TurnUnit)
 		if (USkillComponent* SkillComp = TurnUnit->GetSkillComponent())
 		{
 			SkillComp->CalcSkillStats();
-			SkillWidget->InitSkills(SkillComp);
+			SkillWidget->InitSkills(TurnUnit);
 		}
 	}
 
-	if (HpGauge)
+	if (MovingPointWidget)
 	{
-		HpGauge->InitGauge(TurnUnit->GetMaxHp(), TurnUnit->GetHp());
+		MovingPointWidget->InitMovingPoint(TurnUnit);
 	}
-	if (StressGauge)
-	{
-		StressGauge->InitGauge(TurnUnit->GetMaxStress(), TurnUnit->GetStress());
-	}
+
+	//게이지 넷은 초기화와 갱신이 같은 일이다
+	RefreshGauges(TurnUnit);
 }
 
 void UBattleTurnWidget::RefreshMoveButton(float currentMovingPoint)
@@ -52,14 +52,24 @@ void UBattleTurnWidget::RefreshSkillButtons()
 	}
 }
 
-void UBattleTurnWidget::RefreshGauges(int32 InMaxHp, int32 InHp, int32 InMaxStress, int32 InStress)
+void UBattleTurnWidget::RefreshGauges(ACharacterBase* unit)
 {
+	if (!IsValid(unit)) return;
+
 	if (HpGauge)
 	{
-		HpGauge->InitGauge(InMaxHp, InHp);
+		HpGauge->InitGauge(unit->GetMaxHp(), unit->GetHp());
 	}
 	if (StressGauge)
 	{
-		StressGauge->InitGauge(InMaxStress, InStress);
+		StressGauge->InitGauge(unit->GetMaxStress(), unit->GetStress());
+	}
+	if (ActionPointGauge)
+	{
+		ActionPointGauge->InitGauge(unit->GetActionPoint(), unit->GetCurrentActionPoint());
+	}
+	if (BattleResourceGauge)
+	{
+		BattleResourceGauge->InitGauge(unit->GetMaxBattleResource(), unit->GetBattleResource());
 	}
 }

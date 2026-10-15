@@ -9,6 +9,8 @@
 class UMoveWidget;
 class USkillWidget;
 class UCircularGaugeWidget;
+class UMovingPointWidget;
+class ACharacterBase;
 class AAllyCharacterBase;
 
 //아군 턴 동안만 표시되는 HUD 컨테이너, 이동/스킬/턴종료/게이지 위젯을 하나로 묶음
@@ -28,8 +30,9 @@ public:
 	//스킬 버튼 활성/비활성 갱신
 	void RefreshSkillButtons();
 
-	//HP/스트레스 게이지 갱신, 레벨업·패시브로 최대치도 변하므로 max까지 함께 반영
-	void RefreshGauges(int32 InMaxHp, int32 InHp, int32 InMaxStress, int32 InStress);
+	//게이지 네 개 갱신, 레벨업·패시브로 최대치도 변하므로 유닛을 그대로 받아 max까지 함께 읽는다
+	//값을 나열해 받으면 게이지를 더할 때마다 인자가 둘씩 늘어난다
+	void RefreshGauges(ACharacterBase* unit);
 
 protected:
 	//BP에서 각 이름으로 자동 바인딩
@@ -44,4 +47,15 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UCircularGaugeWidget> StressGauge;
+
+	//행동력·전투 자원은 행동으로만 변하므로 OnVitalsChanged를 타고 들어온다
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UCircularGaugeWidget> ActionPointGauge;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UCircularGaugeWidget> BattleResourceGauge;
+
+	//이동력만 폴링이라 자체 Tick을 가진 별도 위젯이다
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UMovingPointWidget> MovingPointWidget;
 };

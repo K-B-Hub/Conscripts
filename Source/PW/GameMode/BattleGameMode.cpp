@@ -116,6 +116,11 @@ void ABattleGameMode::StartBattlePhase()
 
 		BuildTurnOrder();
 
+		//지속 HUD 생성 통지, 턴 순서 구성 뒤 첫 턴 시작 전이어야 한다
+		//뒤여야 하는 이유 — HUD가 생성 시점의 턴 순서를 당겨올 수 있다
+		//앞이어야 하는 이유 — 첫 턴 HUD보다 먼저 뷰포트에 들어가야 같은 ZOrder에서 아래에 깔린다
+		OnBattlePhaseStarted.Broadcast();
+
 		if (turnOrder.Num() > 0)
 		{
 			//첫 라운드 RoundStart Conditional 패시브, 첫 턴 시작 전 발동
@@ -363,6 +368,13 @@ AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacte
 	recruit->OnCharacterDeath.AddDynamic(this, &ABattleGameMode::OnCharacterDeath);
 	recruit->SetNavObstacleEnabled(true);
 	allies.Add(recruit);
+
+	//야영지 충원과 같은 규칙으로 개체 이름을 붙인다
+	//비워 두면 결과·배치·편성 화면의 이름 칸이 빈다, 그쪽은 폴백이 없다
+	const FText& jobName = jobClass->GetDefaultObject<AAllyCharacterBase>()->jobName;
+	recruit->displayName = FString::Printf(TEXT("%s %d"),
+		*(jobName.IsEmpty() ? FText::FromString(jobClass->GetName()) : jobName).ToString(),
+		allies.Num());
 
 	//레벨당 대기 강화가 쌓이고, 소비는 신병의 턴 시작이 맡는다
 	recruit->ForceLevelUpTo(targetLevel);

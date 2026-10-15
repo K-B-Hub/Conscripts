@@ -54,6 +54,9 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTurnOrderRebuilt, const TArray<ACharacte
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnChanged, int32);
 //Deploy 페이즈 진입 시 통지, 컨트롤러가 배치 위젯을 띄운다
 DECLARE_MULTICAST_DELEGATE(FOnDeployPhaseStarted);
+//전투 페이즈 진입 시 통지, 컨트롤러가 지속 HUD를 띄운다
+//ConfirmDeployment와 배치 생략(로스터 없음) 두 경로를 한곳으로 모은다
+DECLARE_MULTICAST_DELEGATE(FOnBattlePhaseStarted);
 //전투 종료 시 통지, 컨트롤러가 결과 위젯을 띄운다
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnBattleFinished, EBattleResult);
 
@@ -71,6 +74,9 @@ public:
 
 	//Deploy 페이즈 진입 통지
 	FOnDeployPhaseStarted OnDeployPhaseStarted;
+
+	//전투 페이즈 진입 통지
+	FOnBattlePhaseStarted OnBattlePhaseStarted;
 
 	//전투 종료 통지
 	FOnBattleFinished OnBattleFinished;
@@ -139,6 +145,10 @@ public:
 	//스트레스 한계 도달 시 호출, 20% 긍정 / 80% 부정 풀에서 랜덤 이벤트를 대상에게 적용
 	void ApplyStressEvent(ACharacterBase* Target);
 
+	//이번 스테이지의 승리 조건, 시퀀스에서 가져온다
+	//런 없이 전투 맵을 직접 연 경우 nullptr이므로 호출자가 폴백을 둬야 한다
+	const UMissionData* GetCurrentMission() const;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -158,9 +168,6 @@ private:
 
 	//전투 종료 확정, 생존자 스냅샷을 회수하고 결과를 통지
 	void FinishBattle(EBattleResult result);
-
-	//이번 스테이지의 승리 조건, 시퀀스에서 가져온다
-	const UMissionData* GetCurrentMission() const;
 
 	//지점이 배치 구획 안인지
 	bool IsInsideDeploymentZone(const FVector& point) const;

@@ -55,6 +55,11 @@ public:
 	//스냅샷 복원, 강화 재등록 → 베이스 스탯 대입 → 파생 재계산 순서를 지킨다
 	void RestoreRunState(const FAllyRunState& state);
 
+	//스킬 슬롯 배치, 빈 칸은 nullptr이고 배열 길이가 행 수를 인코딩한다
+	//정규화와 교환은 USkillWidget이 하고 캐릭터는 보관만 한다
+	const TArray<TSubclassOf<USkillBase>>& GetSkillSlots() const { return skillSlots; }
+	void SetSkillSlots(const TArray<TSubclassOf<USkillBase>>& slots) { skillSlots = slots; }
+
 	//직업 고유 강화 후보 풀, 파생 직업 BP에서 지정
 	UUpgradeTableData* GetClassUpgradeTable() const { return classUpgradeTable; }
 
@@ -112,6 +117,10 @@ protected:
 	virtual void NotifyArcMoveCompleted() override;
 
 private:
+	//스킬 슬롯에 놓인 클래스, 런 세이브 대상
+	UPROPERTY()
+	TArray<TSubclassOf<USkillBase>> skillSlots;
+
 	//대기 중인 강화가 부여된 레벨들(FIFO)
 	TArray<int32> pendingUpgradeLevels;
 

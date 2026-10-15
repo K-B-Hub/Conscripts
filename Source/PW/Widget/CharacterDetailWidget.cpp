@@ -1,6 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Widget/CharacterDetailWidget.h"
+#include "Widget/StatTextHelpers.h"
 #include "Widget/SkillListEntry.h"
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/SkillComponent.h"
@@ -12,25 +13,6 @@
 #include "Components/Image.h"
 #include "Components/PanelWidget.h"
 #include "Components/TextBlock.h"
-
-namespace
-{
-	//18개 스탯 칸을 일일이 널 검사하지 않도록 묶는다
-	void SetStatInt(UTextBlock* text, int32 value)
-	{
-		if (text) text->SetText(FText::AsNumber(value));
-	}
-
-	void SetStatFloat(UTextBlock* text, float value)
-	{
-		if (text) text->SetText(FText::FromString(FString::Printf(TEXT("%.1f"), value)));
-	}
-
-	void SetStatPair(UTextBlock* text, int32 current, int32 max)
-	{
-		if (text) text->SetText(FText::FromString(FString::Printf(TEXT("%d / %d"), current, max)));
-	}
-}
 
 void UCharacterDetailWidget::NativeConstruct()
 {
@@ -66,28 +48,28 @@ void UCharacterDetailWidget::InitDetail(ACharacterBase* target)
 
 	if (LevelText) LevelText->SetText(FText::FromString(FString::Printf(TEXT("LV. %d"), target->GetLevel())));
 
-	SetStatPair(HpText, target->GetHp(), target->GetMaxHp());
-	SetStatPair(BattleResourceText, target->GetBattleResource(), target->GetMaxBattleResource());
+	PWStatText::SetPair(HpText, target->GetHp(), target->GetMaxHp());
+	PWStatText::SetPair(BattleResourceText, target->GetBattleResource(), target->GetMaxBattleResource());
 
-	SetStatInt(AtkText, target->GetAtk());
-	SetStatInt(SpeedText, target->GetSpeed());
-	SetStatInt(SkillText, target->GetSkill());
-	SetStatInt(DefText, target->GetDef());
-	SetStatInt(MentalityText, target->GetMentality());
+	PWStatText::SetInt(AtkText, target->GetAtk());
+	PWStatText::SetInt(SpeedText, target->GetSpeed());
+	PWStatText::SetInt(SkillText, target->GetSkill());
+	PWStatText::SetInt(DefText, target->GetDef());
+	PWStatText::SetInt(MentalityText, target->GetMentality());
 
 	//행동력은 턴마다 소모되는 현재치가 아니라 이 캐릭터의 최대치를 보여준다
-	SetStatInt(ActionPointText, target->GetActionPoint());
-	SetStatFloat(MovingPointText, target->GetMovingPoint());
-	SetStatFloat(SightText, target->GetSight());
+	PWStatText::SetInt(ActionPointText, target->GetActionPoint());
+	PWStatText::SetFloat(MovingPointText, target->GetMovingPoint());
+	PWStatText::SetFloat(SightText, target->GetSight());
 
 	//accuracy·evasion은 뺄셈식 acc-eva에 들어가는 원시 수치라 단독으로는 %가 아니다
 	//명중 수치의 100 초과분은 시야 초과 감쇠를 버티는 여유분으로 쓰인다
-	SetStatFloat(AccuracyText, target->GetAccuracy());
-	SetStatFloat(EvasionText, target->GetEvasion());
-	SetStatFloat(CriticalText, target->GetCritical());
-	SetStatInt(PenetrationText, target->GetPenetration());
-	SetStatInt(DamageAmplificationText, target->GetDamageAmplification());
-	SetStatInt(DamageReductionText, target->GetDamageReduction());
+	PWStatText::SetFloat(AccuracyText, target->GetAccuracy());
+	PWStatText::SetFloat(EvasionText, target->GetEvasion());
+	PWStatText::SetFloat(CriticalText, target->GetCritical());
+	PWStatText::SetInt(PenetrationText, target->GetPenetration());
+	PWStatText::SetInt(DamageAmplificationText, target->GetDamageAmplification());
+	PWStatText::SetInt(DamageReductionText, target->GetDamageReduction());
 
 	if (const USkillComponent* skillComp = target->GetSkillComponent())
 	{

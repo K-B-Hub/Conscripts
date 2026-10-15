@@ -190,7 +190,12 @@ void ACharacterBase::ToggleProne()
 
 void ACharacterBase::SetDefaultSkills()
 {
-	//파생 클래스에서 구현
+	if (!skillComponent) return;
+
+	for (const TSubclassOf<USkillBase>& skillClass : defaultSkills)
+	{
+		skillComponent->AddSkill(skillClass);
+	}
 }
 
 void ACharacterBase::SetDefaultPassives()
@@ -482,12 +487,19 @@ void ACharacterBase::AcquireUpgrade(TSubclassOf<USkillBase> skillClass)
 
 void ACharacterBase::ReduceActionPoint(int32 amount)
 {
+	const int32 before = currentActionPoint;
 	currentActionPoint = FMath::Clamp(currentActionPoint - amount, 0, actionPoint);
+
+	//비용 0인 스킬이 흔하므로 실제로 변했을 때만 알린다
+	if (currentActionPoint != before) OnVitalsChanged.Broadcast();
 }
 
 void ACharacterBase::ReduceBattleResource(int32 amount)
 {
+	const int32 before = battleResource;
 	battleResource = FMath::Clamp(battleResource - amount, 0, maxBattleResource);
+
+	if (battleResource != before) OnVitalsChanged.Broadcast();
 }
 
 void ACharacterBase::GainBattleResource(int32 amount)
@@ -501,6 +513,7 @@ void ACharacterBase::GainBattleResource(int32 amount)
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 전투 자원 %d 회복 → %d / %d"),
 		*GetName(), battleResource - before, battleResource, maxBattleResource);
 
+	OnVitalsChanged.Broadcast();
 }
 
 void ACharacterBase::ConsumeMovingPoint(float meters)
@@ -1186,6 +1199,14 @@ void ACharacterBase::HideDetailButton()
 UCharacterDetailButtonWidget* ACharacterBase::GetDetailButtonWidget() const
 {
 	return Cast<UCharacterDetailButtonWidget>(detailButtonWidgetComponent->GetWidget());
+}
+
+void ACharacterBase::SetHighlighted(bool bHighlighted)
+{
+	//머티리얼 미지정이면 끄는 쪽도 할 일이 없다, 남이 깔아둔 오버레이를 지우지 않는다
+	if (!highlightOverlayMaterial) return;
+
+	GetMesh()->SetOverlayMaterial(bHighlighted ? highlightOverlayMaterial.Get() : nullptr);
 }
 
 void ACharacterBase::ClearPendingDamage()
