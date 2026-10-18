@@ -12,6 +12,7 @@ class ASkillRangeIndicator;
 class AAttackRangeIndicator;
 class ACharacterBase;
 class UAnimMontage;
+class AProjectileBase;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PW_API USkillComponent : public UActorComponent
@@ -80,7 +81,10 @@ public:
 	//효과를 pending으로 등록 후 커밋 몽타주 재생, 몽타주 없거나 재생 실패 시 즉시 커밋
 	void StartPendingExecution(UActiveSkillBase* Skill, TFunction<void()>&& Action);
 
-	//pending 효과 실행 및 해제, SkillImpact 노티파이 또는 몽타주 종료 폴백이 호출
+	//SkillImpact 노티파이 처리, 스킬에 투사체가 있으면 발사해 커밋을 도착 시점으로 미루고 없으면 즉시 커밋
+	void OnSkillImpact();
+
+	//pending 효과 실행 및 해제, 투사체 도착·SkillImpact 노티파이·몽타주 종료 폴백이 호출
 	void CommitPendingExecution();
 
 protected:
@@ -125,8 +129,27 @@ private:
 	//커밋 시 실행할 효과, 등록 시점에 대상 스냅샷을 약참조로 캡처
 	TFunction<void()> pendingAction;
 
+	//비행 중인 투사체, 도착할 때까지 커밋을 보류한다
+	UPROPERTY()
+	TObjectPtr<AProjectileBase> activeProjectile = nullptr;
+
+	//투사체 포물선 샘플 개수, 조준 중 미리보기 궤적과 같은 밀도
+	static constexpr int32 projectileArcSamples = 24;
+
 	//노티파이 누락·몽타주 중단 시에도 커밋 보장하는 폴백
 	void OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	//스킬의 투사체 발사, 발사했으면 true (커밋은 도착 시점으로 미뤄짐)
+	bool LaunchProjectile(UActiveSkillBase* Skill);
+
+	//투사체 비행 경로 생성, arcApexRatio > 0이면 포물선·그 외는 일자 경로
+	TArray<FVector> BuildProjectilePath(const UActiveSkillBase* Skill) const;
+
+	//투사체 도착 콜백, 보류했던 커밋 실행
+	void OnProjectileArrived();
+
+	//비행 중 투사체 폐기, 외부 강제 커밋으로 효과가 이미 적용된 경우
+	void DiscardActiveProjectile();
 
 	//인디케이터 생성
 	void SpawnIndicators(UActiveSkillBase* Skill);

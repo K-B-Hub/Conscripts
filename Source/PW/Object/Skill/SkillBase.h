@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
+#include "Enum/UpgradeGrade.h"
 #include "SkillBase.generated.h"
 
 class ACharacterBase;
@@ -26,6 +27,10 @@ public:
 	//스킬 아이콘 (UI 버튼에 표시), 상세창·툴팁·강화 카드는 이것만 쓴다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Identity")
 	TObjectPtr<UTexture2D> skillIcon;
+	//스킬 등급, 상세창 항목 아트와 등급 정렬에 쓴다
+	//강화 풀(UUpgradeTableData) 소속과는 별개 출처다, 풀에 넣을 때 같은 등급으로 맞출 것
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Identity")
+	EUpgradeGrade skillGrade = EUpgradeGrade::Low;
 	//전투 스킬 버튼의 호버·클릭 아이콘, 미지정이면 skillIcon을 그대로 쓴다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Identity")
 	TObjectPtr<UTexture2D> skillIconHovered;

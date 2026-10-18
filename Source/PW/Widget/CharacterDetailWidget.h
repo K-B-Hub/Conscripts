@@ -95,10 +95,38 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UPanelWidget> PassiveSkillList;
 
+	//등급 정렬 방향 토글, 두 목록이 각자 버튼과 각자 방향을 갖는다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> ActiveSortButton;
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> PassiveSortButton;
+
+	//정렬 버튼 라벨, 버튼 아트가 현재 방향을 말해주지 않으므로 글자로 보여준다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> ActiveSortText;
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> PassiveSortText;
+
 private:
 	UFUNCTION()
 	void HandleCloseClicked();
 
-	//컨테이너를 비우고 스킬마다 항목을 생성해 채운다
-	void FillSkillList(UPanelWidget* list, const TArray<USkillBase*>& skills);
+	UFUNCTION()
+	void HandleActiveSortClicked();
+
+	UFUNCTION()
+	void HandlePassiveSortClicked();
+
+	//컨테이너를 비우고, 같은 클래스 스킬을 묶어 등급순으로 항목을 생성해 채운다
+	void FillSkillList(UPanelWidget* list, const TArray<TObjectPtr<USkillBase>>& skills, bool bDescending);
+
+	//정렬 버튼이 원본을 다시 읽지 않고 돌려 쓰도록 보관한다, 창은 열린 동안 값이 변하지 않는다(C7)
+	UPROPERTY()
+	TArray<TObjectPtr<USkillBase>> activeSkills;
+	UPROPERTY()
+	TArray<TObjectPtr<USkillBase>> passiveSkills;
+
+	//최상급이 위로 오는 내림차순으로 시작한다
+	bool bActiveDescending = true;
+	bool bPassiveDescending = true;
 };

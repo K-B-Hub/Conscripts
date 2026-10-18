@@ -408,6 +408,13 @@ private:
 	//커서 아래 캐릭터 탐색, 캡슐이 막는 Pawn 채널로 트레이스하므로 지형에 가려지면 집히지 않는다
 	ACharacterBase* FindCharacterUnderCursor() const;
 
+	//월드 호버·클릭을 막는 창이 떠 있는지
+	//강화 선택은 선택지를 접은 동안엔 막지 않는다, 접기 자체가 전장을 살펴보기 위한 기능이다
+	bool IsBlockingWidgetOpen() const;
+
+	//호버 미리보기와 강조 머티리얼이 허용되는 상태인지, 전투 페이즈이고 겹친 창이 없을 때만
+	bool IsHoverAllowed() const;
+
 	//상세보기 버튼 대상 전환, 이전 대상의 버튼을 거두고 새 대상에 띄운다. nullptr이면 해제만
 	//같은 대상 재클릭은 무시 — 버튼을 닫지 않고 그대로 둔다
 	void SetDetailTarget(ACharacterBase* newTarget);

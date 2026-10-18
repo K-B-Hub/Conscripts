@@ -8,6 +8,7 @@
 #include "ActiveSkillBase.generated.h"
 
 class UAnimMontage;
+class AProjectileBase;
 //모든 액티브 스킬의 기반 클래스
 UCLASS(Abstract, BlueprintType)
 class PW_API UActiveSkillBase : public USkillBase
@@ -75,6 +76,16 @@ public:
 	//몽타주 재생 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
 	float montagePlayRate = 1.0f;
+	//스킬 효과 적용 타이밍을 잡을 투사체, 미지정이면 임팩트 노티파이 시점에 즉시 적용
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")
+	TSubclassOf<AProjectileBase> projectileClass;
+	//투사체 비행 속도(cm/s)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")
+	float projectileSpeed = 2000.f;
+	//발사 지점으로 쓸 무기 메시의 소켓 이름, 모든 무기가 FirePoint로 통일
+	//비우거나 소켓이 없으면 시전자 캡슐 중심에서 발사
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")
+	FName muzzleSocketName = TEXT("FirePoint");
 	//포물선 궤적 정점 비율, >0이면 인디케이터가 수평거리×비율 높이의 아치를 계산 (점프·투척 공용)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Arc")
 	float arcApexRatio = 0.f;

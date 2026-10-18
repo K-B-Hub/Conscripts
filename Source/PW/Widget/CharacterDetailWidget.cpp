@@ -14,11 +14,31 @@
 #include "Components/PanelWidget.h"
 #include "Components/TextBlock.h"
 
+namespace
+{
+	//목록 항목 하나, 같은 클래스 스킬을 묶은 결과
+	struct FEntryGroup
+	{
+		USkillBase* skill = nullptr;
+		int32 count = 0;
+	};
+
+	//정렬 버튼 라벨을 현재 방향으로 맞춘다, ▼는 최상급이 위 ▲는 일반이 위
+	void ApplySortText(UTextBlock* text, bool bDescending)
+	{
+		if (!text) return;
+
+		text->SetText(FText::FromString(bDescending ? TEXT("등급 ▼") : TEXT("등급 ▲")));
+	}
+}
+
 void UCharacterDetailWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
 	if (CloseButton) CloseButton->OnClicked.AddDynamic(this, &UCharacterDetailWidget::HandleCloseClicked);
+	if (ActiveSortButton) ActiveSortButton->OnClicked.AddDynamic(this, &UCharacterDetailWidget::HandleActiveSortClicked);
+	if (PassiveSortButton) PassiveSortButton->OnClicked.AddDynamic(this, &UCharacterDetailWidget::HandlePassiveSortClicked);
 }
 
 void UCharacterDetailWidget::InitDetail(ACharacterBase* target)
@@ -71,43 +91,64 @@ void UCharacterDetailWidget::InitDetail(ACharacterBase* target)
 	PWStatText::SetInt(DamageAmplificationText, target->GetDamageAmplification());
 	PWStatText::SetInt(DamageReductionText, target->GetDamageReduction());
 
+	activeSkills.Reset();
 	if (const USkillComponent* skillComp = target->GetSkillComponent())
 	{
-		TArray<USkillBase*> actives;
 		for (UActiveSkillBase* skill : skillComp->GetActiveSkills())
 		{
-			actives.Add(skill);
+			activeSkills.Add(skill);
 		}
-		FillSkillList(ActiveSkillList, actives);
 	}
+	FillSkillList(ActiveSkillList, activeSkills, bActiveDescending);
+	ApplySortText(ActiveSortText, bActiveDescending);
 
 	//GetActivePassives()는 "활성 중인 전체 패시브"다, 타입별 배열은 디스패치용 인덱스일 뿐이다
+	passiveSkills.Reset();
 	if (const UPassiveSkillComponent* passiveComp = target->GetPassiveSkillComponent())
 	{
-		TArray<USkillBase*> passives;
 		for (const TObjectPtr<UPassiveSkillBase>& passive : passiveComp->GetActivePassives())
 		{
-			passives.Add(passive);
+			passiveSkills.Add(passive);
 		}
-		FillSkillList(PassiveSkillList, passives);
 	}
+	FillSkillList(PassiveSkillList, passiveSkills, bPassiveDescending);
+	ApplySortText(PassiveSortText, bPassiveDescending);
 }
 
-void UCharacterDetailWidget::FillSkillList(UPanelWidget* list, const TArray<USkillBase*>& skills)
+void UCharacterDetailWidget::FillSkillList(UPanelWidget* list, const TArray<TObjectPtr<USkillBase>>& skills, bool bDescending)
 {
 	if (!list || !skillEntryClass) return;
 
 	list->ClearChildren();
 
-	for (USkillBase* skill : skills)
+	//같은 클래스는 한 항목으로 묶어 개수를 센다, 중복은 bAllowDuplicate 패시브에서만 생긴다
+	TArray<FEntryGroup> groups;
+	for (const TObjectPtr<USkillBase>& skill : skills)
 	{
 		if (!skill) continue;
 
+		FEntryGroup* found = groups.FindByPredicate([&skill](const FEntryGroup& group)
+			{ return group.skill->GetClass() == skill->GetClass(); });
+
+		if (found) ++found->count;
+		else groups.Add({ skill.Get(), 1 });
+	}
+
+	//등급만 비교하므로 StableSort로 같은 등급 안에서는 습득 순서가 유지된다
+	groups.StableSort([bDescending](const FEntryGroup& a, const FEntryGroup& b)
+		{
+			return bDescending
+				? a.skill->skillGrade > b.skill->skillGrade
+				: a.skill->skillGrade < b.skill->skillGrade;
+		});
+
+	for (const FEntryGroup& group : groups)
+	{
 		USkillListEntry* entry = CreateWidget<USkillListEntry>(this, skillEntryClass);
 		if (!entry) continue;
 
 		//AddChild가 NativeConstruct를 부르므로 InitEntry가 먼저 와야 툴팁이 채워진다
-		entry->InitEntry(skill);
+		entry->InitEntry(group.skill, group.count);
 		list->AddChild(entry);
 	}
 }
@@ -115,4 +156,18 @@ void UCharacterDetailWidget::FillSkillList(UPanelWidget* list, const TArray<USki
 void UCharacterDetailWidget::HandleCloseClicked()
 {
 	OnClosed.ExecuteIfBound();
+}
+
+void UCharacterDetailWidget::HandleActiveSortClicked()
+{
+	bActiveDescending = !bActiveDescending;
+	FillSkillList(ActiveSkillList, activeSkills, bActiveDescending);
+	ApplySortText(ActiveSortText, bActiveDescending);
+}
+
+void UCharacterDetailWidget::HandlePassiveSortClicked()
+{
+	bPassiveDescending = !bPassiveDescending;
+	FillSkillList(PassiveSkillList, passiveSkills, bPassiveDescending);
+	ApplySortText(PassiveSortText, bPassiveDescending);
 }
