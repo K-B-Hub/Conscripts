@@ -6,7 +6,7 @@
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "AnimNotify_SkillImpact.generated.h"
 
-//모든 스킬 몽타주 공용 임팩트 노티파이, 해당 프레임에 pending 스킬 효과를 커밋
+//모든 스킬 몽타주 공용 임팩트 노티파이, 해당 프레임에 투사체를 발사하거나 투사체가 없으면 pending 효과를 커밋
 UCLASS(meta = (DisplayName = "Skill Impact"))
 class PW_API UAnimNotify_SkillImpact : public UAnimNotify
 {

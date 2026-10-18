@@ -5,12 +5,14 @@
 #include "Object/Skill/ActiveSkillBase.h"
 #include "Actors/SkillRangeIndicator.h"
 #include "Actors/AttackRangeIndicator.h"
+#include "Actors/ProjectileBase.h"
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "GameMode/BattleGameMode.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 USkillComponent::USkillComponent()
 {
@@ -289,6 +291,92 @@ void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, TFunction<v
 	}
 }
 
+void USkillComponent::OnSkillImpact()
+{
+	//커밋 대기 중이 아니면 할 일 없음
+	if (!pendingAction) return;
+
+	//투사체가 있으면 발사만 하고 커밋은 도착 시점으로 미룸
+	if (LaunchProjectile(pendingSkill)) return;
+
+	CommitPendingExecution();
+}
+
+bool USkillComponent::LaunchProjectile(UActiveSkillBase* Skill)
+{
+	if (!Skill || !Skill->projectileClass || !ownerCharacter) return false;
+
+	UWorld* world = GetWorld();
+	if (!world) return false;
+
+	const TArray<FVector> path = BuildProjectilePath(Skill);
+	if (path.Num() < 2) return false;
+
+	AProjectileBase* projectile = world->SpawnActor<AProjectileBase>(
+		Skill->projectileClass, FTransform(path[0]));
+	if (!projectile) return false;
+
+	//속도가 0이면 Launch가 즉시 도착 통지하므로 바인딩을 먼저
+	activeProjectile = projectile;
+	projectile->onArrived.BindUObject(this, &USkillComponent::OnProjectileArrived);
+	projectile->Launch(path, Skill->projectileSpeed);
+	return true;
+}
+
+TArray<FVector> USkillComponent::BuildProjectilePath(const UActiveSkillBase* Skill) const
+{
+	//발사 지점은 무기 메시의 소켓, 미지정·부재 시 캡슐 중심(미리보기 아치의 시작점과 같은 높이)
+	FVector from = ownerCharacter->GetActorLocation();
+	if (!Skill->muzzleSocketName.IsNone())
+	{
+		const UStaticMeshComponent* weapon = ownerCharacter->GetWeaponMeshComponent();
+		if (weapon && weapon->DoesSocketExist(Skill->muzzleSocketName))
+		{
+			from = weapon->GetSocketLocation(Skill->muzzleSocketName);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[SkillComponent] 무기 메시에 소켓 없음: %s — 캡슐 중심에서 발사"),
+				*Skill->muzzleSocketName.ToString());
+		}
+	}
+
+	//끝점은 지면 지점이므로 캡슐 half-height만큼 올림, 미리보기 궤적과 같은 규칙
+	FVector to = Skill->skillPointLocation;
+	to.Z += ownerCharacter->GetSimpleCollisionHalfHeight();
+
+	//궤적 스킬(투척 등)은 미리보기와 같은 공식의 포물선으로
+	if (Skill->arcApexRatio > 0.f)
+	{
+		const float horizDist = FVector2D(to.X - from.X, to.Y - from.Y).Size();
+		return AAttackRangeIndicator::BuildArcPath(
+			from, to, horizDist * Skill->arcApexRatio, projectileArcSamples);
+	}
+
+	//궤적이 없으면 일자 경로
+	return { from, to };
+}
+
+void USkillComponent::OnProjectileArrived()
+{
+	activeProjectile = nullptr;
+	CommitPendingExecution();
+}
+
+void USkillComponent::DiscardActiveProjectile()
+{
+	if (!IsValid(activeProjectile))
+	{
+		activeProjectile = nullptr;
+		return;
+	}
+
+	//효과는 이미 커밋됐으므로 도착 통지를 끊고 제거
+	activeProjectile->onArrived.Unbind();
+	activeProjectile->Destroy();
+	activeProjectile = nullptr;
+}
+
 void USkillComponent::CommitPendingExecution()
 {
 	if (!pendingAction) return;
@@ -300,6 +388,9 @@ void USkillComponent::CommitPendingExecution()
 	UActiveSkillBase* skill = pendingSkill;
 	pendingSkill = nullptr;
 	pendingMontage = nullptr;
+
+	//턴 종료 등 외부 강제 커밋으로 투사체 도착을 앞질렀다면 비행 중 투사체 폐기
+	DiscardActiveProjectile();
 
 	//스킬 자체 효과(포복 토글 등) 먼저, 이후 대상별 효과
 	if (skill)
@@ -316,6 +407,9 @@ void USkillComponent::OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupt
 
 	//같은 몽타주 재시작으로 인한 이전 인스턴스 중단이면 새 인스턴스의 종료를 기다림
 	if (bInterrupted && ownerCharacter && ownerCharacter->GetCurrentMontage() == Montage) return;
+
+	//투사체 비행 중이면 도착 시점 커밋을 기다림, 몽타주가 먼저 끝나도 효과는 착탄에 맞춤
+	if (IsValid(activeProjectile)) return;
 
 	//노티파이가 이미 커밋했으면 no-op
 	CommitPendingExecution();

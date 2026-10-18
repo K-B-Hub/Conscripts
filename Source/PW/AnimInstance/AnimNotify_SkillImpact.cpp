@@ -17,6 +17,6 @@ void UAnimNotify_SkillImpact::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 
 	if (USkillComponent* skillComp = character->GetSkillComponent())
 	{
-		skillComp->CommitPendingExecution();
+		skillComp->OnSkillImpact();
 	}
 }

@@ -541,13 +541,24 @@ void ABattleController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	//호버가 막힌 상태면 쥐고 있던 대상을 놓는다
+	//주도권 플래그와 쿨다운도 되돌려야 창이 닫히는 즉시 커서 트레이스가 되살아난다
+	if (!IsHoverAllowed())
+	{
+		bHoverOwnedByWidget = false;
+		hoverTraceCooldown = 0.f;
+		SetHoverTarget(nullptr);
+	}
 	//커서 아래 캐릭터를 쓰로틀링해 추적, 매 프레임 트레이스할 이유가 없다
 	//위젯이 호버를 쥐고 있으면 멈춘다, 안 그러면 패널 뒤 월드 히트가 칸이 지정한 호버를 덮는다
-	hoverTraceCooldown -= DeltaTime;
-	if (!bHoverOwnedByWidget && hoverTraceCooldown <= 0.f)
+	else
 	{
-		hoverTraceCooldown = hoverTraceInterval;
-		SetHoverTarget(FindCharacterUnderCursor());
+		hoverTraceCooldown -= DeltaTime;
+		if (!bHoverOwnedByWidget && hoverTraceCooldown <= 0.f)
+		{
+			hoverTraceCooldown = hoverTraceInterval;
+			SetHoverTarget(FindCharacterUnderCursor());
+		}
 	}
 
 	if (USpringArmComponent* SpringArm = ResolveSpringArm())
@@ -632,9 +643,9 @@ void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 
 void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 {
-	//모달 위젯이 떠 있는 동안 월드 클릭 차단
-	//HUD 잠금이 SetIsEnabled 단일 플래그라, 두 위젯이 겹치면 먼저 닫는 쪽이 남은 쪽의 잠금을 풀어버린다
-	if (detailWidgetInstance || upgradeSelectWidgetInstance || recruitWidgetInstance) return;
+	//모달 위젯이 떠 있는 동안 월드 클릭 차단, 호버와 같은 기준이다
+	//강화 선택지를 접은 동안은 통과해 아래 상세보기 대상 전환까지 내려간다
+	if (IsBlockingWidgetOpen()) return;
 
 	//Deploy 페이즈에서는 같은 클릭이 배치 명령이 된다
 	if (const ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr)
@@ -691,6 +702,24 @@ ACharacterBase* ABattleController::FindCharacterUnderCursor() const
 	return Cast<ACharacterBase>(hit.GetActor());
 }
 
+bool ABattleController::IsBlockingWidgetOpen() const
+{
+	//설정과 부대 정보표는 일시정지 메뉴 위에만 뜨고 그동안 메뉴 인스턴스가 남아 있으므로 함께 걸러진다
+	if (detailWidgetInstance || recruitWidgetInstance || pauseMenuInstance) return true;
+
+	//강화 선택은 선택지를 접은 동안은 막지 않는다, 접기 자체가 전장을 살펴보기 위한 기능이다
+	return IsValid(upgradeSelectWidgetInstance) && upgradeSelectWidgetInstance->AreChoicesVisible();
+}
+
+bool ABattleController::IsHoverAllowed() const
+{
+	//배치·결과 페이즈에는 호버 정보창도 강조도 띄우지 않는다
+	const ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gameMode || gameMode->GetPhase() != EBattlePhase::Battle) return false;
+
+	return !IsBlockingWidgetOpen();
+}
+
 void ABattleController::SetHoverTarget(ACharacterBase* newTarget)
 {
 	if (hoverTarget == newTarget) return;
@@ -706,6 +735,9 @@ void ABattleController::SetHoverTarget(ACharacterBase* newTarget)
 
 void ABattleController::SetHoverFromWidget(ACharacterBase* target)
 {
+	//겹친 창이 떠 있으면 턴 순서 칸의 호버도 받지 않는다, 커서 트레이스와 같은 기준이다
+	if (!IsHoverAllowed()) return;
+
 	bHoverOwnedByWidget = true;
 	SetHoverTarget(target);
 }
@@ -795,6 +827,9 @@ void ABattleController::CloseDetailWidget()
 
 	detailWidgetInstance->RemoveFromParent();
 	detailWidgetInstance = nullptr;
+
+	//잠금이 SetIsEnabled 단일 플래그라, 아래에 강화 선택이나 증원이 아직 깔려 있으면 풀지 않는다
+	if (upgradeSelectWidgetInstance || recruitWidgetInstance) return;
 
 	if (IsValid(turnHudWidgetInstance)) turnHudWidgetInstance->SetIsEnabled(true);
 }

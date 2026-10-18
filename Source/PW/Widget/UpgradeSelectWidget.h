@@ -30,6 +30,9 @@ public:
 	//선택 완료 통지, BattleController가 바인딩
 	FOnUpgradeChosen OnUpgradeChosen;
 
+	//선택지가 펼쳐져 있는지, 접은 동안은 월드 호버·클릭을 막지 않는다
+	bool AreChoicesVisible() const { return bChoicesVisible; }
+
 protected:
 	virtual void NativeConstruct() override;
 

@@ -8,6 +8,7 @@
 
 class UUniformGridPanel;
 class UButton;
+class USizeBox;
 class USkillButton;
 class UActiveSkillBase;
 class AAllyCharacterBase;
@@ -40,6 +41,10 @@ protected:
 	//편집 모드에서만 듣는 줄 추가 버튼
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> AddRowButton;
+
+	//줄 추가 버튼을 호버 아트 크기로 고정하는 상자, 숨길 때는 자리까지 비우도록 이쪽을 접는다
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<USizeBox> AddRowBox;
 
 	//스킬 버튼 위젯 클래스
 	UPROPERTY(EditDefaultsOnly, Category = "UI")

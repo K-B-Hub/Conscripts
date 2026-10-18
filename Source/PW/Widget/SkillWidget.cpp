@@ -7,6 +7,7 @@
 #include "Object/Skill/ActiveSkillBase.h"
 #include "PlayerController/BattleController.h"
 #include "Components/Button.h"
+#include "Components/SizeBox.h"
 #include "Components/UniformGridPanel.h"
 
 void USkillWidget::NativeConstruct()
@@ -21,9 +22,12 @@ void USkillWidget::NativeConstruct()
 	if (AddRowButton)
 	{
 		AddRowButton->OnClicked.AddDynamic(this, &USkillWidget::OnAddRowClicked);
+	}
 
+	if (AddRowBox)
+	{
 		//편집 모드에서만 듣는 버튼이라 평소에는 숨긴다
-		AddRowButton->SetVisibility(ESlateVisibility::Collapsed);
+		AddRowBox->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }
 
@@ -226,9 +230,9 @@ void USkillWidget::OnEditModeClicked()
 {
 	bEditMode = !bEditMode;
 
-	if (AddRowButton)
+	if (AddRowBox)
 	{
-		AddRowButton->SetVisibility(bEditMode ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+		AddRowBox->SetVisibility(bEditMode ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	}
 
 	if (bEditMode)
