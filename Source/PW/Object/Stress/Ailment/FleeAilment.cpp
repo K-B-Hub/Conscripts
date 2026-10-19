@@ -2,6 +2,7 @@
 
 
 #include "Object/Stress/Ailment/FleeAilment.h"
+#include "PW.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "GameMode/BattleGameMode.h"
@@ -71,7 +72,7 @@ void UFleeAilment::Execute(ACharacterBase* affected)
 
 bool UFleeAilment::PickFleeDestination(AAllyCharacterBase* ally, FVector& outDestination) const
 {
-	const float budgetCm = ally->GetCurrentMovingPoint() * 100.f;
+	const float budgetCm = ally->GetCurrentMovingPoint() * CmPerMeter;
 	if (budgetCm <= 0.f) return false;
 
 	ABattleGameMode* gm = ally->GetWorld()->GetAuthGameMode<ABattleGameMode>();

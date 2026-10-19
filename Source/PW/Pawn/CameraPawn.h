@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "GameFramework/Pawn.h"
 #include "CameraPawn.generated.h"
 
@@ -32,7 +33,7 @@ protected:
 	TObjectPtr<UCameraComponent> cameraComponent;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float cameraArmLength = 1400.f;
+	float cameraArmLength = 1400.f * CharacterScale;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraPitchAngle = -55.f;

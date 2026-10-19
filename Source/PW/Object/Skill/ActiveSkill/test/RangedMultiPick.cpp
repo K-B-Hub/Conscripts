@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/test/RangedMultiPick.h"
+#include "PW.h"
 
 URangedMultiPick::URangedMultiPick()
 {
@@ -14,10 +15,10 @@ URangedMultiPick::URangedMultiPick()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::All;
 	areaForm = EAreaForm::Circle;		
-	areaParameter1 = 100.f;			
+	areaParameter1 = 1.f * CmPerMeter;			
 	areaParameter2 = 0.f;			
 
-	pickRange = 2800.f;
+	pickRange = 28.f * CmPerMeter;
 	pickCount = 2;
 	
 	battleResourceCost = 0;

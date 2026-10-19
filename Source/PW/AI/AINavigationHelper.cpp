@@ -1,6 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "AI/AINavigationHelper.h"
+#include "PW.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
 #include "Characters/CharacterBase.h"
@@ -95,7 +96,7 @@ bool UAINavigationHelper::CanReach(const ACharacterBase* Mover, const FVector& T
 	if (!Mover) return false;
 
 	//이동력 단위를 cm로 변환
-	const float budgetCm = Mover->GetCurrentMovingPoint() * 100.f;
+	const float budgetCm = Mover->GetCurrentMovingPoint() * CmPerMeter;
 	if (budgetCm <= 0.f) return false;
 
 	const FVector from = Mover->GetActorLocation();

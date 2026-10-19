@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/test/MultiPick.h"
+#include "PW.h"
 
 UMultiPick::UMultiPick()
 {
@@ -14,10 +15,10 @@ UMultiPick::UMultiPick()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 	areaForm = EAreaForm::Circle;		//단일 공격이니 확인 안함
-	areaParameter1 = 100.f;				//단일 공격이니 확인 안함
+	areaParameter1 = 1.f * CmPerMeter;				//단일 공격이니 확인 안함
 	areaParameter2 = 0.f;				//단일 공격이니 확인 안함
 
-	pickRange = 2800.f;
+	pickRange = 28.f * CmPerMeter;
 	pickCount = 2;
 	
 	battleResourceCost = 0;

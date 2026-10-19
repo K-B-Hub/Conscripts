@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/PassiveSkill/test/TestAfterSlay.h"
+#include "PW.h"
 #include "Characters/EnemyBase.h"
 #include "Engine/World.h"
 #include "Engine/OverlapResult.h"
@@ -23,7 +24,7 @@ void UTestAfterSlay::Execute_AfterSlay(FVector slainLocation)
 	UWorld* world = GetWorld();
 	if (!world) return;
 
-	constexpr float Radius = 500.f;
+	constexpr float Radius = 5.f * CmPerMeter;
 
 	TArray<FOverlapResult> overlaps;
 	world->OverlapMultiByObjectType(

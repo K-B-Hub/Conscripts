@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/test/SingleRangeAttack.h"
+#include "PW.h"
 
 USingleRangeAttack::USingleRangeAttack()
 {
@@ -17,7 +18,7 @@ USingleRangeAttack::USingleRangeAttack()
 	//areaParameter1 = 0.f;				//단일 공격이니 확인 안함
 	//areaParameter2 = 0.f;				//단일 공격이니 확인 안함
 
-	pickRange = 3000.f;
+	pickRange = 30.f * CmPerMeter;
 	pickCount = 1;
 	
 	battleResourceCost = 0;
@@ -30,7 +31,7 @@ USingleRangeAttack::USingleRangeAttack()
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 	
-	knockbackForce = 100.f;
+	knockbackForce = 1.f * CmPerMeter;
 	knockbackAngle = 30.f;
 	knockbackOrigin = EKnockbackOrigin::Caster;
 	

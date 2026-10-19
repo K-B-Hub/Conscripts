@@ -9,9 +9,6 @@
 class UCampDialogueData;
 class UCampOptionWidget;
 class UCampRecruitWidget;
-class UUpgradeSelectWidget;
-class USkillBase;
-class AAllyCharacterBase;
 
 //야영지 컨트롤러
 //카메라가 고정이라 조작 입력이 없고 마우스 오버와 클릭만 다룬다
@@ -47,10 +44,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UCampRecruitWidget> recruitWidgetClass;
 
-	//충원 동료의 레벨업 강화 선택, 전투와 같은 위젯
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UUpgradeSelectWidget> upgradeSelectWidgetClass;
-
 private:
 	//레벨에 배치된 자리와 메인 캠프에 마우스 이벤트를 연결
 	void BindCampActors();
@@ -66,14 +59,8 @@ private:
 	UFUNCTION()
 	void HandleCampClicked(AActor* touchedActor, FKey buttonPressed);
 
-	//충원 시작, 직업 선택 화면을 연다
+	//충원 시작, 직업 선택 화면을 연다, 다 고르면 야영지를 떠난다
 	void BeginRecruitFlow(int32 count);
-
-	//충원이 끝난 뒤 새 동료들의 레벨업 강화를 차례로 고르게 한다
-	//다 끝나면 야영지를 떠난다
-	void AdvanceUpgradeFlow();
-	void ShowUpgradeSelect();
-	void OnUpgradeChosen(TSubclassOf<USkillBase> chosen);
 
 	UPROPERTY()
 	TObjectPtr<UCampOptionWidget> optionWidgetInstance = nullptr;
@@ -81,17 +68,6 @@ private:
 	UPROPERTY()
 	TObjectPtr<UCampRecruitWidget> recruitWidgetInstance = nullptr;
 
-	UPROPERTY()
-	TObjectPtr<UUpgradeSelectWidget> upgradeSelectWidgetInstance = nullptr;
-
 	//아직 고르지 않은 충원 인원 수
 	int32 remainingRecruits = 0;
-
-	//강화 선택이 남은 새 동료들, 앞에서부터 처리한다
-	UPROPERTY()
-	TArray<TObjectPtr<AAllyCharacterBase>> upgradePendingAllies;
-
-	//지금 강화를 고르는 중인 동료
-	UPROPERTY()
-	TObjectPtr<AAllyCharacterBase> currentUpgradeAlly = nullptr;
 };

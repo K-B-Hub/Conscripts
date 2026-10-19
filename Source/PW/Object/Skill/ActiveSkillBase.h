@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "Object/Skill/SkillBase.h"
 #include "Enum/SkillTypes.h"
 #include "ActiveSkillBase.generated.h"
@@ -81,7 +82,7 @@ public:
 	TSubclassOf<AProjectileBase> projectileClass;
 	//투사체 비행 속도(cm/s)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")
-	float projectileSpeed = 2000.f;
+	float projectileSpeed = 20.f * CmPerMeter;
 	//발사 지점으로 쓸 무기 메시의 소켓 이름, 모든 무기가 FirePoint로 통일
 	//비우거나 소켓이 없으면 시전자 캡슐 중심에서 발사
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")

@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Actors/CursorIndicator.h"
+#include "PW.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Widget/MoveIndicatorWidget.h"
 #include "Components/DecalComponent.h"
@@ -170,8 +171,8 @@ void ACursorIndicator::UpdatePathDistance()
 		//양쪽 모두 실제 이동 거리, 범위 초과 시에는 분기점까지의 거리
 		//지형 배율이 걸리면 소모 이동력과 값이 달라지므로 거리만 표시
 		const float displayMeters = (cachedSplitSegIndex == -1)
-			? Path->GetPathLength() / 100.f
-			: cachedSplitDistanceCm / 100.f;
+			? Path->GetPathLength() / CmPerMeter
+			: cachedSplitDistanceCm / CmPerMeter;
 
 		if (UMoveIndicatorWidget* Widget = Cast<UMoveIndicatorWidget>(distanceWidget->GetWidget()))
 		{
@@ -218,7 +219,7 @@ void ACursorIndicator::RebuildPathMeshes()
 	int32 visualUnreachableStart = -1;
 	if (activeUnit.IsValid())
 	{
-		const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f / activeUnit->GetStanceMoveCostMultiplier(); //자세 배율(포복 등) 반영
+		const float budgetCm = activeUnit->GetCurrentMovingPoint() * CmPerMeter / activeUnit->GetStanceMoveCostMultiplier(); //자세 배율(포복 등) 반영
 		float accumulated = 0.f;
 		for (int32 i = 0; i + 1 < densePoints.Num(); ++i)
 		{
@@ -336,7 +337,7 @@ void ACursorIndicator::UpdateSplitPoint()
 	if (!activeUnit.IsValid() || cachedPathPoints.Num() < 2) return;
 
 	//현재 이동력을 cm으로 변환
-	const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f / activeUnit->GetStanceMoveCostMultiplier(); //자세 배율(포복 등) 반영
+	const float budgetCm = activeUnit->GetCurrentMovingPoint() * CmPerMeter / activeUnit->GetStanceMoveCostMultiplier(); //자세 배율(포복 등) 반영
 	float accumulated = 0.f;
 
 	//소모 이동력과 별개로 실제 이동 거리도 누적, 거리 위젯 표시용

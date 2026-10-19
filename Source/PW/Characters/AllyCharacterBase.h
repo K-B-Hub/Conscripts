@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "Characters/CharacterBase.h"
 #include "Run/AllyRunState.h"
 #include "AllyCharacterBase.generated.h"
@@ -99,7 +100,7 @@ public:
 
 	//목적지 도착 전 감속을 시작할 거리
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
-	float moveDecelRadius = 80.f;
+	float moveDecelRadius = 0.8f * CmPerMeter;
 
 protected:
 	//직업 고유 강화 후보 풀, 파생 직업 BP에서 지정

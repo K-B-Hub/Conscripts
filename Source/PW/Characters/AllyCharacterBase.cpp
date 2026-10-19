@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Characters/AllyCharacterBase.h"
+#include "PW.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameMode/BattleGameMode.h"
 #include "Widget/HealthWidget.h"
@@ -198,7 +199,7 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 
 	//이전 프레임 대비 이동한 거리를 미터로 변환해 이동력 차감, 지형 배율·포복 자세 배율 반영
 	const float MovedCm = FVector::Dist(CurrentLoc, lastFrameLocation);
-	ConsumeMovingPoint(MovedCm / 100.f * GetTerrainMoveCostMultiplier() * GetStanceMoveCostMultiplier());
+	ConsumeMovingPoint(MovedCm / CmPerMeter * GetTerrainMoveCostMultiplier() * GetStanceMoveCostMultiplier());
 	lastFrameLocation = CurrentLoc;
 
 	//이동력 소진 시 즉시 정지 후 자연 종료 알림

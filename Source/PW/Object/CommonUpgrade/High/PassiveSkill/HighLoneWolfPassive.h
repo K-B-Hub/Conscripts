@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "Object/Skill/PassiveSkillBase.h"
 #include "HighLoneWolfPassive.generated.h"
 
@@ -18,9 +19,9 @@ public:
 	virtual void Execute_Conditional() override;
 
 protected:
-	//고립 판정 거리, 500 = 5m
+	//고립 판정 거리(5m)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
-	float isolationRange = 500.f;
+	float isolationRange = 5.f * CmPerMeter;
 
 private:
 	//현재 스탯이 적용된 상태인지, 중복 가감 방지용

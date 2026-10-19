@@ -567,19 +567,43 @@ void ABattleGameMode::StartCurrentTurn()
 		return;
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 라운드 %d - %s 턴 시작"), currentRound, *TurnUnit->GetName());
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 라운드 %d - %s 턴 알림"), currentRound, *TurnUnit->GetName());
 
-	//턴 순서 UI 상태 갱신 통지
+	//턴 순서 UI 상태 갱신 통지, 배너와 함께 지연 전에 바뀌어야 누구 차례인지 보인다
 	OnTurnChanged.Broadcast(currentTurnIndex);
+	OnTurnAnnounced.Broadcast(TurnUnit, turnTransitionDelay);
 
+	//적 턴은 항상 카메라 추적, 지연 동안 카메라가 먼저 옮겨가도록 알림 시점에 건다
 	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
 	{
-		//적 턴은 항상 카메라 추적
 		if (ABattleController* BattleController = Cast<ABattleController>(GetWorld()->GetFirstPlayerController()))
 		{
 			BattleController->BeginAITurnFollow(Enemy);
 		}
+	}
 
+	if (turnTransitionDelay <= 0.f)
+	{
+		BeginCurrentTurn();
+		return;
+	}
+
+	//지연 중에는 직전 턴의 EndTurn이 activeUnit을 비워 둬서 조작이 막혀 있다
+	GetWorldTimerManager().SetTimer(turnTransitionTimer, this, &ABattleGameMode::BeginCurrentTurn, turnTransitionDelay, false);
+}
+
+void ABattleGameMode::BeginCurrentTurn()
+{
+	//지연 사이에 승패가 났거나 턴 주인이 사라졌으면 시작하지 않는다
+	if (phase == EBattlePhase::Result || !turnOrder.IsValidIndex(currentTurnIndex)) return;
+
+	ACharacterBase* TurnUnit = turnOrder[currentTurnIndex];
+	if (!IsValid(TurnUnit)) return;
+
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 라운드 %d - %s 턴 시작"), currentRound, *TurnUnit->GetName());
+
+	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
+	{
 		//적 턴 시작, InitTurn 내부에서 AIController에 통지되어 BT 실행
 		Enemy->InitTurn();
 		return;

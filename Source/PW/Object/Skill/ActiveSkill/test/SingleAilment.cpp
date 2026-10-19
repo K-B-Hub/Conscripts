@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/test/SingleAilment.h"
+#include "PW.h"
 #include "Object/Ailment/TestAilment.h"
 
 USingleAilment::USingleAilment()
@@ -15,9 +16,9 @@ USingleAilment::USingleAilment()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 	areaForm = EAreaForm::Circle;
-	areaParameter1 = 500.f;
+	areaParameter1 = 5.f * CmPerMeter;
 
-	pickRange = 2000.f;
+	pickRange = 20.f * CmPerMeter;
 	pickCount = 1;
 
 	battleResourceCost = 0;

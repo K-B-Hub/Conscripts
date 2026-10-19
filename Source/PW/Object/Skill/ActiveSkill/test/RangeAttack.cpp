@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/test/RangeAttack.h"
+#include "PW.h"
 
 URangeAttack::URangeAttack()
 {
@@ -14,10 +15,10 @@ URangeAttack::URangeAttack()
 	pickTeam = EPickTeam::EnemyOnly;				//지면 대상이니 확인 안함
 	areaTarget = EAreaTarget::All;
 	areaForm = EAreaForm::Circle;
-	areaParameter1 = 200.f;
+	areaParameter1 = 2.f * CmPerMeter;
 	//areaParameter2 = 0.f;						//Circle이니 확인 안함
 
-	pickRange = 2400.f;
+	pickRange = 24.f * CmPerMeter;
 	pickCount = 1;
 	
 	battleResourceCost = 0;
@@ -30,7 +31,7 @@ URangeAttack::URangeAttack()
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 	
-	knockbackForce = 100.f;
+	knockbackForce = 1.f * CmPerMeter;
 	knockbackAngle = 30.f;
 	knockbackOrigin = EKnockbackOrigin::SkillPoint;
 	

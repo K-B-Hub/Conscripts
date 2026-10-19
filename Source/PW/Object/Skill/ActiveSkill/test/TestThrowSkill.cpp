@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/test/TestThrowSkill.h"
+#include "PW.h"
 #include "Animation/AnimMontage.h"
 
 UTestThrowSkill::UTestThrowSkill()
@@ -15,9 +16,9 @@ UTestThrowSkill::UTestThrowSkill()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::All;
 	areaForm = EAreaForm::Circle;
-	areaParameter1 = 200.f;
+	areaParameter1 = 2.f * CmPerMeter;
 
-	pickRange = 2000.f;
+	pickRange = 20.f * CmPerMeter;
 	pickCount = 1;
 
 	battleResourceCost = 0;

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "Enum/SkillTypes.h"
 #include "GameFramework/Character.h"
 #include "CharacterBase.generated.h"
@@ -222,7 +223,7 @@ protected:
 
 	//아치 궤적 추종 속도(cm/s)
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
-	float jumpSpeed = 800.f;
+	float jumpSpeed = 8.f * CmPerMeter;
 
 	//착지 몽타주, 아치 이동(점프·밀치기) 완료 시 재생 — 미지정 시 생략
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
@@ -230,7 +231,7 @@ protected:
 
 	//낙하 피해 면제 높이(cm), 순수 하강분이 이를 초과하면 피해
 	UPROPERTY(EditDefaultsOnly, Category = "Movement|FallDamage")
-	float fallDamageThreshold = 200.f;
+	float fallDamageThreshold = 2.f * CmPerMeter;
 	//면제 초과 1m당 낙하 피해
 	UPROPERTY(EditDefaultsOnly, Category = "Movement|FallDamage")
 	int32 fallDamagePerMeter = 1;
@@ -295,9 +296,9 @@ public:
 	bool HasConsumedMovingPoint() const { return hasConsumedMovingPoint; }
 
 	//서있는 자세 기준 시야 눈높이(cm), LOS 매직넘버의 단일 출처·지면 타겟 기본값
-	static constexpr float StandingEyeHeightZ = 80.f;
+	static constexpr float StandingEyeHeightZ = 80.f * CharacterScale;
 	//포복 자세 시야 눈높이(cm), 낮을수록 낮은 엄폐물로도 은폐 (튜닝값)
-	static constexpr float ProneEyeHeightZ = 35.f;
+	static constexpr float ProneEyeHeightZ = 35.f * CharacterScale;
 
 	bool IsProne() const { return bIsProne; }
 	//포복 상태 명시 설정(멱등), 이동 속도 배율 반영

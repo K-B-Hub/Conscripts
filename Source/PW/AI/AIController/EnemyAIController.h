@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "AIController.h"
 #include "TimerManager.h"
 #include "EnemyAIController.generated.h"
@@ -71,11 +72,11 @@ protected:
 
 	//교전 게이트 반경, 알람 발생 지점 기준
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Combat")
-	float engagementGateRadius = 1000.f;
+	float engagementGateRadius = 10.f * CmPerMeter;
 
 	//알람 접근 중 근접 교전 전환 반경, 이 안에 전투 대상이 있으면 시야 무관 즉시 교전
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Combat")
-	float engagementDetectRadius = 800.f;
+	float engagementDetectRadius = 8.f * CmPerMeter;
 
 	//턴 시작 후 첫 행동까지의 연출 딜레이
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Pacing")

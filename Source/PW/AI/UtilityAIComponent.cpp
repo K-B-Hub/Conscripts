@@ -1,6 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "AI/UtilityAIComponent.h"
+#include "PW.h"
 #include "AI/AINavigationHelper.h"
 #include "Actors/Terrain/TerrainBase.h"
 #include "AI/AIPersonalityData.h"
@@ -172,7 +173,7 @@ void UUtilityAIComponent::GatherCastPositions(const FVector& AimLoc, float PickR
 	if (!ownerCharacter) return;
 
 	const FVector casterLoc = ownerCharacter->GetActorLocation();
-	const float budgetCm = ownerCharacter->GetCurrentMovingPoint() * 100.f;
+	const float budgetCm = ownerCharacter->GetCurrentMovingPoint() * CmPerMeter;
 
 	TArray<FVector> samples;
 	if (bAssumeMoved)
@@ -701,7 +702,7 @@ void UUtilityAIComponent::EnumerateSkillActions(UActiveSkillBase* Skill, bool bA
 void UUtilityAIComponent::EnumerateMoveActions(TArray<FAIAction>& OutCandidates) const
 {
 	if (!ownerCharacter) return;
-	const float casterBudgetCm = ownerCharacter->GetCurrentMovingPoint() * 100.f;
+	const float casterBudgetCm = ownerCharacter->GetCurrentMovingPoint() * CmPerMeter;
 	if (casterBudgetCm <= 0.f) return;
 
 	const FVector casterLoc = ownerCharacter->GetActorLocation();
@@ -1098,7 +1099,7 @@ void UUtilityAIComponent::StartMoveTo(const FVector& Dest, float MoveCostCm)
 
 	//실제 이동 요청이 접수된 경우에만 이동 상태 반영 및 이동력 차감
 	ownerCharacter->OnMoveStateChanged(true);
-	ownerCharacter->ConsumeMovingPoint(MoveCostCm / 100.f);
+	ownerCharacter->ConsumeMovingPoint(MoveCostCm / CmPerMeter);
 }
 
 void UUtilityAIComponent::OnAIMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
@@ -1324,7 +1325,7 @@ float UUtilityAIComponent::ComputeIncomingFor(const ACharacterBase* Target, floa
 
 		//시야 초과 감쇠 반영, 사거리 안이어도 시야 밖이면 기대 피해가 줄어든다
 		const float overMeters = FMath::Max(0.f,
-			FVector::Dist2D(threat->GetActorLocation(), targetLoc) / 100.f - threat->GetSight());
+			FVector::Dist2D(threat->GetActorLocation(), targetLoc) / CmPerMeter - threat->GetSight());
 		const float acc = prof.Accuracy - overMeters * ACharacterBase::AccuracyLossPerMeterBeyondSight;
 		const float hitP  = FMath::Clamp(acc - Target->GetEvasion(), 0.f, 100.f) / 100.f;
 		const float critP = prof.CritChance / 100.f;

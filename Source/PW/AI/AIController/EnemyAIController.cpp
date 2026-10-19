@@ -1,6 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "AI/AIController/EnemyAIController.h"
+#include "PW.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BlackboardData.h"
@@ -376,7 +377,7 @@ bool AEnemyAIController::TryStartApproachToAlarm()
 	ACharacterBase* pawnChar = Cast<ACharacterBase>(GetPawn());
 	if (!pawnChar) return false;
 
-	const float budgetCm = pawnChar->GetCurrentMovingPoint() * 100.f;
+	const float budgetCm = pawnChar->GetCurrentMovingPoint() * CmPerMeter;
 	if (budgetCm <= 0.f) return false;
 
 	const FVector pawnLoc = pawnChar->GetActorLocation();
@@ -421,7 +422,7 @@ bool AEnemyAIController::TryStartApproachToAlarm()
 
 	//이동 상태 반영 및 이동력 차감
 	pawnChar->OnMoveStateChanged(true);
-	pawnChar->ConsumeMovingPoint(moveCostCm / 100.f);
+	pawnChar->ConsumeMovingPoint(moveCostCm / CmPerMeter);
 
 	UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 알람 지점 접근 이동 (잔여 거리 %.0f)"),
 		*GetNameSafe(pawnChar), FVector::Dist(dest, alarmFocusLocation));
