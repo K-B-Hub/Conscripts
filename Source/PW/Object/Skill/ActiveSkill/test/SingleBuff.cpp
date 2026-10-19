@@ -2,6 +2,7 @@
 
 
 #include "Object/Skill/ActiveSkill/test/SingleBuff.h"
+#include "PW.h"
 #include "Object/Buff/test/TestBuff.h"
 
 USingleBuff::USingleBuff()
@@ -15,10 +16,10 @@ USingleBuff::USingleBuff()
 	pickTeam = EPickTeam::AllyOnly;
 	areaTarget = EAreaTarget::None;
 	areaForm = EAreaForm::Circle;
-	areaParameter1 = 50.f;
+	areaParameter1 = 0.5f * CmPerMeter;
 	//areaParameter2 = 0.f;						//Circle이니 확인 안함
 
-	pickRange = 2000.f;
+	pickRange = 20.f * CmPerMeter;
 	pickCount = 1;
 	
 	battleResourceCost = 0;

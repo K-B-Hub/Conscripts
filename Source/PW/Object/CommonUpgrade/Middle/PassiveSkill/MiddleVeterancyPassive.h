@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "Object/Skill/PassiveSkillBase.h"
 #include "MiddleVeterancyPassive.generated.h"
 
@@ -18,7 +19,7 @@ public:
 	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation) override;
 
 protected:
-	//발동 거리, 800 = 8m 초과부터 적용
+	//발동 거리(8m), 초과부터 적용
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
-	float rangedThreshold = 800.f;
+	float rangedThreshold = 8.f * CmPerMeter;
 };

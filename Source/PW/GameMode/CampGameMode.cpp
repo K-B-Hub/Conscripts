@@ -122,7 +122,7 @@ AAllyCharacterBase* ACampGameMode::AddRecruit(TSubclassOf<AAllyCharacterBase> jo
 	ally->displayName = displayName;
 
 	//ForceLevelUpTo가 확률 성장을 굴리고 레벨당 강화를 대기 큐에 쌓는다
-	//큐 소비(강화 선택)는 컨트롤러가 즉시 진행한다
+	//큐 소비(강화 선택)는 전투 첫 턴의 InitTurn이 맡는다
 	ally->ForceLevelUpTo(level);
 	ally->PlayRandomCampIdle();
 

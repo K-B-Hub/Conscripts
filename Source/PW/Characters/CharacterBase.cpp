@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CharacterBase.h"
+#include "PW.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -38,7 +39,7 @@ static void ComputeDamageNumbers(const ACharacterBase* Target,
 
 	//시야 초과 거리 1m당 명중 수치 차감, 고명중은 페널티를 뚫고 맞출 수 있다
 	//고저차는 제외(2D), 고지에서 쏘는 쪽이 불리해지지 않게 함
-	const float overMeters = FMath::Max(0.f, DistanceCm / 100.f - AttackerSight);
+	const float overMeters = FMath::Max(0.f, DistanceCm / CmPerMeter - AttackerSight);
 	const float acc = Accuracy - overMeters * ACharacterBase::AccuracyLossPerMeterBeyondSight;
 	//명중 - 회피 뺄셈식, 결과가 곧 %p
 	//음수 명중·음수 회피는 클램프가 흡수하므로 개별 가드 없음
@@ -143,6 +144,13 @@ ACharacterBase::ACharacterBase()
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 
 	bUseControllerRotationYaw = false;
+	//몸 크기 배율, 루트인 캡슐에 걸어 메시·위젯·소켓이 함께 커진다
+	GetCapsuleComponent()->SetRelativeScale3D(FVector(CharacterScale));
+
+	//보폭이 배율만큼 커지므로 속도·가속도 같이 키운다
+	GetCharacterMovement()->MaxWalkSpeed = 6.f * CmPerMeter;
+	GetCharacterMovement()->MaxAcceleration = 2048.f * CharacterScale;
+	GetCharacterMovement()->BrakingDecelerationWalking = 2048.f * CharacterScale;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 540.f, 0.f);
 	//컨트롤러는 카메라 폰만 빙의, 빙의 없이도 AddMovementInput 이동 허용
@@ -299,7 +307,7 @@ void ACharacterBase::UpdateArcMovement(float DeltaTime)
 			//낙하 피해는 낙차만으로 결정, 자발적 점프든 외력이든 동일. 환경 피해라 비치명
 			if (fallCm > fallDamageThreshold)
 			{
-				const int32 dmg = FMath::CeilToInt((fallCm - fallDamageThreshold) / 100.f) * fallDamagePerMeter;
+				const int32 dmg = FMath::CeilToInt((fallCm - fallDamageThreshold) / CmPerMeter) * fallDamagePerMeter;
 				if (dmg > 0)
 				{
 					ReceiveDamage(dmg, false);

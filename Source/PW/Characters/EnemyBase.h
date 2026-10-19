@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "Characters/CharacterBase.h"
 #include "EnemyBase.generated.h"
 
@@ -86,7 +87,7 @@ protected:
 
 	//부채꼴 반경
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
-	float detectionRadius = 1200.f;
+	float detectionRadius = 12.f * CmPerMeter;
 
 	//부채꼴 전체 각도, 전방 기준 좌우 각각 절반씩
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection", meta = (ClampMin = "0.0", ClampMax = "360.0"))
@@ -98,7 +99,7 @@ protected:
 
 	//감지·피격 전환 시 근접 합류 파동 반경, 이 안의 같은 진영 캐릭터를 함께 전투로 전환
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
-	float proximityWaveRadius = 2000.f;
+	float proximityWaveRadius = 20.f * CmPerMeter;
 
 	//전투 행동 결정, 전투 진입 후 자기 턴에 ExecuteTurn 호출
 	UPROPERTY(VisibleAnywhere, Category = "AI")

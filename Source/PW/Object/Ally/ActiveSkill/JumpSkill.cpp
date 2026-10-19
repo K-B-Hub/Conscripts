@@ -2,6 +2,7 @@
 
 
 #include "Object/Ally/ActiveSkill/JumpSkill.h"
+#include "PW.h"
 #include "Characters/CharacterBase.h"
 #include "Animation/AnimMontage.h"
 
@@ -17,11 +18,11 @@ UJumpSkill::UJumpSkill()
 	pickTeam = EPickTeam::AllyOnly;
 	areaTarget = EAreaTarget::None;
 	areaForm = EAreaForm::Circle;
-	areaParameter1 = 100.f;
+	areaParameter1 = 1.f * CmPerMeter;
 
 	//기본 이동력(9m) 기준 도약 사거리(cm), 상한이 아니라 표시용 기준값
 	//실제 사거리는 항상 현재 이동력이 결정 (GetEffectivePickRange)
-	pickRange = 600.f;
+	pickRange = 6.f * CmPerMeter;
 	pickCount = 1;
 
 	battleResourceCost = 0;

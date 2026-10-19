@@ -1,6 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Object/Skill/ActiveSkillBase.h"
+#include "PW.h"
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
@@ -28,7 +29,7 @@ float UActiveSkillBase::GetEffectivePickRange() const
 	ACharacterBase* ownerPtr = GetOwner();
 	if (UsesArcMovement() && ownerPtr && arcMoveCostMultiplier > 0.f)
 	{
-		return ownerPtr->GetCurrentMovingPoint() * 100.f / arcMoveCostMultiplier;
+		return ownerPtr->GetCurrentMovingPoint() * CmPerMeter / arcMoveCostMultiplier;
 	}
 	return pickRange;
 }

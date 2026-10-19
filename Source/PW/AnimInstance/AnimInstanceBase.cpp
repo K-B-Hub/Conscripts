@@ -33,7 +33,9 @@ void UAnimInstanceBase::NativeUpdateAnimation(float DeltaTime)
 	if (OwnerCharacter)
 	{
 		const float TargetSpeed = OwnerCharacter->GetVelocity().Size();
-		speed = TargetSpeed;
+		//보폭이 메시 스케일만큼 커지므로 원본 크기 기준 속도로 환산해 블렌드스페이스 축을 유지
+		const float meshScale = charMesh ? charMesh->GetComponentScale().Z : 1.f;
+		speed = meshScale > KINDA_SMALL_NUMBER ? TargetSpeed / meshScale : TargetSpeed;
 
 		bIsAirborne = OwnerCharacter->IsAirborne();
 		bIsProne = OwnerCharacter->IsProne();

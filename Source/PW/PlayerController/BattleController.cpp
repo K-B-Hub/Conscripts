@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "BattleController.h"
+#include "PW.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
@@ -67,8 +68,11 @@ void ABattleController::BeginPlay()
 	if (USpringArmComponent* SpringArm = ResolveSpringArm())
 	{
 		const FRotator InitRot = SpringArm->GetRelativeRotation();
-		currentCameraYaw     = InitRot.Yaw;
-		cachedSpringArmPitch = InitRot.Pitch;
+		currentCameraYaw = InitRot.Yaw;
+
+		//시작 줌을 보간 없이 바로 적용, 피치도 여기서 정해진다
+		currentZoomAlpha = targetZoomAlpha = zoomStartAlpha;
+		ApplyZoom(SpringArm);
 	}
 
 	//디버그 조작 위젯 상시 표시
@@ -563,6 +567,13 @@ void ABattleController::Tick(float DeltaTime)
 
 	if (USpringArmComponent* SpringArm = ResolveSpringArm())
 	{
+		//목표 줌에 닿을 때까지만 보간한다
+		if (!FMath::IsNearlyEqual(currentZoomAlpha, targetZoomAlpha, KINDA_SMALL_NUMBER))
+		{
+			currentZoomAlpha = FMath::FInterpTo(currentZoomAlpha, targetZoomAlpha, DeltaTime, zoomInterpSpeed);
+			ApplyZoom(SpringArm);
+		}
+
 		//추적 대상은 아군 턴이면 activeUnit, 적 턴이면 aiFollowTarget
 		AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
 		if (!followUnit) followUnit = IsValid(aiFollowTarget) ? static_cast<AActor*>(aiFollowTarget) : nullptr;
@@ -633,12 +644,18 @@ void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm) return;
 
+	//휠을 올리면 당긴다, 실제 이동은 Tick이 보간
 	const float ZoomInput = Value.Get<float>();
-	SpringArm->TargetArmLength = FMath::Clamp(
-		SpringArm->TargetArmLength - ZoomInput * cameraZoomSpeed,
-		cameraZoomMin,
-		cameraZoomMax
-	);
+	targetZoomAlpha = FMath::Clamp(targetZoomAlpha - FMath::Sign(ZoomInput) * zoomStep, 0.f, 1.f);
+}
+
+void ABattleController::ApplyZoom(USpringArmComponent* SpringArm)
+{
+	if (!SpringArm) return;
+
+	SpringArm->TargetArmLength = FMath::Lerp(zoomNearArmLength, zoomFarArmLength, currentZoomAlpha);
+	cachedSpringArmPitch = FMath::Lerp(zoomNearPitch, zoomFarPitch, currentZoomAlpha);
+	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
 void ABattleController::OnMoveCommand(const FInputActionValue& Value)
@@ -1248,7 +1265,7 @@ void ABattleController::ExecuteSkill()
 		if (HorizCm > Skill->GetEffectivePickRange()) return;
 
 		//수평거리(m) * 배율 = 이동력 비용
-		const float CostM = (HorizCm / 100.f) * Skill->arcMoveCostMultiplier;
+		const float CostM = (HorizCm / CmPerMeter) * Skill->arcMoveCostMultiplier;
 
 		//도약 방향으로 회전
 		FVector Dir = To - From;
@@ -1344,7 +1361,7 @@ void ABattleController::ExecuteSkill()
 		}
 
 		//이동력 부족 시 자동이동 불가
-		const float budgetCm = activeUnit->GetCurrentMovingPoint() * 100.f;
+		const float budgetCm = activeUnit->GetCurrentMovingPoint() * CmPerMeter;
 		if (pathDistanceCm > budgetCm) return;
 
 		Indicator->LockAtCurrentPosition();

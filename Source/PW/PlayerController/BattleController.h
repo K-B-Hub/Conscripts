@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "GameFramework/PlayerController.h"
 #include "GameMode/BattleGameMode.h"
 #include "BattleController.generated.h"
@@ -158,27 +159,39 @@ protected:
 
 	//카메라 이동 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float cameraMoveSpeed = 1200.f;
+	float cameraMoveSpeed = 2000.f * CharacterScale;
 
 	//카메라 회전 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraRotateSpeed = 90.f;
 
-	//줌 속도
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float cameraZoomSpeed = 200.f;
+	//줌을 끝까지 당겼을 때 암 길이·피치
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
+	float zoomNearArmLength = 1700.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
+	float zoomNearPitch = -40.f;
 
-	//최소 줌 거리
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float cameraZoomMin = 500.f;
+	//줌을 끝까지 뺐을 때 암 길이·피치
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
+	float zoomFarArmLength = 7000.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
+	float zoomFarPitch = -60.f;
 
-	//최대 줌 거리
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float cameraZoomMax = 2500.f;
+	//휠 한 칸당 줌 비율 변화, 0.25면 5단
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom", meta = (ClampMin = "0.01", ClampMax = "1.0"))
+	float zoomStep = 0.25f;
+
+	//시작 줌 비율, 0=가까운 끝 1=먼 끝
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float zoomStartAlpha = 0.5f;
+
+	//목표 줌으로 따라가는 보간 속도
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
+	float zoomInterpSpeed = 8.f;
 
 	//지면 스냅 후 스프링암 피벗을 띄울 높이
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
-	float cameraGroundOffset = 10.f;
+	float cameraGroundOffset = 100.f;
 
 	//카메라 이동 보간 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
@@ -208,8 +221,15 @@ private:
 	//true면 Tick에서 스프링암 위치를 캐릭터 위치로 고정, false면 자유 이동 모드
 	bool bIsFollowingCharacter = true;
 
-	//Detach 후에도 Pitch를 복원하기 위해 초기값 캐싱
+	//현재 피치, 줌 비율이 정하며 회전·리셋이 이 값을 쓴다
 	float cachedSpringArmPitch = -55.f;
+
+	//현재·목표 줌 비율, 0=가까운 끝 1=먼 끝
+	float currentZoomAlpha = 0.5f;
+	float targetZoomAlpha = 0.5f;
+
+	//줌 비율로 암 길이·피치를 정해 스프링암에 반영
+	void ApplyZoom(USpringArmComponent* SpringArm);
 
 	//스프링암 피벗을 지면에 스냅, 경사면 관통 방지
 	void SnapSpringArmToGround(USpringArmComponent* SpringArm);
@@ -281,7 +301,7 @@ private:
 
 	//배치 시 지면에서 띄울 높이, 캡슐이 지면에 박히지 않게 하고 중력으로 안착시킨다
 	UPROPERTY(EditDefaultsOnly, Category = "Deploy")
-	float deploySpawnZOffset = 100.f;
+	float deploySpawnZOffset = 240.f;
 
 	//전투 결과 위젯 클래스
 	UPROPERTY(EditDefaultsOnly, Category = "UI")

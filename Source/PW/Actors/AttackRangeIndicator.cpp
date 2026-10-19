@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Actors/AttackRangeIndicator.h"
+#include "PW.h"
 #include "Actors/CursorIndicator.h"
 #include "Components/DecalComponent.h"
 #include "Components/SphereComponent.h"
@@ -277,7 +278,7 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 		//이동력 비용 위젯: 투척이 아닌 아치 스킬(점프)만 표시
 		if (!cachedSkill->IsThrow())
 		{
-			const float CostM = (HorizDist / 100.f) * cachedSkill->arcMoveCostMultiplier;
+			const float CostM = (HorizDist / CmPerMeter) * cachedSkill->arcMoveCostMultiplier;
 			arcCostWidget->SetVisibility(true);
 			arcCostWidget->SetWorldLocation(GetActorLocation() + arcWidgetOffset);
 			if (UMoveIndicatorWidget* W = Cast<UMoveIndicatorWidget>(arcCostWidget->GetWidget()))

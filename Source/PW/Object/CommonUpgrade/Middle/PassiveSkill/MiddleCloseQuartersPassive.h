@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PW.h"
 #include "Object/Skill/PassiveSkillBase.h"
 #include "MiddleCloseQuartersPassive.generated.h"
 
@@ -18,7 +19,7 @@ public:
 	virtual bool Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation) override;
 
 protected:
-	//발동 거리, 200 = 2m
+	//발동 거리(2m)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
-	float meleeRange = 200.f;
+	float meleeRange = 2.f * CmPerMeter;
 };
