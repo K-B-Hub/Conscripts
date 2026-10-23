@@ -2,9 +2,12 @@
 
 #include "Widget/SquadMemberRow.h"
 #include "Widget/StatTextHelpers.h"
+#include "Widget/CharacterTooltipWidget.h"
 #include "Characters/CharacterBase.h"
 #include "Components/Button.h"
+#include "Components/Image.h"
 #include "Components/TextBlock.h"
+#include "Engine/Texture2D.h"
 
 void USquadMemberRow::NativeConstruct()
 {
@@ -20,12 +23,31 @@ void USquadMemberRow::InitRow(ACharacterBase* target)
 
 	PWStatText::SetInt(LevelText, target->GetLevel());
 
-	if (JobText)
+	//이름·직업 미지정 BP면 클래스명으로 대신한다, 상세 정보 창과 같은 폴백
+	if (JobText)  JobText->SetText(target->GetJobNameText());
+	if (NameText) NameText->SetText(target->GetCharacterNameText());
+
+	if (PortraitImage)
 	{
-		//직업 이름 미지정 BP면 클래스명으로 대신한다, 상세 정보 창과 같은 폴백
-		JobText->SetText(target->jobName.IsEmpty()
-			? FText::FromString(target->GetClass()->GetName())
-			: target->jobName);
+		if (UTexture2D* art = target->GetPortrait())
+		{
+			PortraitImage->SetBrushFromTexture(art);
+			PortraitImage->SetVisibility(ESlateVisibility::HitTestInvisible);
+		}
+		else
+		{
+			PortraitImage->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+
+	//표가 열릴 때 한 번만 채운다, 행이 쥔 캐릭터는 바뀌지 않는다
+	if (characterTooltipClass)
+	{
+		if (UCharacterTooltipWidget* tooltip = CreateWidget<UCharacterTooltipWidget>(GetOwningPlayer(), characterTooltipClass))
+		{
+			tooltip->InitTooltip(target);
+			SetToolTip(tooltip);
+		}
 	}
 
 	//체력만 현재/최대 쌍이다, 나머지는 단일 수치

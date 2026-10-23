@@ -7,6 +7,7 @@
 #include "Object/Buff/BuffBase.h"
 #include "ActorComponent/AilmentComponent.h"
 #include "Object/Ailment/AilmentBase.h"
+#include "ActorComponent/PassiveSkillComponent.h"
 
 bool UActiveSkillBase::CanExecute() const
 {
@@ -43,18 +44,20 @@ void UActiveSkillBase::SetCalcedStats()
 	}
 
 	//(캐릭터 atk + 스킬 고정 피해) * 스킬 계수
+	//변동 피해는 하한·상한을 모두 들고 있다가 적중 시점에 굴린다, 인디케이터는 이 범위를 그대로 보여준다
 	calcDamage = owner->GetAtk() * damageRatio + baseDamage;
+	calcDamageMax = HasDamageRange()
+		? owner->GetAtk() * damageRatioMax + baseDamage
+		: calcDamage;
 	//캐릭터 명중 + 스킬 보너스 명중
 	calcAccuracy = owner->GetAccuracy() + bonusAccuracy;
 	//캐릭터 치명타 + 스킬 보너스 치명타
-	if (damageType == EDamageType::Area)
-	{
-		calcCritical = 0;
-	}
-	else
-	{
-		calcCritical = owner->GetCritical() + bonusCritical;
-	}
+	//광역은 기본 봉쇄, 투척만 해금 패시브로 예외가 되어 일반 공격과 동일하게 적용
+	const UPassiveSkillComponent* passiveComp = owner->GetPassiveSkillComponent();
+	const bool bThrowCritUnlocked = (skillType == ESkillType::Throw)
+		&& passiveComp && passiveComp->HasThrowCriticalUnlock();
+	const bool bAreaCritBlocked = (damageType == EDamageType::Area) && !bThrowCritUnlocked;
+	calcCritical = bAreaCritBlocked ? 0.f : owner->GetCritical() + bonusCritical;
 	//캐릭터 피해 증폭 + 스킬 보너스 피해 증폭
 	calcDamageAmplfication = owner->GetDamageAmplification() + bonusDamageAmplication;
 	//캐릭터 관통력 + 스킬 보너스 관통력

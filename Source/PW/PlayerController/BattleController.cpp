@@ -14,6 +14,7 @@
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "Object/Skill/AreaShapeLibrary.h"
 #include "GameMode/BattleGameMode.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/EnemyBase.h"
@@ -420,12 +421,21 @@ void ABattleController::ShowReinforcementSelect()
 		return;
 	}
 
-	recruitWidgetInstance->OnJobChosen.BindUObject(this, &ABattleController::ChooseReinforcementJob);
+	//부를 사람이 남지 않았으면 빈 화면을 띄우지 않고 턴을 이어간다
+	const TArray<TSubclassOf<AAllyCharacterBase>> candidates = BuildReinforcementCandidates();
+	if (candidates.Num() == 0)
+	{
+		FinishReinforcement();
+		return;
+	}
+
+	recruitWidgetInstance->OnCharacterChosen.BindUObject(this, &ABattleController::ChooseReinforcementCharacter);
 	recruitWidgetInstance->AddToViewport(10);
 	recruitWidgetInstance->SetRemaining(remainingReinforcements);
+	recruitWidgetInstance->SetCandidates(candidates);
 }
 
-void ABattleController::ChooseReinforcementJob(int32 jobIndex)
+void ABattleController::ChooseReinforcementCharacter(TSubclassOf<AAllyCharacterBase> characterClass)
 {
 	ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
@@ -435,25 +445,54 @@ void ABattleController::ChooseReinforcementJob(int32 jobIndex)
 		return;
 	}
 
-	//위젯이 같은 목록으로 버튼을 만들었으므로 인덱스가 그대로 통한다
-	const TArray<TSubclassOf<AAllyCharacterBase>> jobs = gameInstance->GetUnlockedJobs();
-	if (!jobs.IsValidIndex(jobIndex)) return;
+	//후보 목록이 이미 걸렀지만 통지는 늦게 들어올 수 있어 여기서 한 번 더 본다
+	if (!BuildReinforcementCandidates().Contains(characterClass)) return;
 
 	//자리가 없으면 남은 인원을 포기한다, 고를 수 없는 화면에 갇히지 않도록
-	if (!gameMode->JoinReinforcement(jobs[jobIndex], reinforcementCaller))
+	if (!gameMode->JoinReinforcement(characterClass, reinforcementCaller))
 	{
 		FinishReinforcement();
 		return;
 	}
 
 	--remainingReinforcements;
-	if (remainingReinforcements > 0 && IsValid(recruitWidgetInstance))
+
+	//방금 합류한 신병이 후보에 남지 않도록 목록을 다시 만든다
+	const TArray<TSubclassOf<AAllyCharacterBase>> remainingCandidates = BuildReinforcementCandidates();
+
+	if (remainingReinforcements > 0 && remainingCandidates.Num() > 0 && IsValid(recruitWidgetInstance))
 	{
 		recruitWidgetInstance->SetRemaining(remainingReinforcements);
+		recruitWidgetInstance->SetCandidates(remainingCandidates);
 		return;
 	}
 
 	FinishReinforcement();
+}
+
+TArray<TSubclassOf<AAllyCharacterBase>> ABattleController::BuildReinforcementCandidates() const
+{
+	TArray<TSubclassOf<AAllyCharacterBase>> candidates;
+
+	const ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	const URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
+	if (!gameMode || !gameInstance || !runProgress) return candidates;
+
+	//스토리면 줄기가 정한 인물들, 나머지 모드면 해금된 캐릭터가 후보 풀이다
+	for (const TSubclassOf<AAllyCharacterBase>& characterClass : gameInstance->GetRunCharacterPool())
+	{
+		if (!characterClass) continue;
+
+		//전장에 선 아군과 이번 런 전사자를 뺀다
+		//이번 전투에서 죽은 아군은 배열에서 빠지지만 전사 기록이 남아 돌아오지 못한다
+		if (gameMode->IsDeployedInBattle(characterClass)) continue;
+		if (runProgress->IsFallen(characterClass)) continue;
+
+		candidates.Add(characterClass);
+	}
+
+	return candidates;
 }
 
 void ABattleController::FinishReinforcement()
@@ -820,7 +859,10 @@ void ABattleController::OpenDetailWidget(ACharacterBase* target)
 
 	detailWidgetInstance->InitDetail(target);
 	detailWidgetInstance->OnClosed.BindUObject(this, &ABattleController::CloseDetailWidget);
-	detailWidgetInstance->AddToViewport(10);
+
+	//부대 정보표(21)에서도 열리므로 그보다 위여야 표 아래에 깔리지 않는다
+	//창 띄우기 ZOrder: HUD 0 < 강화·증원 10 < 일시정지 20 < 설정·부대표 21 < 상세 22
+	detailWidgetInstance->AddToViewport(22);
 
 	//창이 떠 있는 동안 이동/스킬/턴종료 버튼 잠금, 강화 선택 잠금과 동일 방식
 	//적 턴에는 턴 HUD가 없으므로(InitTurn에서 생성, EndTurn에서 파괴) IsValid로 거른다
@@ -936,7 +978,9 @@ void ABattleController::TogglePauseMenu()
 	pauseMenuInstance = CreateWidget<UPauseMenuWidget>(this, pauseMenuWidgetClass);
 	if (!pauseMenuInstance) return;
 
-	pauseMenuInstance->AddToViewport();
+	//반투명 배경이 뒤쪽 클릭을 삼켜 막으므로 ZOrder가 다른 창들보다 위여야 한다
+	//HUD는 0, 상세·강화·증원 창은 10이라 그보다 높은 값을 쓴다
+	pauseMenuInstance->AddToViewport(20);
 	SetPaused(true);
 }
 
@@ -980,7 +1024,9 @@ void ABattleController::ShowSettingsFromPause()
 
 	//뒤로가기는 메인메뉴가 아니라 일시정지 메뉴로 돌아와야 한다
 	settingsInstance->onClosed.BindUObject(this, &ABattleController::CloseSettingsFromPause);
-	settingsInstance->AddToViewport();
+
+	//아래 일시정지 메뉴를 접는 동안 그 배경도 사라지므로 이 창이 직접 막는다, 메뉴(20)보다 위
+	settingsInstance->AddToViewport(21);
 
 	//제거하지 않고 숨기기만 한다, 복귀 시 런 포기 확인 패널 상태까지 그대로 살아 있다
 	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Collapsed);
@@ -1011,7 +1057,9 @@ void ABattleController::ShowSquadInfoFromPause()
 	squadInfoInstance->OnClosed.BindUObject(this, &ABattleController::CloseSquadInfoFromPause);
 	//행 클릭은 상세 정보 창으로, 표는 그대로 아래 깔려 있고 창을 닫으면 다시 보인다
 	squadInfoInstance->OnMemberSelected.BindUObject(this, &ABattleController::OpenDetailWidget);
-	squadInfoInstance->AddToViewport();
+
+	//설정과 같은 이유로 직접 막는다, 행 클릭으로 뜨는 상세 창은 이보다 위에 올라간다
+	squadInfoInstance->AddToViewport(21);
 
 	//설정과 같은 방식, 제거하지 않고 숨기기만 해서 확인 패널 상태를 보존한다
 	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Collapsed);
@@ -1373,11 +1421,19 @@ void ABattleController::ExecuteSkill()
 	//인디케이터 방향으로 캐릭터 회전, Self는 제외
 	if (Indicator && Skill->selectMode != ESelectMode::Self)
 	{
-		FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
-		Dir.Z = 0.f;
-		if (!Dir.IsNearlyZero())
+		//Ray/Cone은 인디케이터가 시전자 위치에 겹쳐 방향 벡터를 못 쓰므로 인디케이터 회전을 그대로 사용
+		if (UAreaShapeLibrary::IsCasterAnchored(Skill))
 		{
-			activeUnit->SetActorRotation(Dir.Rotation());
+			activeUnit->SetActorRotation(Indicator->GetActorRotation());
+		}
+		else
+		{
+			FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
+			Dir.Z = 0.f;
+			if (!Dir.IsNearlyZero())
+			{
+				activeUnit->SetActorRotation(Dir.Rotation());
+			}
 		}
 	}
 
@@ -1419,7 +1475,7 @@ void ABattleController::StartPendingSkillOnTargets(USkillComponent* SkillComp, U
 	}
 	TWeakObjectPtr<ACharacterBase> caster = activeUnit;
 
-	//인디케이터 파괴 시 OnOverlapEnd가 pending 예측값을 지우므로, 커밋 시점에 재계산 후 판정
+	//인디케이터 파괴 시 대상 이탈 처리가 pending 예측값을 지우므로, 커밋 시점에 재계산 후 판정
 	SkillComp->StartPendingExecution(Skill, [SkillComp, Skill, pendingTargets, caster]()
 	{
 		for (const TWeakObjectPtr<ACharacterBase>& Weak : pendingTargets)

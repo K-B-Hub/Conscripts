@@ -54,6 +54,11 @@ public:
 	//패배나 완주면 예고 없이 허브로 돌아간다
 	void LeaveBattle(EBattleResult result);
 
+	//지정한 캐릭터의 상세 정보 창을 띄운다
+	//월드의 상세보기 버튼과 부대 정보표는 컨트롤러가 직접 바인딩하지만
+	//결과 화면은 위젯이 직접 부르므로 공개한다
+	void OpenDetailWidget(ACharacterBase* target);
+
 	//예고 화면의 버튼에서 호출, 예고한 스테이지로 실제 이동한다
 	void TravelToNextStage();
 
@@ -63,8 +68,8 @@ public:
 	//증원 강화가 호출, 직업 선택은 강화 선택이 모두 끝난 뒤로 미룬다
 	void RequestReinforcement(AAllyCharacterBase* caller, int32 count);
 
-	//직업 선택 화면이 호출, 신병 한 명을 합류시킨다. 남은 인원이 없으면 턴을 이어간다
-	void ChooseReinforcementJob(int32 jobIndex);
+	//캐릭터 선택 화면이 호출, 신병 한 명을 합류시킨다. 남은 인원이 없으면 턴을 이어간다
+	void ChooseReinforcementCharacter(TSubclassOf<AAllyCharacterBase> characterClass);
 
 	//적 턴 시작 시 GameMode에서 호출, 카메라 폰 스프링암을 피벗으로 AI 추적
 	void BeginAITurnFollow(ACharacterBase* AIUnit);
@@ -346,6 +351,9 @@ private:
 	UPROPERTY()
 	TObjectPtr<USquadInfoWidget> squadInfoInstance = nullptr;
 
+	//지금 부를 수 있는 캐릭터, 전장에 선 아군과 이번 런 전사자를 뺀다
+	TArray<TSubclassOf<AAllyCharacterBase>> BuildReinforcementCandidates() const;
+
 	//증원을 요청한 아군, 신병이 설 기준 위치이자 요청 대기 표시
 	UPROPERTY()
 	TObjectPtr<AAllyCharacterBase> reinforcementCaller = nullptr;
@@ -441,9 +449,6 @@ private:
 
 	//상세보기 버튼 클릭 수신, 대상은 detailTarget
 	void HandleDetailButtonClicked();
-
-	//지정한 캐릭터의 상세 정보 창을 띄운다, 월드의 상세보기 버튼과 부대 정보표가 함께 쓴다
-	void OpenDetailWidget(ACharacterBase* target);
 
 	//상세 정보 창 클래스
 	UPROPERTY(EditDefaultsOnly, Category = "UI")

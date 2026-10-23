@@ -21,6 +21,10 @@ struct FRunSaveState
 	UPROPERTY()
 	TArray<FAllyRunState> roster;
 
+	//이어한 런에서도 전사자가 증원 후보로 돌아오지 않도록 함께 보존한다
+	UPROPERTY()
+	TArray<TSubclassOf<AAllyCharacterBase>> fallenCharacters;
+
 	UPROPERTY()
 	TArray<FStageEntry> stages;
 

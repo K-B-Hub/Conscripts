@@ -128,7 +128,11 @@ public:
 	//전투 중 아군 합류, 증원 강화가 호출한다
 	//caller 옆에 레벨 1로 세운 뒤 평균 레벨까지 올리고, 현재 턴 바로 다음 순서에 끼워 넣는다
 	//쌓인 대기 강화는 신병의 턴 시작에서 기존 경로대로 소비된다
-	AAllyCharacterBase* JoinReinforcement(TSubclassOf<AAllyCharacterBase> jobClass, const AAllyCharacterBase* caller);
+	AAllyCharacterBase* JoinReinforcement(TSubclassOf<AAllyCharacterBase> characterClass, const AAllyCharacterBase* caller);
+
+	//해당 캐릭터가 지금 전장에 서 있는지, 증원 후보 선별이 쓴다
+	//사망 즉시 배열에서 빠지므로 전사자는 여기서 false가 되고 전사 기록이 대신 막는다
+	bool IsDeployedInBattle(TSubclassOf<AAllyCharacterBase> characterClass) const;
 
 	//생존 아군의 평균 레벨, 최소 1
 	int32 GetAverageAllyLevel() const;

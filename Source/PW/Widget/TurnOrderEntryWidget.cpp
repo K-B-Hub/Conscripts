@@ -81,12 +81,12 @@ void UTurnOrderEntryWidget::InitEntry(ACharacterBase* InCharacter)
 	character = InCharacter;
 	if (!character) return;
 
-	//아이콘 미지정 BP면 빈 사각형이 남는 대신 숨긴다, 상세 정보 창과 같은 폴백
+	//고유 초상화가 없으면 직업 아이콘, 둘 다 없으면 빈 사각형이 남는 대신 숨긴다
 	if (PortraitImage)
 	{
-		if (character->jobIcon)
+		if (UTexture2D* art = character->GetPortrait())
 		{
-			PortraitImage->SetBrushFromTexture(character->jobIcon);
+			PortraitImage->SetBrushFromTexture(art);
 			PortraitImage->SetVisibility(ESlateVisibility::HitTestInvisible);
 		}
 		else

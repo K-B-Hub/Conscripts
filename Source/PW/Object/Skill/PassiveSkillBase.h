@@ -31,6 +31,9 @@ public:
 	int32 mentality = 0;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
 	int32 actionPoint = 0;
+	//고유 자원 최대치 증가분, 소총수의 탄창처럼 직업 자원을 늘리는 강화가 쓴다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
+	int32 maxBattleResource = 0;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
 	int32 damageReduction = 0;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat")
@@ -56,6 +59,11 @@ public:
 	//스트레스 이벤트 추첨을 긍정 풀로 고정, 만땅 도달 시 턴 손실 페널티는 그대로 유지
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stress")
 	bool bStressEventAlwaysPositive = false;
+
+	//투척 스킬에 한해 광역 치명타 봉쇄를 해제, 보유만 해도 적용되며 조건 검사를 거치지 않는다
+	//같은 광역이라도 투척이 아닌 스킬은 그대로 봉쇄된다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
+	bool bAllowThrowCritical = false;
 
 	//패시브 스킬의 타입, Stat일 경우에는 별도의 검사 필요x, Conditional이나 Reactive 면 EConditionalType이나 EReactiveType에 따라 검사 후 Execute 필요
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")

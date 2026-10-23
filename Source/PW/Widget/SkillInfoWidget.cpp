@@ -10,7 +10,7 @@ void USkillInfoWidget::NativeConstruct()
 	SetIsFocusable(false);
 }
 
-void USkillInfoWidget::UpdateInfo(float Damage, float Accuracy, float Critical, ESkillType SkillType)
+void USkillInfoWidget::UpdateInfo(float Damage, float DamageMax, float Accuracy, float Critical, ESkillType SkillType)
 {
 	if (SkillType == ESkillType::Buff)
 	{
@@ -67,13 +67,24 @@ void USkillInfoWidget::UpdateInfo(float Damage, float Accuracy, float Critical, 
 	if (DamageText)
 	{
 		DamageText->SetVisibility(ESlateVisibility::Visible);
+
+		//반올림 후 비교해야 표시상 같은 값이 "5~5"로 나오지 않는다
+		const int32 minValue = FMath::RoundToInt(Damage);
+		const int32 maxValue = FMath::RoundToInt(DamageMax);
+		const bool bRanged = maxValue > minValue;
+
 		if (Damage < 0.f)
 		{
-			DamageText->SetText(FText::FromString(FString::Printf(TEXT("Heal: %d"), FMath::RoundToInt(Damage * -1))));
+			//회복은 부호를 뒤집어 표기하므로 구간의 앞뒤도 뒤바뀐다
+			DamageText->SetText(bRanged
+				? FText::FromString(FString::Printf(TEXT("Heal: %d~%d"), -maxValue, -minValue))
+				: FText::FromString(FString::Printf(TEXT("Heal: %d"), -minValue)));
 		}
 		else
 		{
-			DamageText->SetText(FText::FromString(FString::Printf(TEXT("Damage: %d"), FMath::RoundToInt(Damage))));
+			DamageText->SetText(bRanged
+				? FText::FromString(FString::Printf(TEXT("Damage: %d~%d"), minValue, maxValue))
+				: FText::FromString(FString::Printf(TEXT("Damage: %d"), minValue)));
 		}
 	}
 	if (AccuracyText)

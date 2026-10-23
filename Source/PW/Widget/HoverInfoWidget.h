@@ -8,6 +8,7 @@
 
 class ACharacterBase;
 class UImage;
+class UProgressBar;
 class UTextBlock;
 
 //호버한 캐릭터의 간단 정보, 화면 좌측 하단에 고정된다
@@ -30,6 +31,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> JobNameText;
+	//캐릭터 고유 이름, 직업명과 별개 칸이다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> CharacterNameText;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> LevelText;
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -48,4 +52,15 @@ protected:
 	TObjectPtr<UTextBlock> EvasionText;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> CriticalText;
+
+	//화면 중앙 상단 대상 표시줄, 위 스탯 칸들과 같은 호버 대상을 다른 자리에서 보여준다
+	//위 HpText와 체력을 중복 표시하는 것이 맞다 — 둘은 화면상 다른 위치의 칸이다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UProgressBar> TopBarHealthBar;
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> TopBarHpText;
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> TopBarNameText;
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> TopBarJobText;
 };

@@ -26,7 +26,7 @@ public:
 
 	//새로 합류한 동료를 자리에 세운다, 증원·보급이 사용
 	//남은 자리가 없으면 nullptr
-	AAllyCharacterBase* AddRecruit(TSubclassOf<AAllyCharacterBase> jobClass, const FString& displayName, int32 level);
+	AAllyCharacterBase* AddRecruit(TSubclassOf<AAllyCharacterBase> characterClass, int32 level);
 
 	//현재 로스터의 평균 레벨, 충원 동료의 레벨 기준
 	int32 GetAverageLevel() const;

@@ -4,8 +4,8 @@
 #include "PW.h"
 #include "Actors/CursorIndicator.h"
 #include "Components/DecalComponent.h"
-#include "Components/SphereComponent.h"
 #include "Components/SplineMeshComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Components/WidgetComponent.h"
 #include "Widget/MoveIndicatorWidget.h"
 #include "Characters/CharacterBase.h"
@@ -13,9 +13,11 @@
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "Object/Skill/AreaShapeLibrary.h"
 #include "DrawDebugHelpers.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
+#include "Engine/OverlapResult.h"
 
 AAttackRangeIndicator::AAttackRangeIndicator()
 {
@@ -23,15 +25,6 @@ AAttackRangeIndicator::AAttackRangeIndicator()
 
 	rootScene = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	RootComponent = rootScene;
-
-	overlapSphere = CreateDefaultSubobject<USphereComponent>(TEXT("OverlapSphere"));
-	overlapSphere->SetupAttachment(RootComponent);
-	overlapSphere->SetSphereRadius(1.f);
-	overlapSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	overlapSphere->SetCollisionObjectType(ECC_WorldDynamic);
-	overlapSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	overlapSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	overlapSphere->SetGenerateOverlapEvents(true);
 
 	areaDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("AreaDecal"));
 	areaDecal->SetupAttachment(RootComponent);
@@ -50,17 +43,15 @@ AAttackRangeIndicator::AAttackRangeIndicator()
 	arcCostWidget->SetVisibility(false);
 }
 
-void AAttackRangeIndicator::BeginPlay()
-{
-	Super::BeginPlay();
-
-	overlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AAttackRangeIndicator::OnOverlapBegin);
-	overlapSphere->OnComponentEndOverlap.AddDynamic(this, &AAttackRangeIndicator::OnOverlapEnd);
-}
-
 void AAttackRangeIndicator::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	//Self 스킬은 overlap 종료 경로를 타지 않으므로 caster 정보 위젯을 수동 정리
+	//대상 수집이 Tick 기반이라 파괴 시 이탈 통지가 없음, 남은 대상 위젯을 직접 정리
+	for (int32 i = overlappingTargets.Num() - 1; i >= 0; --i)
+	{
+		ExitTarget(overlappingTargets[i]);
+	}
+
+	//Self 스킬은 대상 수집 경로를 타지 않으므로 caster 정보 위젯을 수동 정리
 	if (bFixedAtCaster && caster.IsValid())
 	{
 		caster->HideSkillInfo();
@@ -74,41 +65,23 @@ void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkill
 {
 	caster = InCaster;
 	cachedSkill = Skill;
-	//점프는 현재 이동력으로 갈 수 있는 거리로 사거리 제한, 그 외는 pickRange 그대로
-	pickRange = Skill->GetEffectivePickRange();
 	bIsAreaAttack = (Skill->areaTarget != EAreaTarget::None);
+	bIsDirectionalArea = UAreaShapeLibrary::IsCasterAnchored(Skill);
 	bFixedAtCaster = (Skill->selectMode == ESelectMode::Self);
+	//Ray/Cone은 형태 자체가 사거리라 조준 지점 사거리·자동이동 판정을 쓰지 않음
+	//점프는 현재 이동력으로 갈 수 있는 거리로 사거리 제한, 그 외는 pickRange 그대로
+	pickRange = bIsDirectionalArea ? 0.f : Skill->GetEffectivePickRange();
 
 	if (bIsAreaAttack)
 	{
-		if (areaDecalMaterial)
-		{
-			areaDecal->SetDecalMaterial(areaDecalMaterial);
-		}
-		areaDecal->SetVisibility(true);
-
-		float OverlapRadius = 0.f;
-		switch (Skill->areaForm)
-		{
-		case EAreaForm::Circle:
-			OverlapRadius = Skill->areaParameter1;
-			areaDecal->DecalSize = FVector(decalProjectionDepth, Skill->areaParameter1, Skill->areaParameter1);
-			break;
-		case EAreaForm::Cone:
-			OverlapRadius = Skill->areaParameter1;
-			areaDecal->DecalSize = FVector(decalProjectionDepth, Skill->areaParameter1, Skill->areaParameter1);
-			break;
-		case EAreaForm::Ray:
-			OverlapRadius = FMath::Max(Skill->areaParameter1, Skill->areaParameter2) * 0.5f;
-			areaDecal->DecalSize = FVector(decalProjectionDepth, Skill->areaParameter1 * 0.5f, Skill->areaParameter2 * 0.5f);
-			break;
-		}
-		overlapSphere->SetSphereRadius(FMath::Max(OverlapRadius, 1.f));
+		shapeOuterRadius = UAreaShapeLibrary::GetOuterRadius(Skill);
+		SetupAreaDecal(Skill);
 	}
 	else
 	{
+		//비범위는 커서 밑 대상 하나만 집어야 하므로 좁은 반경, 형태 판정 없이 반경이 곧 판정
+		shapeOuterRadius = nonAreaPickRadius;
 		areaDecal->SetVisibility(false);
-		overlapSphere->SetSphereRadius(10.f);
 	}
 
 	//Self 스킬은 커서·overlap 없이 caster 자신이 대상, 즉시 타겟 등록 및 예측·정보 위젯 표시
@@ -122,6 +95,59 @@ void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkill
 	}
 }
 
+void AAttackRangeIndicator::SetupAreaDecal(const UActiveSkillBase* Skill)
+{
+	//DecalSize는 반치수, 데칼이 -90도 눕혀져 Y는 좌우·Z는 전방을 덮는다
+	UMaterialInterface* decalMaterial = areaDecalMaterial;
+	FVector decalSize = FVector(decalProjectionDepth, Skill->areaParameter1, Skill->areaParameter1);
+	FVector decalOffset = FVector::ZeroVector;
+
+	switch (Skill->areaForm)
+	{
+	case EAreaForm::Circle:
+		break;
+	case EAreaForm::Ray:
+		decalMaterial = rayDecalMaterial;
+		decalSize = FVector(decalProjectionDepth, Skill->areaParameter1 * 0.5f, Skill->areaParameter2 * 0.5f);
+		//시전자에서 앞으로 뻗으므로 사각형 중심을 길이 절반만큼 전방으로
+		decalOffset = FVector(Skill->areaParameter2 * 0.5f, 0.f, 0.f);
+		break;
+	case EAreaForm::Cone:
+		decalMaterial = coneDecalMaterial;
+		break;
+	}
+
+	if (decalMaterial)
+	{
+		areaDecal->SetDecalMaterial(decalMaterial);
+	}
+	areaDecal->DecalSize = decalSize;
+	areaDecal->SetRelativeLocation(decalOffset);
+	areaDecal->SetVisibility(true);
+
+	//Ray/Cone은 윤곽선만 그리므로 UV를 월드 cm로 환산할 실제 치수를 넘겨야 선 두께가 균일해짐
+	const bool bNeedsOutlineParams = (Skill->areaForm == EAreaForm::Ray || Skill->areaForm == EAreaForm::Cone);
+	if (!bNeedsOutlineParams || !decalMaterial) return;
+
+	areaDecalMID = areaDecal->CreateDynamicMaterialInstance();
+	if (!areaDecalMID) return;
+
+	areaDecalMID->SetScalarParameterValue(TEXT("EdgeThickness"), decalEdgeThickness);
+
+	if (Skill->areaForm == EAreaForm::Ray)
+	{
+		//UV 한 변이 각각 폭·길이에 대응
+		areaDecalMID->SetScalarParameterValue(TEXT("Width"), Skill->areaParameter1);
+		areaDecalMID->SetScalarParameterValue(TEXT("Length"), Skill->areaParameter2);
+	}
+	else
+	{
+		//정사각 데칼이라 UV 한 변이 지름, 중심각은 스킬마다 다름
+		areaDecalMID->SetScalarParameterValue(TEXT("ConeAngle"), Skill->areaParameter2);
+		areaDecalMID->SetScalarParameterValue(TEXT("DecalSize"), Skill->areaParameter1 * 2.f);
+	}
+}
+
 void AAttackRangeIndicator::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -132,20 +158,43 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 		{
 			SetActorLocation(caster->GetActorLocation(), false, nullptr, ETeleportType::TeleportPhysics);
 		}
-		DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
-			overlapSphere->GetScaledSphereRadius(), 24, FColor::Cyan, false, 0.f);
+		//caster 자신은 InitIndicator에서 등록됨, 주변 범위를 갖는 Self 스킬은 여기서 추가 수집
+		RefreshShapeTargets();
+		DrawShapeDebug(FColor::Cyan);
 		return;
 	}
 
 	if (bIsLocked)
 	{
-		DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
-			overlapSphere->GetScaledSphereRadius(), 24, FColor::Yellow, false, 0.f);
+		DrawShapeDebug(FColor::Yellow);
 		return;
 	}
 
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (!PC) return;
+
+	//Ray/Cone은 시전자에 붙은 채 커서 방향으로만 회전, 사거리·자동이동·스냅 판정 없음
+	if (bIsDirectionalArea)
+	{
+		if (!caster.IsValid()) return;
+
+		FHitResult CursorHit;
+		if (!PC->GetHitResultUnderCursor(ECC_Visibility, false, CursorHit)) return;
+
+		const FVector CasterLoc = caster->GetActorLocation();
+		SetActorLocation(CasterLoc, false, nullptr, ETeleportType::TeleportPhysics);
+
+		FVector Dir = CursorHit.Location - CasterLoc;
+		Dir.Z = 0.f;
+		if (!Dir.IsNearlyZero())
+		{
+			SetActorRotation(Dir.Rotation());
+		}
+
+		RefreshShapeTargets();
+		DrawShapeDebug(FColor::Green);
+		return;
+	}
 
 	FHitResult HitResult;
 	FVector TargetLocation;
@@ -207,6 +256,9 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
+	//이동 후 위치에서 대상 재수집, 아래 전이 감지가 최신 목록을 순회하도록 먼저 갱신
+	RefreshShapeTargets();
+
 	//자동이동 필요 여부 전이 감지
 	if (bNeedsAutoMove != bPrevAutoMoveNeeded)
 	{
@@ -250,9 +302,7 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 	//아치 스킬은 자체 궤적 메쉬로 표시하므로 디버그 구체 생략
 	if (!bArc)
 	{
-		const FColor DebugColor = bNeedsAutoMove ? FColor::Red : FColor::Green;
-		DrawDebugSphere(GetWorld(), overlapSphere->GetComponentLocation(),
-			overlapSphere->GetScaledSphereRadius(), 24, DebugColor, false, 0.f);
+		DrawShapeDebug(bNeedsAutoMove ? FColor::Red : FColor::Green);
 	}
 
 	//아치 스킬(점프·투척): 시전자→커서 지점 포물선 궤적을 메쉬로, 착지 데칼·비용 위젯 표시
@@ -578,29 +628,154 @@ bool AAttackRangeIndicator::IsPickTarget(ACharacterBase* Character) const
 	return false;
 }
 
-void AAttackRangeIndicator::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-	bool bFromSweep, const FHitResult& SweepResult)
+FVector AAttackRangeIndicator::GetShapeOrigin() const
 {
-	ACharacterBase* Character = Cast<ACharacterBase>(OtherActor);
-	if (!Character) return;
+	//Ray/Cone은 시전자에 붙어 방향만 돌리므로 원점이 시전자
+	if (bIsDirectionalArea && caster.IsValid())
+	{
+		return caster->GetActorLocation();
+	}
+	return GetActorLocation();
+}
 
-	if (caster.IsValid() && Character == caster.Get()) return;
+void AAttackRangeIndicator::RefreshShapeTargets()
+{
+	UWorld* World = GetWorld();
+	if (!World || shapeOuterRadius <= 0.f) return;
 
-	//스킬 모드에 맞는 필터 적용, 비범위 스킬은 pickTeam 기준
-	if (bIsAreaAttack ? !IsAreaTarget(Character) : !IsPickTarget(Character)) return;
+	const FVector Origin = GetShapeOrigin();
 
+	//외접 반경으로 후보만 모음, 실제 형태 판정은 아래에서
+	FCollisionQueryParams QueryParams;
+	if (caster.IsValid())
+	{
+		QueryParams.AddIgnoredActor(caster.Get());
+	}
+	TArray<FOverlapResult> Overlaps;
+	World->OverlapMultiByObjectType(
+		Overlaps,
+		Origin,
+		FQuat::Identity,
+		FCollisionObjectQueryParams(ECC_Pawn),
+		FCollisionShape::MakeSphere(shapeOuterRadius),
+		QueryParams);
+
+	const FVector Forward = GetActorForwardVector();
+
+	TArray<ACharacterBase*> Confirmed;
+	for (const FOverlapResult& Overlap : Overlaps)
+	{
+		ACharacterBase* Character = Cast<ACharacterBase>(Overlap.GetActor());
+		if (!Character || Character->IsDead()) continue;
+
+		//스킬 모드에 맞는 필터 적용, 비범위 스킬은 pickTeam 기준
+		if (bIsAreaAttack ? !IsAreaTarget(Character) : !IsPickTarget(Character)) continue;
+
+		//범위 스킬만 형태 판정, 비범위는 좁은 외접 반경이 곧 판정
+		if (bIsAreaAttack
+			&& !UAreaShapeLibrary::IsInAreaShape(cachedSkill, Origin, Forward, Character->GetActorLocation()))
+		{
+			continue;
+		}
+
+		Confirmed.AddUnique(Character);
+	}
+
+	//이탈 먼저 처리, ExitTarget이 목록을 줄이므로 역순 순회
+	for (int32 i = overlappingTargets.Num() - 1; i >= 0; --i)
+	{
+		ACharacterBase* Previous = overlappingTargets[i];
+		if (!Confirmed.Contains(Previous))
+		{
+			ExitTarget(Previous);
+		}
+	}
+
+	for (ACharacterBase* Character : Confirmed)
+	{
+		if (!overlappingTargets.Contains(Character))
+		{
+			EnterTarget(Character);
+		}
+	}
+}
+
+void AAttackRangeIndicator::EnterTarget(ACharacterBase* Character)
+{
 	overlappingTargets.AddUnique(Character);
 
 	if (caster.IsValid())
 	{
-		if (USkillComponent* SkillComp = caster->FindComponentByClass<USkillComponent>())
+		if (USkillComponent* SkillComp = caster->GetSkillComponent())
 		{
 			SkillComp->AddTarget(Character);
 		}
 	}
 
 	RecalculatePendingForTarget(Character);
+}
+
+void AAttackRangeIndicator::ExitTarget(ACharacterBase* Character)
+{
+	overlappingTargets.Remove(Character);
+
+	if (caster.IsValid())
+	{
+		if (USkillComponent* SkillComp = caster->GetSkillComponent())
+		{
+			SkillComp->RemoveTarget(Character);
+		}
+	}
+
+	//파괴된 대상은 위젯 정리가 불필요하고 접근도 위험
+	if (!IsValid(Character)) return;
+
+	Character->HideSkillInfo();
+	Character->ClearPendingDamage();
+}
+
+void AAttackRangeIndicator::DrawShapeDebug(const FColor& Color) const
+{
+	UWorld* World = GetWorld();
+	if (!World || !cachedSkill) return;
+
+	const FVector Origin = GetShapeOrigin();
+
+	if (!bIsAreaAttack)
+	{
+		DrawDebugSphere(World, Origin, shapeOuterRadius, 24, Color, false, 0.f);
+		return;
+	}
+
+	const FVector Forward = GetActorForwardVector();
+	switch (cachedSkill->areaForm)
+	{
+	case EAreaForm::Circle:
+		DrawDebugSphere(World, Origin, cachedSkill->areaParameter1, 24, Color, false, 0.f);
+		break;
+	case EAreaForm::Ray:
+	{
+		//박스 중심은 전방 길이 절반 지점, 두께는 지면에 붙여 얇게
+		const FVector Center = Origin + Forward * cachedSkill->areaParameter2 * 0.5f;
+		const FVector Extent(cachedSkill->areaParameter2 * 0.5f, cachedSkill->areaParameter1 * 0.5f, 1.f);
+		DrawDebugBox(World, Center, Extent, GetActorQuat(), Color, false, 0.f);
+		break;
+	}
+	case EAreaForm::Cone:
+	{
+		//외접 원과 중심각 경계선 두 개로 부채꼴 표시
+		//YAxis·ZAxis를 XY로 지정해 수평 원으로 그림, 기본값은 수직 평면
+		DrawDebugCircle(World, Origin, cachedSkill->areaParameter1, 32, Color, false, 0.f, 0, 0.f,
+			FVector(1.f, 0.f, 0.f), FVector(0.f, 1.f, 0.f), false);
+		const float halfAngle = cachedSkill->areaParameter2 * 0.5f;
+		for (const float sign : { -1.f, 1.f })
+		{
+			const FVector Edge = FRotator(0.f, halfAngle * sign, 0.f).RotateVector(Forward);
+			DrawDebugLine(World, Origin, Origin + Edge * cachedSkill->areaParameter1, Color, false, 0.f);
+		}
+		break;
+	}
+	}
 }
 
 void AAttackRangeIndicator::RecalculatePendingForTarget(ACharacterBase* Target)
@@ -615,22 +790,3 @@ void AAttackRangeIndicator::RecalculatePendingForTarget(ACharacterBase* Target)
 	Target->ShowSkillInfo();
 }
 
-void AAttackRangeIndicator::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	ACharacterBase* Character = Cast<ACharacterBase>(OtherActor);
-	if (!Character) return;
-
-	overlappingTargets.Remove(Character);
-
-	if (caster.IsValid())
-	{
-		if (USkillComponent* SkillComp = caster->FindComponentByClass<USkillComponent>())
-		{
-			SkillComp->RemoveTarget(Character);
-		}
-	}
-
-	Character->HideSkillInfo();
-	Character->ClearPendingDamage();
-}

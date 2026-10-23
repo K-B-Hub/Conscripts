@@ -44,8 +44,14 @@ void UTurnBannerWidget::HandleTurnAnnounced(ACharacterBase* turnUnit, float dura
 	}
 	if (UnitNameText)
 	{
-		//아군은 개체 이름, 적은 개체 이름이 없어 직업명
-		UnitNameText->SetText(ally ? FText::FromString(ally->displayName) : turnUnit->jobName);
+		//아군은 고유 이름, 적은 고유 이름을 지정하지 않으므로 직업명
+		UnitNameText->SetText(ally ? ally->GetCharacterNameText() : turnUnit->GetJobNameText());
+	}
+	if (JobNameText)
+	{
+		//적은 이름 칸에 이미 직업명이 들어가 있어 같은 글자를 두 번 띄우지 않는다
+		JobNameText->SetText(turnUnit->GetJobNameText());
+		JobNameText->SetVisibility(ally ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
 
 	//클릭을 막지 않는다, 지연 중 조작 차단은 activeUnit이 비어 있는 것으로 충분하다

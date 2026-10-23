@@ -10,6 +10,7 @@
 #include "Widget/CampOptionWidget.h"
 #include "Widget/CampRecruitWidget.h"
 #include "GameInstance/PWGameInstance.h"
+#include "Run/RunProgress.h"
 #include "EngineUtils.h"
 
 ACampController::ACampController()
@@ -45,6 +46,8 @@ void ACampController::BindCampActors()
 	for (TActorIterator<ACampCenter> It(GetWorld()); It; ++It)
 	{
 		It->OnClicked.AddDynamic(this, &ACampController::HandleCampClicked);
+		It->OnBeginCursorOver.AddDynamic(this, &ACampController::HandleCampHovered);
+		It->OnEndCursorOver.AddDynamic(this, &ACampController::HandleCampUnhovered);
 		++campCount;
 	}
 
@@ -82,6 +85,22 @@ void ACampController::HandleCampClicked(AActor* touchedActor, FKey buttonPressed
 	if (!optionWidgetInstance) return;
 
 	optionWidgetInstance->AddToViewport();
+}
+
+void ACampController::HandleCampHovered(AActor* touchedActor)
+{
+	if (ACampCenter* camp = Cast<ACampCenter>(touchedActor))
+	{
+		camp->SetHovered(true);
+	}
+}
+
+void ACampController::HandleCampUnhovered(AActor* touchedActor)
+{
+	if (ACampCenter* camp = Cast<ACampCenter>(touchedActor))
+	{
+		camp->SetHovered(false);
+	}
 }
 
 void ACampController::CloseCampOptions()
@@ -128,6 +147,15 @@ void ACampController::BeginRecruitFlow(int32 count)
 		return;
 	}
 
+	//부를 사람이 남지 않았으면 빈 화면을 띄우지 않고 그대로 출발한다
+	if (BuildRecruitCandidates().Num() == 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[CampController] 부를 수 있는 동료가 없어 충원을 건너뜁니다"));
+		remainingRecruits = 0;
+		if (camp) camp->LeaveCamp();
+		return;
+	}
+
 	recruitWidgetInstance = CreateWidget<UCampRecruitWidget>(this, recruitWidgetClass);
 	if (!recruitWidgetInstance)
 	{
@@ -135,30 +163,26 @@ void ACampController::BeginRecruitFlow(int32 count)
 		return;
 	}
 
-	recruitWidgetInstance->OnJobChosen.BindUObject(this, &ACampController::RecruitJob);
+	recruitWidgetInstance->OnCharacterChosen.BindUObject(this, &ACampController::RecruitCharacter);
 	recruitWidgetInstance->AddToViewport();
 	recruitWidgetInstance->SetRemaining(remainingRecruits);
+	recruitWidgetInstance->SetCandidates(BuildRecruitCandidates());
 }
 
-void ACampController::RecruitJob(int32 jobIndex)
+void ACampController::RecruitCharacter(TSubclassOf<AAllyCharacterBase> characterClass)
 {
 	ACampGameMode* camp = GetWorld() ? GetWorld()->GetAuthGameMode<ACampGameMode>() : nullptr;
 	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
 	if (!camp || !gameInstance || remainingRecruits <= 0) return;
 
-	const TArray<TSubclassOf<AAllyCharacterBase>> jobs = gameInstance->GetUnlockedJobs();
-	if (!jobs.IsValidIndex(jobIndex) || !jobs[jobIndex]) return;
+	//후보 목록이 이미 걸렀지만 통지는 늦게 들어올 수 있어 여기서 한 번 더 본다
+	if (!BuildRecruitCandidates().Contains(characterClass)) return;
 
 	//평균 레벨은 합류 전 기준이라 매번 다시 계산하지 않고 고정해도 되지만,
 	//연속 충원 시 새 동료가 평균에 섞이지 않도록 여기서 그때그때 조회한다
 	const int32 level = camp->GetAverageLevel();
 
-	const FText& jobName = jobs[jobIndex]->GetDefaultObject<AAllyCharacterBase>()->jobName;
-	const FString name = FString::Printf(TEXT("%s %d"),
-		*(jobName.IsEmpty() ? FText::FromString(jobs[jobIndex]->GetName()) : jobName).ToString(),
-		camp->GetCampAllies().Num() + 1);
-
-	AAllyCharacterBase* recruit = camp->AddRecruit(jobs[jobIndex], name, level);
+	AAllyCharacterBase* recruit = camp->AddRecruit(characterClass, level);
 	if (!recruit)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[CampController] 빈 자리가 없어 충원하지 못했습니다"));
@@ -170,9 +194,19 @@ void ACampController::RecruitJob(int32 jobIndex)
 		--remainingRecruits;
 	}
 
+	//방금 합류한 동료가 후보에 남지 않도록 목록을 다시 만든다
+	const TArray<TSubclassOf<AAllyCharacterBase>> remainingCandidates = BuildRecruitCandidates();
+
+	//부를 사람이 바닥나면 남은 인원을 포기한다, 고를 수 없는 화면에 갇히지 않도록
+	if (remainingCandidates.Num() == 0) remainingRecruits = 0;
+
 	if (remainingRecruits > 0)
 	{
-		if (recruitWidgetInstance) recruitWidgetInstance->SetRemaining(remainingRecruits);
+		if (recruitWidgetInstance)
+		{
+			recruitWidgetInstance->SetRemaining(remainingRecruits);
+			recruitWidgetInstance->SetCandidates(remainingCandidates);
+		}
 		return;
 	}
 
@@ -183,4 +217,38 @@ void ACampController::RecruitJob(int32 jobIndex)
 	}
 
 	camp->LeaveCamp();
+}
+
+TArray<TSubclassOf<AAllyCharacterBase>> ACampController::BuildRecruitCandidates() const
+{
+	TArray<TSubclassOf<AAllyCharacterBase>> candidates;
+
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	const ACampGameMode* camp = GetWorld() ? GetWorld()->GetAuthGameMode<ACampGameMode>() : nullptr;
+	const URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr;
+	if (!gameInstance || !camp || !runProgress) return candidates;
+
+	//스토리면 줄기가 정한 인물들, 나머지 모드면 해금된 캐릭터가 후보 풀이다
+	const TArray<TSubclassOf<AAllyCharacterBase>> pool = gameInstance->GetRunCharacterPool();
+	const TArray<TObjectPtr<AAllyCharacterBase>>& campAllies = camp->GetCampAllies();
+
+	for (const TSubclassOf<AAllyCharacterBase>& characterClass : pool)
+	{
+		if (!characterClass || runProgress->IsFallen(characterClass)) continue;
+
+		//야영지에 서 있는 동료를 기준으로 본다, 로스터는 출발 전까지 갱신되지 않아 방금 합류한 동료를 놓친다
+		bool bAlreadyHere = false;
+		for (const TObjectPtr<AAllyCharacterBase>& ally : campAllies)
+		{
+			if (ally && ally->GetClass() == characterClass)
+			{
+				bAlreadyHere = true;
+				break;
+			}
+		}
+
+		if (!bAlreadyHere) candidates.Add(characterClass);
+	}
+
+	return candidates;
 }

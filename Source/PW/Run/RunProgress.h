@@ -70,7 +70,24 @@ public:
 
 	const TArray<FAllyRunState>& GetRoster() const { return roster; }
 
+	//이번 런에서 전사해 다시 부를 수 없는 캐릭터들
+	const TArray<TSubclassOf<AAllyCharacterBase>>& GetFallenCharacters() const { return fallenCharacters; }
+
+	//해당 캐릭터가 지금 편성에 있는지, 같은 캐릭터를 두 명 둘 수 없다
+	bool IsInRoster(TSubclassOf<AAllyCharacterBase> characterClass) const;
+
+	//해당 캐릭터가 이번 런에서 전사했는지, 증원 후보에서 영구 제외된다
+	bool IsFallen(TSubclassOf<AAllyCharacterBase> characterClass) const;
+
+	//증원으로 부를 수 있는지, 편성 중복과 전사를 함께 본다
+	bool CanRecruit(TSubclassOf<AAllyCharacterBase> characterClass) const;
+
+	//전사 기록, 사망 시점에 호출한다
+	//전투 종료를 기다리면 안 된다 — BattleGameMode가 사망 즉시 allies에서 빼므로 회수 시점에는 죽은 자가 남아 있지 않다
+	void RegisterFallen(TSubclassOf<AAllyCharacterBase> characterClass);
+
 	//중간 영입, 야영지·이벤트에서 새 캐릭터가 합류할 때 호출
+	//이미 편성에 있거나 전사한 캐릭터는 거부한다
 	void AddToRoster(const FAllyRunState& newMember);
 
 	//스테이지 진입 시 로스터를 스폰된 캐릭터들에게 배분
@@ -97,6 +114,11 @@ private:
 	//현재 런의 아군 구성, 사망 시 줄고 영입 시 늘어난다
 	UPROPERTY()
 	TArray<FAllyRunState> roster;
+
+	//이번 런의 전사자, 증원 후보에서 제외하는 근거
+	//런이 닫히면 비워지므로 다음 런에서는 같은 캐릭터를 다시 쓸 수 있다
+	UPROPERTY()
+	TArray<TSubclassOf<AAllyCharacterBase>> fallenCharacters;
 
 	//지나온 스테이지와 예고된 다음 스테이지, 생성 모드에서는 진행하며 늘어난다
 	UPROPERTY()

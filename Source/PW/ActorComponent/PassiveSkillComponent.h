@@ -38,6 +38,9 @@ public:
 	//스트레스 이벤트를 긍정 풀로 고정하는 패시브를 보유 중인지
 	bool HasStressEventAlwaysPositive() const;
 
+	//투척 한정으로 광역 치명타 봉쇄를 푸는 패시브를 보유 중인지, 봉쇄 지점 두 곳이 모두 이 값을 본다
+	bool HasThrowCriticalUnlock() const;
+
 	const TArray<TObjectPtr<UPassiveSkillBase>>& GetActivePassives() const { return activePassives; }
 
 	//피해 계산 전 패시브 실행, attackerLocation은 거리 조건 패시브가 쓰는 공격 시점 좌표

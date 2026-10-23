@@ -128,8 +128,9 @@ void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target, ES
 		}
 	}
 
-	//광역 피해는 치명타 불가 처리
-	if (damageType == EDamageType::Area)
+	//광역 피해는 치명타 불가, 투척만 해금 패시브로 예외가 된다
+	const bool bThrowCritUnlocked = (skillType == ESkillType::Throw) && HasThrowCriticalUnlock();
+	if (damageType == EDamageType::Area && !bThrowCritUnlocked)
 	{
 		crit = 0.f;
 	}
@@ -204,6 +205,18 @@ bool UPassiveSkillComponent::HasStressEventAlwaysPositive() const
 	for (const UPassiveSkillBase* passive : activePassives)
 	{
 		if (passive && passive->bStressEventAlwaysPositive)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UPassiveSkillComponent::HasThrowCriticalUnlock() const
+{
+	for (const UPassiveSkillBase* passive : activePassives)
+	{
+		if (passive && passive->bAllowThrowCritical)
 		{
 			return true;
 		}

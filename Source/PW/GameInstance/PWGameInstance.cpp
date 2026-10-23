@@ -166,12 +166,12 @@ TArray<TSubclassOf<AAllyCharacterBase>> UPWGameInstance::GetUnlockedJobs() const
 {
 	TArray<TSubclassOf<AAllyCharacterBase>> jobs = selectableJobs;
 
-	//세이브에는 줄기만 남으므로 해금 직업은 매번 매핑에서 다시 구한다
+	//세이브에는 줄기만 남으므로 해금 캐릭터는 매번 매핑에서 다시 구한다
 	for (const UStoryRouteData* route : storyRoutes)
 	{
 		if (!route || !saveGame || !saveGame->IsStoryRouteCleared(route->routeId)) continue;
 
-		//여러 줄기가 같은 직업을 열 수 있다
+		//여러 줄기가 같은 캐릭터를 열 수 있다
 		for (const TSubclassOf<AAllyCharacterBase>& job : route->unlockedJobs)
 		{
 			if (job) jobs.AddUnique(job);
@@ -179,6 +179,28 @@ TArray<TSubclassOf<AAllyCharacterBase>> UPWGameInstance::GetUnlockedJobs() const
 	}
 
 	return jobs;
+}
+
+TArray<TSubclassOf<AAllyCharacterBase>> UPWGameInstance::GetCharacterPool(FName storyRouteId) const
+{
+	const UStoryRouteData* route = FindStoryRoute(storyRouteId);
+	if (!route) return GetUnlockedJobs();
+
+	//줄기 목록을 그대로 쓰지 않고 거르는 이유는 빈 칸이 후보 목록에 자리를 차지하지 않게 하기 위함
+	TArray<TSubclassOf<AAllyCharacterBase>> pool;
+	pool.Reserve(route->selectableCharacters.Num());
+
+	for (const TSubclassOf<AAllyCharacterBase>& character : route->selectableCharacters)
+	{
+		if (character) pool.AddUnique(character);
+	}
+
+	return pool;
+}
+
+TArray<TSubclassOf<AAllyCharacterBase>> UPWGameInstance::GetRunCharacterPool() const
+{
+	return GetCharacterPool(runProgress ? runProgress->GetStoryRouteId() : NAME_None);
 }
 
 const UStoryRouteData* UPWGameInstance::FindStoryRoute(FName routeId) const

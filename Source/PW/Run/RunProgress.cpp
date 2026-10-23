@@ -13,6 +13,7 @@ namespace
 void URunProgress::StartFixedRun(const TArray<FAllyRunState>& initialRoster, FName inStoryRouteId, const TArray<FStageEntry>& inStages)
 {
 	roster = initialRoster;
+	fallenCharacters.Reset();
 	stages = inStages;
 	stageIndex = 0;
 	bRunActive = true;
@@ -22,6 +23,7 @@ void URunProgress::StartFixedRun(const TArray<FAllyRunState>& initialRoster, FNa
 void URunProgress::StartGeneratedRun(const TArray<FAllyRunState>& initialRoster, URunModeData* inModeData)
 {
 	roster = initialRoster;
+	fallenCharacters.Reset();
 	stageIndex = 0;
 	bRunActive = true;
 	storyRouteId = NAME_None;
@@ -145,11 +147,15 @@ bool URunProgress::InsertCampVisit()
 void URunProgress::EndRun()
 {
 	bRunActive = false;
+
+	//전사 기록은 런 단위다, 다음 런에서는 같은 캐릭터를 다시 편성할 수 있다
+	fallenCharacters.Reset();
 }
 
 void URunProgress::ExportTo(FRunSaveState& outSave) const
 {
 	outSave.roster = roster;
+	outSave.fallenCharacters = fallenCharacters;
 	outSave.stages = stages;
 	outSave.modeData = modeData;
 	outSave.battlesCleared = battlesCleared;
@@ -162,6 +168,7 @@ void URunProgress::ExportTo(FRunSaveState& outSave) const
 void URunProgress::RestoreFrom(const FRunSaveState& save)
 {
 	roster = save.roster;
+	fallenCharacters = save.fallenCharacters;
 	stages = save.stages;
 	modeData = save.modeData;
 	battlesCleared = save.battlesCleared;
@@ -174,9 +181,46 @@ void URunProgress::RestoreFrom(const FRunSaveState& save)
 	bRunActive = true;
 }
 
+bool URunProgress::IsInRoster(TSubclassOf<AAllyCharacterBase> characterClass) const
+{
+	if (!characterClass) return false;
+
+	for (const FAllyRunState& member : roster)
+	{
+		if (member.AllyClass == characterClass) return true;
+	}
+	return false;
+}
+
+bool URunProgress::IsFallen(TSubclassOf<AAllyCharacterBase> characterClass) const
+{
+	return characterClass && fallenCharacters.Contains(characterClass);
+}
+
+bool URunProgress::CanRecruit(TSubclassOf<AAllyCharacterBase> characterClass) const
+{
+	return characterClass && !IsInRoster(characterClass) && !IsFallen(characterClass);
+}
+
+void URunProgress::RegisterFallen(TSubclassOf<AAllyCharacterBase> characterClass)
+{
+	if (!characterClass) return;
+
+	fallenCharacters.AddUnique(characterClass);
+}
+
 void URunProgress::AddToRoster(const FAllyRunState& newMember)
 {
 	if (!newMember.IsValid()) return;
+
+	//같은 캐릭터를 두 명 두거나 전사자를 되살리는 경로를 여기서 최종 차단한다
+	//후보 목록이 이미 걸러내지만 영입 경로가 셋이라 마지막 관문을 한 곳에 둔다
+	if (!CanRecruit(newMember.AllyClass))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[RunProgress] 중복 또는 전사한 캐릭터는 합류시키지 않습니다: %s"),
+			*newMember.AllyClass->GetName());
+		return;
+	}
 
 	roster.Add(newMember);
 }
@@ -202,6 +246,7 @@ void URunProgress::RestoreToWorld(const TArray<AAllyCharacterBase*>& allies) con
 void URunProgress::CaptureFromWorld(const TArray<AAllyCharacterBase*>& allies)
 {
 	//전원 출격이므로 살아 돌아온 캐릭터들의 스냅샷이 곧 새 로스터가 되고, 사망자는 자연히 빠진다
+	//전사 기록은 여기서 하지 않는다 — 사망 즉시 전장 배열에서 빠지므로 여기에는 죽은 자가 오지 않는다
 	TArray<FAllyRunState> survivors;
 	survivors.Reserve(allies.Num());
 

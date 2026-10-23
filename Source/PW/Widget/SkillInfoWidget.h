@@ -16,8 +16,8 @@ class PW_API USkillInfoWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	//전투 예측 값 갱신
-	void UpdateInfo(float Damage, float Accuracy, float Critical, ESkillType SkillType);
+	//전투 예측 값 갱신, DamageMax가 Damage보다 크면 피해를 구간으로 표기한다
+	void UpdateInfo(float Damage, float DamageMax, float Accuracy, float Critical, ESkillType SkillType);
 
 protected:
 	virtual void NativeConstruct() override;

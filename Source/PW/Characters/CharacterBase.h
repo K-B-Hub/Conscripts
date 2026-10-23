@@ -181,6 +181,9 @@ protected:
 	//AttackRangeIndicator와 오버렙 시 미리 계산해 값을 저장
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	float pendingDMG;
+	//변동 피해의 상한, 고정 피해면 pendingDMG와 같다. 적중 시점에 둘 사이를 굴린다
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
+	float pendingDMGMax;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	float pendingAccuracy;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
@@ -359,6 +362,36 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
 	TObjectPtr<UTexture2D> jobIcon;
 
+	//캐릭터 고유 이름, 캐릭터 BP마다 다르다
+	//같은 직업 파생이라도 BP가 곧 한 명이므로 런타임에 순번을 붙이지 않는다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character")
+	FText characterName;
+
+	//툴팁에 띄울 캐릭터 소개, 캐릭터 BP에서 지정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character", meta = (MultiLine = true))
+	FText characterDescription;
+
+	//캐릭터 고유 초상화, 캐릭터 BP에서 지정
+	//미지정 BP는 직업 아이콘으로 대신하므로 포트레이트 작업 전에도 화면이 비지 않는다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character")
+	TObjectPtr<UTexture2D> portrait;
+
+	//표시용 초상화, 고유 포트레이트가 없으면 직업 아이콘으로 폴백한다
+	//상세 정보 창·턴 순서·툴팁이 모두 이 경로만 쓰므로 폴백 규칙이 한 곳에 있다
+	UTexture2D* GetPortrait() const { return portrait ? portrait.Get() : jobIcon.Get(); }
+
+	//표시용 캐릭터 이름, 미지정 BP면 클래스명으로 대신한다
+	FText GetCharacterNameText() const
+	{
+		return characterName.IsEmpty() ? FText::FromString(GetClass()->GetName()) : characterName;
+	}
+
+	//표시용 직업 이름, 미지정 BP면 클래스명으로 대신한다
+	FText GetJobNameText() const
+	{
+		return jobName.IsEmpty() ? FText::FromString(GetClass()->GetName()) : jobName;
+	}
+
 	//호버 강조에 쓸 오버레이 머티리얼, 파생 BP에서 지정
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TObjectPtr<UMaterialInterface> highlightOverlayMaterial;
@@ -372,7 +405,8 @@ public:
 	//AttackRangeIndicator 오버렙 시 데미지 미리 계산
 	//Attacker: 실제 시전자, this와 IsAlly()가 같으면 아군 대상 취급(회피 차감 없이 반드시 명중)
 	//CriticalDamage: BeforeDamageCalc 보너스가 합산된 이번 공격의 치명타 배율
-	void CalculateDamage(float Damage, float Accuracy, float Critical, float CriticalDamage, int32 DamageAmplfication, int Penetration, ESkillType SkillType, const ACharacterBase* Attacker);
+	//DamageMax: 변동 피해의 상한, Damage와 같으면 고정 피해로 취급
+	void CalculateDamage(float Damage, float DamageMax, float Accuracy, float Critical, float CriticalDamage, int32 DamageAmplfication, int Penetration, ESkillType SkillType, const ACharacterBase* Attacker);
 
 	//순수 데미지 예측, 상태 미변경(const)이라 AI 후보 평가에서 다회 호출 안전
 	FDamageResult PreviewDamage(const UActiveSkillBase* Skill,
@@ -447,6 +481,9 @@ public:
 		OutCritical = pendingCritical;
 		OutSkillType = pendingSkillType;
 	}
+
+	//변동 피해 상한 조회, pendingDMG와 다르면 인디케이터가 구간으로 표기한다
+	float GetPendingDamageMax() const { return pendingDMGMax; }
 
 	UStaticMeshComponent* GetWeaponMeshComponent() const;
 	USkillComponent* GetSkillComponent() const { return skillComponent; }

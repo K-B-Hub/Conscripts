@@ -32,11 +32,14 @@ public:
 	//정비 선택지의 설계 수치를 넘기므로 부수효과 없는 전용 경로를 쓴다
 	void RestAtCamp(int32 healAmount, int32 stressRelief);
 
-	//jobName·jobIcon은 적도 상세 정보 창에 표시하므로 ACharacterBase로 승격했다
+	//jobName·jobIcon·characterName·portrait은 적도 상세 정보 창에 표시하므로 ACharacterBase로 승격했다
 
-	//개체 이름, 로스터 항목마다 다르며 복원 시 주입된다
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Job")
-	FString displayName;
+	//캐릭터 클래스의 기본 객체, 편성·증원 화면은 인스턴스 없이 클래스만 쥔다
+	//이름·직업·초상화·설명이 전부 CDO에 있으므로 표시 정보 조회가 여기 하나로 모인다
+	static const AAllyCharacterBase* GetCDO(TSubclassOf<AAllyCharacterBase> characterClass)
+	{
+		return characterClass ? characterClass->GetDefaultObject<AAllyCharacterBase>() : nullptr;
+	}
 
 	//야영지 대기 애니메이션 후보, 파생 직업 BP에서 지정
 	//몽타주는 스켈레톤에 묶여 직업 간 공유가 불가능하므로 자리가 아니라 캐릭터가 들고 있는다

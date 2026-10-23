@@ -26,9 +26,13 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> TurnText;
 
-	//턴 주인 이름, 아군은 개체 이름·적은 직업명
+	//턴 주인 이름, 아군은 고유 이름·적은 직업명
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> UnitNameText;
+
+	//턴 주인 직업, 적은 이름 칸이 이미 직업명이라 중복을 피해 접는다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> JobNameText;
 
 	//등장 연출, 없으면 즉시 표시
 	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))

@@ -3,6 +3,7 @@
 #include "Widget/UpgradeSelectWidget.h"
 #include "Widget/UpgradeChoiceButton.h"
 #include "Components/Button.h"
+#include "Components/Image.h"
 #include "Components/PanelWidget.h"
 
 void UUpgradeSelectWidget::NativeConstruct()
@@ -24,6 +25,12 @@ void UUpgradeSelectWidget::HandleToggleClicked()
 	{
 		//접으면 선택지만 숨기고, 위젯 자체는 남아 재표시 가능
 		ChoicesContainer->SetVisibility(bChoicesVisible ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+
+	//배경도 함께 접는다, 남겨 두면 전장을 살펴보려 접은 동안에도 클릭이 막힌다
+	if (BlockerBg)
+	{
+		BlockerBg->SetVisibility(bChoicesVisible ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	}
 }
 

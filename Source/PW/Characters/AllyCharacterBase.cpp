@@ -64,8 +64,8 @@ FAllyRunState AAllyCharacterBase::CaptureRunState() const
 {
 	FAllyRunState state;
 
+	//클래스가 곧 캐릭터 한 명이라 이름·초상화는 스냅샷에 담지 않고 CDO에서 읽는다
 	state.AllyClass = GetClass();
-	state.DisplayName = displayName;
 
 	state.Level = level;
 	state.Exp = exp;
@@ -102,8 +102,6 @@ FAllyRunState AAllyCharacterBase::CaptureRunState() const
 
 void AAllyCharacterBase::RestoreRunState(const FAllyRunState& state)
 {
-	displayName = state.DisplayName;
-
 	//1) 습득 강화 재등록. 리액티브·컨디셔널 훅과 컴포넌트의 파생 스탯 보너스가 여기서만 복원된다
 	//   Stat 패시브가 베이스 스탯을 다시 가산하지만 2)의 대입이 통째로 덮어쓴다
 	for (const TSubclassOf<USkillBase>& upgrade : state.AcquiredUpgrades)

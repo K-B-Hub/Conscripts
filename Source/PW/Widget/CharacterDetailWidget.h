@@ -41,10 +41,15 @@ protected:
 	TObjectPtr<UButton> CloseButton;
 
 	//직업 이름·이미지, 미지정이면 각각 클래스명 대체·숨김
+	//JobImage에는 캐릭터 고유 초상화가 들어가고 없을 때만 직업 아이콘으로 떨어진다
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> JobNameText;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UImage> JobImage;
+
+	//캐릭터 고유 이름, 직업명과 나란히 둔다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> CharacterNameText;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> LevelText;
 

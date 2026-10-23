@@ -7,7 +7,9 @@
 #include "SquadMemberRow.generated.h"
 
 class UButton;
+class UImage;
 class UTextBlock;
+class UCharacterTooltipWidget;
 class ACharacterBase;
 
 //행 클릭 시 자신이 쥔 캐릭터를 통지, 부대 정보표가 상세 정보 창을 띄우는 데 쓴다
@@ -37,6 +39,12 @@ protected:
 	TObjectPtr<UTextBlock> LevelText;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> JobText;
+
+	//캐릭터 고유 이름과 초상화
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> NameText;
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> PortraitImage;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> HpText;
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -53,6 +61,10 @@ protected:
 	TObjectPtr<UTextBlock> EvasionText;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> CriticalText;
+
+	//소개 툴팁 위젯, 미지정이면 툴팁 없이 동작한다
+	UPROPERTY(EditDefaultsOnly, Category = "Tooltip")
+	TSubclassOf<UCharacterTooltipWidget> characterTooltipClass;
 
 private:
 	UFUNCTION()

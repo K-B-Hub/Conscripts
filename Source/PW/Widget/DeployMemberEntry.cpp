@@ -1,11 +1,14 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Widget/DeployMemberEntry.h"
+#include "Widget/CharacterTooltipWidget.h"
 #include "Run/AllyRunState.h"
+#include "Characters/AllyCharacterBase.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
+#include "Engine/Texture2D.h"
 
 void UDeployMemberEntry::NativeConstruct()
 {
@@ -14,23 +17,39 @@ void UDeployMemberEntry::NativeConstruct()
 	if (EntryButton) EntryButton->OnClicked.AddDynamic(this, &UDeployMemberEntry::HandleClicked);
 }
 
-void UDeployMemberEntry::InitEntry(const FAllyRunState& state, UTexture2D* jobIcon, int32 index)
+void UDeployMemberEntry::InitEntry(const FAllyRunState& state, int32 index)
 {
 	entryIndex = index;
 
-	if (NameText)  NameText->SetText(FText::FromString(state.DisplayName));
 	if (LevelText) LevelText->SetText(FText::FromString(FString::Printf(TEXT("LV. %d"), state.Level)));
+
+	//이름·직업·초상화·소개는 캐릭터 CDO가 들고 있다, 스냅샷에는 수치만 담긴다
+	const AAllyCharacterBase* cdo = AAllyCharacterBase::GetCDO(state.AllyClass);
+
+	if (NameText) NameText->SetText(cdo ? cdo->GetCharacterNameText() : FText::GetEmpty());
+	if (JobText)  JobText->SetText(cdo ? cdo->GetJobNameText() : FText::GetEmpty());
 
 	if (JobImage)
 	{
-		if (jobIcon)
+		UTexture2D* art = cdo ? cdo->GetPortrait() : nullptr;
+		if (art)
 		{
-			JobImage->SetBrushFromTexture(jobIcon);
+			JobImage->SetBrushFromTexture(art);
 			JobImage->SetVisibility(ESlateVisibility::HitTestInvisible);
 		}
 		else
 		{
 			JobImage->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+
+	//항목 루트에 달아 둔다, 로스터 수가 바뀔 때만 항목이 다시 만들어지므로 여기서 한 번만 채운다
+	if (characterTooltipClass && cdo)
+	{
+		if (UCharacterTooltipWidget* tooltip = CreateWidget<UCharacterTooltipWidget>(GetOwningPlayer(), characterTooltipClass))
+		{
+			tooltip->InitTooltip(cdo);
+			SetToolTip(tooltip);
 		}
 	}
 

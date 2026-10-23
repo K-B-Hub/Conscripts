@@ -30,9 +30,15 @@ TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildPendingChoices(
 		//직업별 레벨 고정 강화, 단일 카드로 제시
 		const UFixedUpgradeTableData* fixedTable = character->GetFixedUpgradeTable();
 		const TSubclassOf<USkillBase> fixed = fixedTable ? fixedTable->GetFixedUpgrade(pendingLevel) : nullptr;
-		if (fixed) choices.Add(fixed);
-		//풀 소속이 없으므로 등급이 없다, 버튼 아트는 상급을 쓴다
-		if (outGrade) *outGrade = EUpgradeGrade::High;
+		if (fixed)
+		{
+			choices.Add(fixed);
+			//풀 소속이 없으므로 등급이 없다, 버튼 아트는 상급을 쓴다
+			if (outGrade) *outGrade = EUpgradeGrade::High;
+			break;
+		}
+		//해당 레벨에 배정된 고정 강화가 없으면 선택지가 빈 채로 뜨므로 일반 랜덤으로 돌린다
+		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Low, outGrade);
 		break;
 	}
 	case ELevelUpUpgradeKind::HighRandom:
