@@ -10,6 +10,7 @@
 #include "Characters/EnemyBase.h"
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "Object/Skill/AreaShapeLibrary.h"
 #include "Object/Buff/BuffBase.h"
 #include "Object/Ailment/AilmentBase.h"
 #include "ActorComponent/BuffComponent.h"
@@ -103,19 +104,6 @@ void UUtilityAIComponent::CollectAllCharacters(TArray<ACharacterBase*>& Out) con
 	}
 }
 
-float UUtilityAIComponent::AreaOverlapRadius(const UActiveSkillBase* Skill)
-{
-	if (!Skill) return 0.f;
-	//인디케이터의 overlapSphere 반경 규칙을 그대로 미러링
-	switch (Skill->areaForm)
-	{
-	case EAreaForm::Circle: return Skill->areaParameter1;
-	case EAreaForm::Cone:   return Skill->areaParameter1;
-	case EAreaForm::Ray:    return FMath::Max(Skill->areaParameter1, Skill->areaParameter2) * 0.5f;
-	}
-	return 0.f;
-}
-
 bool UUtilityAIComponent::PassesAreaTargetFilter(const UActiveSkillBase* Skill, const ACharacterBase* Character) const
 {
 	if (!Skill || !Character || !ownerCharacter) return false;
@@ -132,21 +120,24 @@ bool UUtilityAIComponent::PassesAreaTargetFilter(const UActiveSkillBase* Skill, 
 	return false;
 }
 
-void UUtilityAIComponent::CollectAreaAffected(const UActiveSkillBase* Skill, const FVector& AimLoc,
-                                              TArray<ACharacterBase*>& Out) const
+void UUtilityAIComponent::CollectAreaAffected(const UActiveSkillBase* Skill, const FVector& CastFrom,
+                                              const FVector& AimLoc, TArray<ACharacterBase*>& Out) const
 {
 	Out.Reset();
 	if (!Skill || !ownerCharacter) return;
+	if (UAreaShapeLibrary::GetOuterRadius(Skill) <= 0.f) return;
 
-	const float radiusCm = AreaOverlapRadius(Skill);
-	if (radiusCm <= 0.f) return;
+	//Ray/Cone은 시전 위치에 붙어 조준점 방향으로만 뻗으므로 원점과 전방이 분리됨
+	const bool bAnchored = UAreaShapeLibrary::IsCasterAnchored(Skill);
+	const FVector origin = bAnchored ? CastFrom : AimLoc;
+	const FVector forward = AimLoc - CastFrom;
 
 	TArray<ACharacterBase*> all;
 	CollectAllCharacters(all);
 	for (ACharacterBase* c : all)
 	{
 		if (c == ownerCharacter) continue;   //시전자 제외
-		if (FVector::Dist(c->GetActorLocation(), AimLoc) > radiusCm) continue;
+		if (!UAreaShapeLibrary::IsInAreaShape(Skill, origin, forward, c->GetActorLocation())) continue;
 		if (!PassesAreaTargetFilter(Skill, c)) continue;
 		Out.Add(c);
 	}
@@ -512,7 +503,7 @@ void UUtilityAIComponent::EnumerateSingleTarget(UActiveSkillBase* Skill, ACharac
 		if (Skill->areaTarget != EAreaTarget::None)
 		{
 			//범위 스킬은 대상 주변을 오버랩, 대표 대상 포함 보장
-			CollectAreaAffected(Skill, aimLoc, affected);
+			CollectAreaAffected(Skill, pos.CastFrom, aimLoc, affected);
 			affected.AddUnique(Target);
 		}
 		else
@@ -591,7 +582,7 @@ void UUtilityAIComponent::EnumerateMultiPick(UActiveSkillBase* Skill, const TArr
 			if (Skill->areaTarget != EAreaTarget::None)
 			{
 				TArray<ACharacterBase*> areaHit;
-				CollectAreaAffected(Skill, cands[i].Key->GetActorLocation(), areaHit);
+				CollectAreaAffected(Skill, pos.CastFrom, cands[i].Key->GetActorLocation(), areaHit);
 				for (ACharacterBase* h : areaHit)
 				{
 					affected.AddUnique(h);
@@ -646,7 +637,7 @@ void UUtilityAIComponent::EnumerateGroundPoint(UActiveSkillBase* Skill, bool bAs
 			if (!HasLOSToLocation(pos.CastFrom, aim)) continue;
 
 			TArray<ACharacterBase*> affected;
-			CollectAreaAffected(Skill, aim, affected);
+			CollectAreaAffected(Skill, pos.CastFrom, aim, affected);
 			BuildActionFromCast(Skill, pos, affected, aim, OutCandidates);
 		}
 	}

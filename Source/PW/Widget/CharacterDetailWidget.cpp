@@ -45,19 +45,16 @@ void UCharacterDetailWidget::InitDetail(ACharacterBase* target)
 {
 	if (!target) return;
 
-	if (JobNameText)
-	{
-		//직업 이름 미지정 BP면 클래스명으로 대신한다, 편성·출격 화면과 같은 폴백
-		JobNameText->SetText(target->jobName.IsEmpty()
-			? FText::FromString(target->GetClass()->GetName())
-			: target->jobName);
-	}
+	//직업 이름 미지정 BP면 클래스명으로 대신한다, 편성·출격 화면과 같은 폴백
+	if (JobNameText)      JobNameText->SetText(target->GetJobNameText());
+	if (CharacterNameText) CharacterNameText->SetText(target->GetCharacterNameText());
 
+	//고유 초상화가 없으면 직업 아이콘이 나온다
 	if (JobImage)
 	{
-		if (target->jobIcon)
+		if (UTexture2D* art = target->GetPortrait())
 		{
-			JobImage->SetBrushFromTexture(target->jobIcon);
+			JobImage->SetBrushFromTexture(art);
 			JobImage->SetVisibility(ESlateVisibility::HitTestInvisible);
 		}
 		else

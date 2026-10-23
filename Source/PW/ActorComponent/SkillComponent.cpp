@@ -3,6 +3,7 @@
 #include "ActorComponent/SkillComponent.h"
 #include "Object/Skill/SkillBase.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "Object/Skill/AreaShapeLibrary.h"
 #include "Actors/SkillRangeIndicator.h"
 #include "Actors/AttackRangeIndicator.h"
 #include "Actors/ProjectileBase.h"
@@ -200,8 +201,14 @@ void USkillComponent::RecalculatePending(UActiveSkillBase* Skill, ACharacterBase
 			dmg, amp, pen, acc, crit, critDmg);
 	}
 
+	//패시브는 피해를 가산만 하므로 그 증가분을 상한에도 그대로 얹는다
+	//디스패치를 다시 돌리면 조건부 패시브가 두 번 평가되므로 차분을 쓴다
+	const float passiveBonus = dmg - Skill->calcDamage;
+	const float dmgMax = Skill->calcDamageMax + passiveBonus;
+
 	Target->CalculateDamage(
 		dmg,
+		dmgMax,
 		acc,
 		crit,
 		critDmg,
@@ -219,6 +226,17 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<AChara
 
 	//AI가 조준한 실제 지점을 밀치기 기준점으로 기록, Caster 기준 스킬은 Execute가 시전자 위치를 직접 사용
 	Skill->skillPointLocation = SkillPoint;
+
+	//Ray/Cone은 조준 지점이 위치가 아니라 방향을 뜻하므로 시전자를 그 방향으로 돌림
+	if (UAreaShapeLibrary::IsCasterAnchored(Skill))
+	{
+		FVector dir = SkillPoint - ownerCharacter->GetActorLocation();
+		dir.Z = 0.f;
+		if (!dir.IsNearlyZero())
+		{
+			ownerCharacter->SetActorRotation(dir.Rotation());
+		}
+	}
 
 	//자원 차감은 1회만, 확정 시점 즉시
 	Skill->BeginUse();
@@ -426,8 +444,10 @@ void USkillComponent::SpawnIndicators(UActiveSkillBase* Skill)
 
 	//시전 가능 범위 인디케이터 생성, 점프는 현재 이동력으로 갈 수 있는 범위로 사거리 원 표시
 	//표시 여부도 실효 사거리로 판단, pickRange는 점프에서 상한이 아님
+	//Ray/Cone은 형태 자체가 사거리라 별도 사거리 원을 띄우면 오히려 혼란
 	const float effectivePickRange = Skill->GetEffectivePickRange();
-	if (skillRangeIndicatorClass && effectivePickRange > 0.f && Skill->selectMode != ESelectMode::Self)
+	if (skillRangeIndicatorClass && effectivePickRange > 0.f && Skill->selectMode != ESelectMode::Self
+		&& !UAreaShapeLibrary::IsCasterAnchored(Skill))
 	{
 		skillRangeIndicator = World->SpawnActor<ASkillRangeIndicator>(
 			skillRangeIndicatorClass, FTransform(CasterLocation));

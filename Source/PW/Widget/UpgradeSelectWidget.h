@@ -10,6 +10,7 @@
 class UUpgradeChoiceButton;
 class USkillBase;
 class UButton;
+class UImage;
 class UPanelWidget;
 class UWidget;
 
@@ -54,6 +55,11 @@ protected:
 	//선택지 표시를 토글하는 버튼, 접어도 선택은 유지
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> ToggleButton;
+
+	//화면 전체를 덮는 반투명 배경, 뒤쪽 HUD와 월드 클릭을 이것이 삼켜 막는다
+	//선택지와 함께 접혀야 한다 — 접기는 전장을 살펴보기 위한 기능이라 그동안은 막지 않는다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> BlockerBg;
 
 private:
 	void HandleChoiceClicked(TSubclassOf<USkillBase> Chosen);

@@ -103,7 +103,7 @@ int32 ACampGameMode::GetAverageLevel() const
 	return FMath::Max(1, total / campAllies.Num());
 }
 
-AAllyCharacterBase* ACampGameMode::AddRecruit(TSubclassOf<AAllyCharacterBase> jobClass, const FString& displayName, int32 level)
+AAllyCharacterBase* ACampGameMode::AddRecruit(TSubclassOf<AAllyCharacterBase> characterClass, int32 level)
 {
 	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
 	if (gameInstance && campAllies.Num() >= gameInstance->GetMaxRosterSize())
@@ -113,13 +113,11 @@ AAllyCharacterBase* ACampGameMode::AddRecruit(TSubclassOf<AAllyCharacterBase> jo
 	}
 
 	ACampSpawnPoint* point = TakeFreePoint();
-	if (!point || !jobClass) return nullptr;
+	if (!point || !characterClass) return nullptr;
 
 	AAllyCharacterBase* ally = GetWorld()->SpawnActor<AAllyCharacterBase>(
-		jobClass, point->GetActorLocation(), point->GetActorRotation());
+		characterClass, point->GetActorLocation(), point->GetActorRotation());
 	if (!ally) return nullptr;
-
-	ally->displayName = displayName;
 
 	//ForceLevelUpTo가 확률 성장을 굴리고 레벨당 강화를 대기 큐에 쌓는다
 	//큐 소비(강화 선택)는 전투 첫 턴의 InitTurn이 맡는다

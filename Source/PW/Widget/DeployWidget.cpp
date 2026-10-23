@@ -100,7 +100,7 @@ void UDeployWidget::RebuildEntries(const TArray<FAllyRunState>& roster)
 		memberEntries.Add(entry);
 		if (!entry) continue;
 
-		entry->InitEntry(roster[i], GetJobIcon(roster[i].AllyClass), i);
+		entry->InitEntry(roster[i], i);
 		entry->OnClicked.BindUObject(this, &UDeployWidget::HandleMemberClicked);
 		MemberContainer->AddChild(entry);
 	}
@@ -118,11 +118,15 @@ void UDeployWidget::RefreshInfoPanel(const TArray<FAllyRunState>& roster)
 
 	if (InfoPanel) InfoPanel->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 
+	//이름·직업·초상화는 캐릭터 CDO가 들고 있다
+	const AAllyCharacterBase* cdo = AAllyCharacterBase::GetCDO(state.AllyClass);
+
 	if (InfoJobImage)
 	{
-		if (UTexture2D* icon = GetJobIcon(state.AllyClass))
+		UTexture2D* art = cdo ? cdo->GetPortrait() : nullptr;
+		if (art)
 		{
-			InfoJobImage->SetBrushFromTexture(icon);
+			InfoJobImage->SetBrushFromTexture(art);
 			InfoJobImage->SetVisibility(ESlateVisibility::HitTestInvisible);
 		}
 		else
@@ -131,8 +135,8 @@ void UDeployWidget::RefreshInfoPanel(const TArray<FAllyRunState>& roster)
 		}
 	}
 
-	if (InfoNameText)  InfoNameText->SetText(FText::FromString(state.DisplayName));
-	if (InfoJobText)   InfoJobText->SetText(GetJobName(state.AllyClass));
+	if (InfoNameText)  InfoNameText->SetText(cdo ? cdo->GetCharacterNameText() : FText::GetEmpty());
+	if (InfoJobText)   InfoJobText->SetText(cdo ? cdo->GetJobNameText() : FText::GetEmpty());
 	if (InfoLevelText) InfoLevelText->SetText(FText::FromString(FString::Printf(TEXT("LV. %d"), state.Level)));
 
 	if (InfoHpText)    InfoHpText->SetText(FText::AsNumber(state.MaxHp));
@@ -141,24 +145,6 @@ void UDeployWidget::RefreshInfoPanel(const TArray<FAllyRunState>& roster)
 	if (InfoSpeedText) InfoSpeedText->SetText(FText::AsNumber(state.Speed));
 	if (InfoSkillText) InfoSkillText->SetText(FText::AsNumber(state.Skill));
 	if (InfoApText)    InfoApText->SetText(FText::AsNumber(state.ActionPoint));
-}
-
-FText UDeployWidget::GetJobName(TSubclassOf<AAllyCharacterBase> jobClass)
-{
-	if (!jobClass) return FText::GetEmpty();
-
-	const AAllyCharacterBase* jobCDO = jobClass->GetDefaultObject<AAllyCharacterBase>();
-	if (!jobCDO || jobCDO->jobName.IsEmpty()) return FText::FromString(jobClass->GetName());
-
-	return jobCDO->jobName;
-}
-
-UTexture2D* UDeployWidget::GetJobIcon(TSubclassOf<AAllyCharacterBase> jobClass)
-{
-	if (!jobClass) return nullptr;
-
-	const AAllyCharacterBase* jobCDO = jobClass->GetDefaultObject<AAllyCharacterBase>();
-	return jobCDO ? jobCDO->jobIcon.Get() : nullptr;
 }
 
 void UDeployWidget::HandleMemberClicked(int32 rosterIndex)

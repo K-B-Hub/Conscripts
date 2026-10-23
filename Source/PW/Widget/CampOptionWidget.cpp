@@ -1,7 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Widget/CampOptionWidget.h"
-#include "Widget/JobSelectButton.h"
+#include "Widget/CampOptionButton.h"
 #include "PlayerController/CampController.h"
 #include "GameMode/CampGameMode.h"
 #include "DataAsset/CampOptionData.h"
@@ -35,7 +35,7 @@ void UCampOptionWidget::BuildOptionList()
 	{
 		if (!options[i]) continue;
 
-		UJobSelectButton* entry = CreateWidget<UJobSelectButton>(this, optionButtonClass);
+		UCampOptionButton* entry = CreateWidget<UCampOptionButton>(this, optionButtonClass);
 		if (!entry) continue;
 
 		//항목 위젯이 텍스트 한 줄만 받으므로 제목과 설명을 붙여 보여준다

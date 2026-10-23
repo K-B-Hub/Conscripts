@@ -71,9 +71,17 @@ public:
 	//식별자로 줄기 조회, 없으면 nullptr
 	const UStoryRouteData* FindStoryRoute(FName routeId) const;
 
-	//지금 고를 수 있는 직업, 기본 직업 + 클리어한 줄기가 여는 직업
-	//편성과 야영지 충원이 같은 목록을 쓰므로 인덱스도 서로 맞는다
+	//지금 해금된 캐릭터, 기본 캐릭터 + 클리어한 줄기가 여는 캐릭터
+	//로그라이크·악몽의 후보 풀이다
 	TArray<TSubclassOf<AAllyCharacterBase>> GetUnlockedJobs() const;
+
+	//해당 줄기에서 고를 수 있는 캐릭터 후보
+	//스토리는 줄기가 정한 목록만 쓰고, routeId가 비면 해금 목록으로 간다
+	//편성과 증원이 같은 함수를 부르므로 모드별 규칙이 한 곳에만 있다
+	TArray<TSubclassOf<AAllyCharacterBase>> GetCharacterPool(FName storyRouteId) const;
+
+	//진행 중인 런의 후보 풀, 야영지·전투 증원이 쓴다
+	TArray<TSubclassOf<AAllyCharacterBase>> GetRunCharacterPool() const;
 
 	//로그라이크·악몽의 시작 편성 인원
 	int32 GetInitialRosterSize() const { return initialRosterSize; }

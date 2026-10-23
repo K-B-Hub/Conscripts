@@ -10,7 +10,8 @@
 class ACharacterBase;
 
 //모든 상태이상의 공통 기반
-UCLASS(Abstract, BlueprintType)
+//Blueprintable이어야 파생 BP를 만들 수 있다, 아이콘 등 에셋 지정이 BP에서 이뤄진다
+UCLASS(Abstract, Blueprintable, BlueprintType)
 class PW_API UAilmentBase : public UObject
 {
 	GENERATED_BODY()

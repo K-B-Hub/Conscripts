@@ -7,7 +7,7 @@
 #include "AttackRangeIndicator.generated.h"
 
 class UDecalComponent;
-class USphereComponent;
+class UMaterialInstanceDynamic;
 class ACharacterBase;
 class AAllyCharacterBase;
 class UActiveSkillBase;
@@ -53,7 +53,6 @@ public:
 	void Unlock();
 
 protected:
-	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
@@ -81,10 +80,6 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UDecalComponent> areaDecal;
 
-	//오버랩 감지용 구체 콜리전
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<USphereComponent> overlapSphere;
-
 	//아치 궤적 메쉬 부모, 절대 월드 좌표 고정
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USceneComponent> arcMeshRoot;
@@ -93,13 +88,33 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UWidgetComponent> arcCostWidget;
 
-	//범위 공격 데칼 머티리얼
+	//Circle 범위 데칼 머티리얼, 아치 스킬의 착지 데칼도 겸용
 	UPROPERTY(EditDefaultsOnly, Category = "Decal")
 	TObjectPtr<UMaterialInterface> areaDecalMaterial;
+
+	//Ray 범위 데칼 머티리얼, 데칼 영역이 폭×길이 사각형이므로 전체를 채우면 됨
+	UPROPERTY(EditDefaultsOnly, Category = "Decal")
+	TObjectPtr<UMaterialInterface> rayDecalMaterial;
+
+	//Cone 범위 데칼 머티리얼, 데칼 영역은 지름 2r 정사각이고 UV 중심이 꼭지점·+V가 전방
+	UPROPERTY(EditDefaultsOnly, Category = "Decal")
+	TObjectPtr<UMaterialInterface> coneDecalMaterial;
+
+	//Ray/Cone 윤곽선 두께(cm), 형태와 무관하게 같은 두께로 보이도록 머티리얼이 UV로 환산
+	UPROPERTY(EditDefaultsOnly, Category = "Decal")
+	float decalEdgeThickness = 10.f;
 
 	//데칼 투영 깊이
 	UPROPERTY(EditDefaultsOnly, Category = "Decal")
 	float decalProjectionDepth = 500.f;
+
+	//비범위 스킬이 커서 밑 대상을 집는 반경
+	UPROPERTY(EditDefaultsOnly, Category = "Decal")
+	float nonAreaPickRadius = 10.f;
+
+	//Cone 중심각 전달용 동적 머티리얼, Cone이 아니면 미사용
+	UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> areaDecalMID;
 
 	//런타임 생성 아치 궤적 세그먼트 메쉬 풀
 	UPROPERTY()
@@ -111,6 +126,12 @@ private:
 
 	//범위 공격 여부
 	bool bIsAreaAttack = false;
+
+	//Ray/Cone 여부, 시전자에 붙어 마우스 방향으로 회전만 함
+	bool bIsDirectionalArea = false;
+
+	//대상 후보 수집용 외접 반경, 형태 판정은 이 안에서 다시 걸러짐
+	float shapeOuterRadius = 0.f;
 
 	//시전자 위치에 고정할지 여부
 	bool bFixedAtCaster = false;
@@ -131,14 +152,23 @@ private:
 	//해당 캐릭터가 선택 대상인지 확인
 	bool IsPickTarget(ACharacterBase* Character) const;
 
-	UFUNCTION()
-	void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-		bool bFromSweep, const FHitResult& SweepResult);
+	//형태에 맞는 데칼 머티리얼·크기·오프셋 설정
+	void SetupAreaDecal(const UActiveSkillBase* Skill);
 
-	UFUNCTION()
-	void OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	//형태 판정의 원점, Ray/Cone은 시전자 위치·그 외는 인디케이터 위치
+	FVector GetShapeOrigin() const;
+
+	//외접 반경으로 후보를 모아 형태 판정으로 확정, 직전 목록과 비교해 진입·이탈 처리
+	void RefreshShapeTargets();
+
+	//대상 진입, 타겟 등록 및 예측·정보 위젯 표시
+	void EnterTarget(ACharacterBase* Character);
+
+	//대상 이탈, 타겟 해제 및 위젯 정리
+	void ExitTarget(ACharacterBase* Character);
+
+	//현재 형태를 디버그 드로잉
+	void DrawShapeDebug(const FColor& Color) const;
 
 	//단일 타겟에 대한 데미지 미리 계산
 	void RecalculatePendingForTarget(ACharacterBase* Target);

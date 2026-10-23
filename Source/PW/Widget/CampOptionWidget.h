@@ -8,7 +8,7 @@
 
 class UButton;
 class UPanelWidget;
-class UJobSelectButton;
+class UCampOptionButton;
 
 //야영지 정비 선택 화면, 메인 캠프를 클릭하면 열린다
 UCLASS()
@@ -29,7 +29,7 @@ protected:
 
 	//선택지 항목 위젯 클래스, BP에서 지정
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UJobSelectButton> optionButtonClass;
+	TSubclassOf<UCampOptionButton> optionButtonClass;
 
 private:
 	void BuildOptionList();

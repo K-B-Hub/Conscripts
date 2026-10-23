@@ -7,6 +7,7 @@
 #include "HealthWidget.generated.h"
 
 class UProgressBar;
+class UTextBlock;
 
 UCLASS()
 class PW_API UHealthWidget : public UUserWidget
@@ -26,6 +27,10 @@ protected:
 private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UProgressBar> HealthBar;
+
+	//"11 / 20" 체력 수치, 바 위에 겹쳐 둔다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> HpText;
 
 	int32 maxHp = 1;
 	int32 currentHp = 1;

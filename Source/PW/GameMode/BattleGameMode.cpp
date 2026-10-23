@@ -175,7 +175,7 @@ bool ABattleGameMode::DeployAt(int32 rosterIndex, const FVector& location)
 	ally->RestoreRunState(state);
 	deployedAllies.Add(rosterIndex, ally);
 
-	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 배치: [%d] %s"), rosterIndex, *state.DisplayName);
+	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 배치: [%d] %s"), rosterIndex, *ally->GetCharacterNameText().ToString());
 	return true;
 }
 
@@ -336,7 +336,7 @@ bool ABattleGameMode::FindReinforcementSpot(const AAllyCharacterBase* caller, FV
 		capsule->GetScaledCapsuleHalfHeight(), outLocation);
 }
 
-AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacterBase> jobClass, const AAllyCharacterBase* caller)
+AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacterBase> characterClass, const AAllyCharacterBase* caller)
 {
 	//연속 증원 중 상한에 닿을 수 있어 후보 필터와 별개로 여기서도 막는다
 	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
@@ -347,7 +347,7 @@ AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacte
 	}
 
 	FVector spawnLocation;
-	if (!jobClass || !caller || !FindReinforcementSpot(caller, spawnLocation))
+	if (!characterClass || !caller || !FindReinforcementSpot(caller, spawnLocation))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[BattleGameMode] 증원을 세울 자리를 찾지 못했습니다"));
 		return nullptr;
@@ -361,20 +361,13 @@ AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacte
 	params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 	AAllyCharacterBase* recruit = GetWorld()->SpawnActor<AAllyCharacterBase>(
-		jobClass, spawnLocation, caller->GetActorRotation(), params);
+		characterClass, spawnLocation, caller->GetActorRotation(), params);
 	if (!recruit) return nullptr;
 
 	//전투 참여자와 같은 초기화, 사망 시 배열 정리가 신병에게도 걸려야 한다
 	recruit->OnCharacterDeath.AddDynamic(this, &ABattleGameMode::OnCharacterDeath);
 	recruit->SetNavObstacleEnabled(true);
 	allies.Add(recruit);
-
-	//야영지 충원과 같은 규칙으로 개체 이름을 붙인다
-	//비워 두면 결과·배치·편성 화면의 이름 칸이 빈다, 그쪽은 폴백이 없다
-	const FText& jobName = jobClass->GetDefaultObject<AAllyCharacterBase>()->jobName;
-	recruit->displayName = FString::Printf(TEXT("%s %d"),
-		*(jobName.IsEmpty() ? FText::FromString(jobClass->GetName()) : jobName).ToString(),
-		allies.Num());
 
 	//레벨당 대기 강화가 쌓이고, 소비는 신병의 턴 시작이 맡는다
 	recruit->ForceLevelUpTo(targetLevel);
@@ -387,6 +380,17 @@ AAllyCharacterBase* ABattleGameMode::JoinReinforcement(TSubclassOf<AAllyCharacte
 		*recruit->GetName(), recruit->GetLevel(), allies.Num());
 
 	return recruit;
+}
+
+bool ABattleGameMode::IsDeployedInBattle(TSubclassOf<AAllyCharacterBase> characterClass) const
+{
+	if (!characterClass) return false;
+
+	for (const TObjectPtr<AAllyCharacterBase>& ally : allies)
+	{
+		if (ally && ally->GetClass() == characterClass) return true;
+	}
+	return false;
 }
 
 void ABattleGameMode::SpawnEnemySquads()
@@ -649,6 +653,13 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 	//아군/적군 배열에서 제거
 	if (AAllyCharacterBase* Ally = Cast<AAllyCharacterBase>(DeadCharacter))
 	{
+		//전사 기록은 배열에서 빠지기 전에 남긴다, 이후 증원 후보에서 영구 제외된다
+		const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+		if (URunProgress* runProgress = gameInstance ? gameInstance->GetRunProgress() : nullptr)
+		{
+			runProgress->RegisterFallen(Ally->GetClass());
+		}
+
 		allies.Remove(Ally);
 	}
 	else if (AEnemyBase* Enemy = Cast<AEnemyBase>(DeadCharacter))

@@ -16,13 +16,10 @@ struct FAllyRunState
 {
 	GENERATED_BODY()
 
-	//스폰할 직업 클래스
+	//스폰할 캐릭터 클래스, 클래스 하나가 고유 캐릭터 한 명이라 로스터 내 중복 판정의 기준이 된다
+	//이름·직업·초상화·설명은 이 클래스의 CDO가 들고 있으므로 스냅샷에 담지 않는다
 	UPROPERTY(BlueprintReadWrite)
 	TSubclassOf<AAllyCharacterBase> AllyClass;
-
-	//편성·출격 위젯에 표시할 개체 이름, 직업명과 별개
-	UPROPERTY(BlueprintReadWrite)
-	FString DisplayName;
 
 	//레벨 진행도
 	UPROPERTY(BlueprintReadWrite)
@@ -91,6 +88,6 @@ struct FAllyRunState
 	//AllyCharacterBase가 전방 선언뿐이라 TSubclassOf 비교를 헤더에서 할 수 없어 .cpp에 정의
 	bool IsValid() const;
 
-	//직업 CDO의 기본 스탯으로 새 로스터 항목 생성, 편성과 중간 영입이 공유
-	static FAllyRunState MakeFromClass(TSubclassOf<AAllyCharacterBase> allyClass, const FString& displayName);
+	//캐릭터 CDO의 기본 스탯으로 새 로스터 항목 생성, 편성과 중간 영입이 공유
+	static FAllyRunState MakeFromClass(TSubclassOf<AAllyCharacterBase> allyClass);
 };

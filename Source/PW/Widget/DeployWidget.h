@@ -96,10 +96,6 @@ private:
 	//선택된 인원으로 정보 패널 갱신, 유효하지 않으면 숨긴다
 	void RefreshInfoPanel(const TArray<FAllyRunState>& roster);
 
-	//직업 이름, 비어 있으면 클래스 이름으로 대체
-	static FText GetJobName(TSubclassOf<AAllyCharacterBase> jobClass);
-	static UTexture2D* GetJobIcon(TSubclassOf<AAllyCharacterBase> jobClass);
-
 	void HandleMemberClicked(int32 rosterIndex);
 
 	UFUNCTION()

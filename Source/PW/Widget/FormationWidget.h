@@ -13,7 +13,8 @@ class UTextBlock;
 class UJobSelectButton;
 
 //캐릭터 편성 화면
-//스토리는 줄기의 고정 편성을 읽기 전용으로 보여주고, 나머지 모드는 직업 목록에서 직접 고른다
+//스토리는 줄기의 고정 편성을 읽기 전용으로 보여주고, 나머지 모드는 캐릭터 목록에서 직접 고른다
+//같은 캐릭터를 두 명 둘 수 없으므로 편성한 캐릭터는 후보 목록에서 사라진다
 UCLASS()
 class PW_API UFormationWidget : public UUserWidget
 {
@@ -26,11 +27,11 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UPanelWidget> RosterContainer;
 
-	//선택 가능한 직업 목록, 스토리에서는 숨긴다
+	//선택 가능한 캐릭터 목록, 이미 편성한 캐릭터는 여기서 사라진다
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UPanelWidget> JobContainer;
 
-	//직업 목록의 제목, 목록과 함께 숨겨야 하므로 따로 잡는다
+	//캐릭터 목록의 제목
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UWidget> JobHeader;
 
@@ -48,7 +49,7 @@ protected:
 	TSubclassOf<UJobSelectButton> jobButtonClass;
 
 private:
-	//스토리면 고정 편성을 채우고 읽기 전용으로 전환
+	//후보 풀과 정원을 모드에 맞춰 정한다
 	void SetupForMode();
 
 	void BuildJobList();
@@ -56,26 +57,30 @@ private:
 	//편성 인원이 정원을 채웠을 때만 확정 가능
 	void RefreshConfirmState();
 
-	//직업 후보 클릭, 정원이 남아 있으면 편성에 추가
-	void HandleJobClicked(int32 jobIndex);
+	//캐릭터 후보 클릭, 정원이 남아 있으면 편성에 추가
+	void HandleCharacterClicked(TSubclassOf<AAllyCharacterBase> characterClass);
 	//편성된 인원 클릭, 목록에서 제외
-	void HandleRosterClicked(int32 rosterIndex);
+	void HandleRosterClicked(TSubclassOf<AAllyCharacterBase> characterClass);
 
 	UFUNCTION()
 	void HandleConfirmClicked();
 	UFUNCTION()
 	void HandleBackClicked();
 
-	//직업 클래스로 표시 문구 생성, 직업명이 비어 있으면 클래스명으로 대체
-	static FText MakeJobLabel(TSubclassOf<AAllyCharacterBase> jobClass);
+	//편성 중인 로스터에서의 위치, 없으면 INDEX_NONE
+	//클래스가 곧 한 명이라 로스터의 고유 키로 쓸 수 있다
+	int32 IndexOfPending(TSubclassOf<AAllyCharacterBase> characterClass) const;
 
 	//편성 중인 로스터
 	//확정 전에는 RunProgress에 넣지 않는다 — StartRun이 객체를 새로 만들며 지워버리기 때문
 	TArray<FAllyRunState> pendingRoster;
 
-	//스토리 모드 여부, 편집을 막는다
-	bool bReadOnly = false;
+	//이번 런의 캐릭터 후보 풀, 스토리는 줄기 목록이고 나머지는 해금 목록이다
+	TArray<TSubclassOf<AAllyCharacterBase>> characterPool;
 
-	//채워야 할 인원, 스토리는 고정 편성 인원 수와 같다
+	//스토리 줄기 식별자, 스토리에서 들어왔는지와 뒤로 갈 화면을 함께 가리킨다
+	FName storyRouteId = NAME_None;
+
+	//채워야 할 인원, 후보가 정원보다 적으면 후보 수로 줄인다
 	int32 rosterCapacity = 0;
 };

@@ -547,7 +547,7 @@ float ACharacterBase::GetTerrainMoveCostMultiplier() const
 	return terrainComponent ? terrainComponent->GetMovingPointCostMultiplier() : 1.f;
 }
 
-void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critical, float CriticalDamage,
+void ACharacterBase::CalculateDamage(float Damage, float DamageMax, float Accuracy, float Critical, float CriticalDamage,
                                      int32 DamageAmplfication,
                                      int Penetration, ESkillType SkillType, const ACharacterBase* Attacker)
 {
@@ -563,6 +563,19 @@ void ACharacterBase::CalculateDamage(float Damage, float Accuracy, float Critica
 		: 0.f;
 	ComputeDamageNumbers(this, Damage, Accuracy, Critical, DamageAmplfication, Penetration,
 		SkillType, bAllyTarget, attackerSight, distanceCm, pendingDMG, pendingAccuracy, pendingCritical);
+
+	//상한은 방어·감쇠를 같은 산식으로 통과시켜야 하한과 비교 가능한 값이 된다
+	//명중·치명은 피해량과 무관하므로 버리고 피해만 취한다
+	if (DamageMax > Damage)
+	{
+		float discardedAcc = 0.f, discardedCrit = 0.f;
+		ComputeDamageNumbers(this, DamageMax, Accuracy, Critical, DamageAmplfication, Penetration,
+			SkillType, bAllyTarget, attackerSight, distanceCm, pendingDMGMax, discardedAcc, discardedCrit);
+	}
+	else
+	{
+		pendingDMGMax = pendingDMG;
+	}
 }
 
 FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
@@ -575,7 +588,10 @@ FDamageResult ACharacterBase::PreviewDamage(const UActiveSkillBase* Skill,
 	result.SkillType = Skill->skillType;
 
 	//스킬 calc 값 로컬 카피, 외부 상태 미변경 보장
-	float dmg  = Skill->calcDamage;
+	//변동 피해는 구간 중앙(기대값)으로 평가한다, 하한만 보면 AI가 해당 스킬을 과소평가한다
+	float dmg  = Skill->HasDamageRange()
+		? (Skill->calcDamage + Skill->calcDamageMax) * 0.5f
+		: Skill->calcDamage;
 	int32 amp  = Skill->calcDamageAmplfication;
 	int32 pen  = Skill->calcPenetration;
 	float acc  = Skill->calcAccuracy;
@@ -643,11 +659,16 @@ bool ACharacterBase::ReflectDamage()
 		}
 		return false;
 	}
+	//변동 피해는 적중이 확정된 뒤 구간에서 굴린다, 인디케이터는 이 구간을 그대로 표시했다
+	const float rolledDamage = (pendingDMGMax > pendingDMG)
+		? FMath::FRandRange(pendingDMG, pendingDMGMax)
+		: pendingDMG;
+
 	float critRoll = FMath::FRandRange(0.f, 100.f);
 	const bool bCrit = critRoll <= pendingCritical;
 	int32 finalDamage = bCrit
-		? FMath::RoundToInt(pendingDMG * pendingCriticalDamage)
-		: FMath::RoundToInt(pendingDMG);
+		? FMath::RoundToInt(rolledDamage * pendingCriticalDamage)
+		: FMath::RoundToInt(rolledDamage);
 
 	//치명타 피격 스트레스 5~10, 사망(Destroy) 전에 적용되도록 데미지보다 먼저 부여
 	if (bCrit)
@@ -875,6 +896,12 @@ void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int
 	actionPoint += passive->actionPoint * sign;
 	currentActionPoint += passive->actionPoint * sign;
 	currentActionPoint = FMath::Clamp(currentActionPoint, 0, actionPoint);
+
+	//고유 자원 최대치 변경, 늘어난 만큼 현재치도 함께 올려 즉시 쓸 수 있게 한다
+	maxBattleResource += passive->maxBattleResource * sign;
+	if (maxBattleResource < 0) maxBattleResource = 0;
+	battleResource += passive->maxBattleResource * sign;
+	battleResource = FMath::Clamp(battleResource, 0, maxBattleResource);
 
 	//피해 보정
 	damageReduction += passive->damageReduction * sign;
@@ -1185,7 +1212,7 @@ void ACharacterBase::ShowSkillInfo()
 	skillInfoWidgetComponent->SetVisibility(true);
 	if (USkillInfoWidget* InfoWidget = Cast<USkillInfoWidget>(skillInfoWidgetComponent->GetWidget()))
 	{
-		InfoWidget->UpdateInfo(pendingDMG, pendingAccuracy, pendingCritical, pendingSkillType);
+		InfoWidget->UpdateInfo(pendingDMG, pendingDMGMax, pendingAccuracy, pendingCritical, pendingSkillType);
 	}
 }
 
@@ -1220,6 +1247,7 @@ void ACharacterBase::SetHighlighted(bool bHighlighted)
 void ACharacterBase::ClearPendingDamage()
 {
 	pendingDMG = 0.f;
+	pendingDMGMax = 0.f;
 	pendingAccuracy = 0.f;
 	pendingCritical = 0.f;
 	pendingSkillType = ESkillType::Melee;

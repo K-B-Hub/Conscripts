@@ -42,14 +42,12 @@ protected:
 	//레벨 내 살아있는 모든 캐릭터 수집
 	void CollectAllCharacters(TArray<ACharacterBase*>& Out) const;
 
-	//범위 오버랩 반경, 인디케이터 규칙과 동일
-	static float AreaOverlapRadius(const UActiveSkillBase* Skill);
-
 	//EAreaTarget 팀 필터 통과 여부
 	bool PassesAreaTargetFilter(const UActiveSkillBase* Skill, const ACharacterBase* Character) const;
 
-	//aim 지점 중심 범위에 영향받는 대상 수집
-	void CollectAreaAffected(const UActiveSkillBase* Skill, const FVector& AimLoc,
+	//범위에 영향받는 대상 수집, 형태 판정은 인디케이터와 같은 UAreaShapeLibrary를 공유
+	//Ray/Cone은 CastFrom이 원점이고 AimLoc은 방향만, Circle은 AimLoc이 원점
+	void CollectAreaAffected(const UActiveSkillBase* Skill, const FVector& CastFrom, const FVector& AimLoc,
 	                         TArray<ACharacterBase*>& Out) const;
 
 	//지정 위치에서 aim 지점까지 시야선 확보 여부

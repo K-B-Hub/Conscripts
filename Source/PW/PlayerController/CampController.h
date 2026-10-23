@@ -9,6 +9,7 @@
 class UCampDialogueData;
 class UCampOptionWidget;
 class UCampRecruitWidget;
+class AAllyCharacterBase;
 
 //야영지 컨트롤러
 //카메라가 고정이라 조작 입력이 없고 마우스 오버와 클릭만 다룬다
@@ -27,8 +28,8 @@ public:
 	//선택하지 않고 창만 닫는다
 	void CloseCampOptions();
 
-	//충원할 직업 선택, 충원 위젯이 호출
-	void RecruitJob(int32 jobIndex);
+	//충원할 캐릭터 선택, 충원 위젯이 호출
+	void RecruitCharacter(TSubclassOf<AAllyCharacterBase> characterClass);
 
 protected:
 	virtual void BeginPlay() override;
@@ -59,8 +60,19 @@ private:
 	UFUNCTION()
 	void HandleCampClicked(AActor* touchedActor, FKey buttonPressed);
 
-	//충원 시작, 직업 선택 화면을 연다, 다 고르면 야영지를 떠난다
+	//메인 캠프에 마우스가 올라오면 강조를 세게, 벗어나면 평소 강도로 되돌린다
+	UFUNCTION()
+	void HandleCampHovered(AActor* touchedActor);
+
+	UFUNCTION()
+	void HandleCampUnhovered(AActor* touchedActor);
+
+	//충원 시작, 캐릭터 선택 화면을 연다, 다 고르면 야영지를 떠난다
 	void BeginRecruitFlow(int32 count);
+
+	//지금 부를 수 있는 캐릭터, 야영지에 있는 동료와 이번 런 전사자를 뺀다
+	//로스터가 아니라 야영지 인원을 보는 이유는 연속 충원 중 방금 합류한 동료도 걸러야 하기 때문
+	TArray<TSubclassOf<AAllyCharacterBase>> BuildRecruitCandidates() const;
 
 	UPROPERTY()
 	TObjectPtr<UCampOptionWidget> optionWidgetInstance = nullptr;

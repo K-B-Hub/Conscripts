@@ -4,7 +4,6 @@
 #include "Widget/JobSelectButton.h"
 #include "PlayerController/HubController.h"
 #include "GameInstance/PWGameInstance.h"
-#include "DataAsset/StoryRouteData.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Components/Button.h"
 #include "Components/PanelWidget.h"
@@ -30,50 +29,31 @@ void UFormationWidget::SetupForMode()
 	if (!gameInstance) return;
 
 	const AHubController* hub = GetOwningPlayer<AHubController>();
-	const FName routeId = hub ? hub->GetPendingStoryRouteId() : NAME_None;
-	const UStoryRouteData* route = gameInstance->FindStoryRoute(routeId);
+	storyRouteId = hub ? hub->GetPendingStoryRouteId() : NAME_None;
 
-	//스토리는 줄기의 고정 편성을 그대로 쓰고 편집을 막는다
-	if (route)
-	{
-		bReadOnly = true;
+	//스토리는 줄기가 정한 인물들, 나머지는 해금된 캐릭터 — 고르는 방식 자체는 같다
+	characterPool = gameInstance->GetCharacterPool(storyRouteId);
 
-		for (const TSubclassOf<AAllyCharacterBase>& jobClass : route->fixedRoster)
-		{
-			if (!jobClass) continue;
-
-			pendingRoster.Add(FAllyRunState::MakeFromClass(jobClass, MakeJobLabel(jobClass).ToString()));
-		}
-		rosterCapacity = pendingRoster.Num();
-
-		if (JobContainer) JobContainer->SetVisibility(ESlateVisibility::Collapsed);
-		if (JobHeader)    JobHeader->SetVisibility(ESlateVisibility::Collapsed);
-		return;
-	}
-
-	rosterCapacity = gameInstance->GetInitialRosterSize();
+	//후보가 정원보다 적으면 채울 수 없는 화면에 갇히므로 정원을 후보 수로 줄인다
+	rosterCapacity = FMath::Min(gameInstance->GetInitialRosterSize(), characterPool.Num());
 }
 
 void UFormationWidget::BuildJobList()
 {
-	if (bReadOnly || !JobContainer || !jobButtonClass) return;
-
-	const UWorld* world = GetWorld();
-	const UPWGameInstance* gameInstance = world ? world->GetGameInstance<UPWGameInstance>() : nullptr;
-	if (!gameInstance) return;
+	if (!JobContainer || !jobButtonClass) return;
 
 	JobContainer->ClearChildren();
 
-	const TArray<TSubclassOf<AAllyCharacterBase>> jobs = gameInstance->GetUnlockedJobs();
-	for (int32 i = 0; i < jobs.Num(); ++i)
+	for (const TSubclassOf<AAllyCharacterBase>& characterClass : characterPool)
 	{
-		if (!jobs[i]) continue;
+		//이미 편성한 캐릭터는 후보에서 빼 중복 선택 자체를 없앤다
+		if (IndexOfPending(characterClass) != INDEX_NONE) continue;
 
 		UJobSelectButton* entry = CreateWidget<UJobSelectButton>(this, jobButtonClass);
 		if (!entry) continue;
 
-		entry->InitEntry(MakeJobLabel(jobs[i]), i);
-		entry->OnClicked.BindUObject(this, &UFormationWidget::HandleJobClicked);
+		entry->InitEntry(characterClass);
+		entry->OnClicked.BindUObject(this, &UFormationWidget::HandleCharacterClicked);
 		JobContainer->AddChild(entry);
 	}
 }
@@ -84,18 +64,13 @@ void UFormationWidget::BuildRosterList()
 
 	RosterContainer->ClearChildren();
 
-	for (int32 i = 0; i < pendingRoster.Num(); ++i)
+	for (const FAllyRunState& member : pendingRoster)
 	{
 		UJobSelectButton* entry = CreateWidget<UJobSelectButton>(this, jobButtonClass);
 		if (!entry) continue;
 
-		entry->InitEntry(FText::FromString(pendingRoster[i].DisplayName), i);
-
-		//읽기 전용이면 표시만 하고 제외 동작을 붙이지 않는다
-		if (!bReadOnly)
-		{
-			entry->OnClicked.BindUObject(this, &UFormationWidget::HandleRosterClicked);
-		}
+		entry->InitEntry(member.AllyClass);
+		entry->OnClicked.BindUObject(this, &UFormationWidget::HandleRosterClicked);
 		RosterContainer->AddChild(entry);
 	}
 }
@@ -114,31 +89,31 @@ void UFormationWidget::RefreshConfirmState()
 	}
 }
 
-void UFormationWidget::HandleJobClicked(int32 jobIndex)
+void UFormationWidget::HandleCharacterClicked(TSubclassOf<AAllyCharacterBase> characterClass)
 {
-	if (bReadOnly || pendingRoster.Num() >= rosterCapacity) return;
+	if (pendingRoster.Num() >= rosterCapacity) return;
 
-	const UWorld* world = GetWorld();
-	const UPWGameInstance* gameInstance = world ? world->GetGameInstance<UPWGameInstance>() : nullptr;
-	if (!gameInstance) return;
+	//후보 밖이거나 이미 편성된 캐릭터는 받지 않는다, 목록이 걸러도 통지는 들어올 수 있다
+	if (!characterPool.Contains(characterClass)) return;
+	if (IndexOfPending(characterClass) != INDEX_NONE) return;
 
-	const TArray<TSubclassOf<AAllyCharacterBase>> jobs = gameInstance->GetUnlockedJobs();
-	if (!jobs.IsValidIndex(jobIndex) || !jobs[jobIndex]) return;
+	pendingRoster.Add(FAllyRunState::MakeFromClass(characterClass));
 
-	//같은 직업을 여러 명 뽑을 수 있으므로 순번을 붙여 개체를 구분한다
-	const FString label = FString::Printf(TEXT("%s %d"), *MakeJobLabel(jobs[jobIndex]).ToString(), pendingRoster.Num() + 1);
-	pendingRoster.Add(FAllyRunState::MakeFromClass(jobs[jobIndex], label));
-
+	//편성한 캐릭터가 후보에서 빠지므로 후보 목록도 다시 만든다
+	BuildJobList();
 	BuildRosterList();
 	RefreshConfirmState();
 }
 
-void UFormationWidget::HandleRosterClicked(int32 rosterIndex)
+void UFormationWidget::HandleRosterClicked(TSubclassOf<AAllyCharacterBase> characterClass)
 {
-	if (bReadOnly || !pendingRoster.IsValidIndex(rosterIndex)) return;
+	const int32 index = IndexOfPending(characterClass);
+	if (index == INDEX_NONE) return;
 
-	pendingRoster.RemoveAt(rosterIndex);
+	pendingRoster.RemoveAt(index);
 
+	//해제한 캐릭터는 후보로 돌아온다
+	BuildJobList();
 	BuildRosterList();
 	RefreshConfirmState();
 }
@@ -157,14 +132,17 @@ void UFormationWidget::HandleBackClicked()
 	if (!hub) return;
 
 	//스토리는 줄기 선택에서 왔고 나머지는 모드 선택에서 왔다
-	if (bReadOnly) hub->ShowStoryRouteSelect();
-	else           hub->ShowModeSelect();
+	if (storyRouteId.IsNone()) hub->ShowModeSelect();
+	else                       hub->ShowStoryRouteSelect();
 }
 
-FText UFormationWidget::MakeJobLabel(TSubclassOf<AAllyCharacterBase> jobClass)
+int32 UFormationWidget::IndexOfPending(TSubclassOf<AAllyCharacterBase> characterClass) const
 {
-	if (!jobClass) return FText::GetEmpty();
+	if (!characterClass) return INDEX_NONE;
 
-	const FText& jobName = jobClass->GetDefaultObject<AAllyCharacterBase>()->jobName;
-	return jobName.IsEmpty() ? FText::FromString(jobClass->GetName()) : jobName;
+	for (int32 i = 0; i < pendingRoster.Num(); ++i)
+	{
+		if (pendingRoster[i].AllyClass == characterClass) return i;
+	}
+	return INDEX_NONE;
 }

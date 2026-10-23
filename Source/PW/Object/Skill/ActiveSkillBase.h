@@ -53,9 +53,12 @@ public:
 	//행동력 소모량
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Cost")
 	int32 actionPointCost = 1;
-	//스킬의 공격력 계수
+	//스킬의 공격력 계수, damageRatioMax가 더 크면 이 값이 변동 피해의 하한이 된다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Combat")
 	float damageRatio = 1.0f;
+	//변동 피해 상한, damageRatio보다 커야 적용되며 그렇지 않으면 고정 피해
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Combat")
+	float damageRatioMax = 0.f;
 	//추가 명중률
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Combat")
 	float bonusAccuracy = 0.f;
@@ -113,7 +116,13 @@ public:
 
 	void SetCalcedStats();
 
+	//피해량이 고정이 아니라 구간을 갖는가, 인디케이터 표기와 적중 굴림 분기에 쓴다
+	bool HasDamageRange() const { return damageRatioMax > damageRatio; }
+
+	//변동 피해의 하한, 고정 피해면 그대로 최종값
 	float calcDamage;
+	//변동 피해의 상한, 고정 피해면 calcDamage와 같다
+	float calcDamageMax;
 	float calcAccuracy;
 	float calcCritical;
 	int32 calcDamageAmplfication;

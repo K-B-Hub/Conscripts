@@ -2,7 +2,6 @@
 
 #include "Widget/CampRecruitWidget.h"
 #include "Widget/JobSelectButton.h"
-#include "GameInstance/PWGameInstance.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Components/PanelWidget.h"
 #include "Components/TextBlock.h"
@@ -13,31 +12,24 @@ void UCampRecruitWidget::NativeConstruct()
 
 	SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 
-	BuildJobList();
+	//후보 목록은 SetCandidates가 채운다, 띄우는 쪽만 누가 남았는지 안다
 }
 
-void UCampRecruitWidget::BuildJobList()
+void UCampRecruitWidget::SetCandidates(const TArray<TSubclassOf<AAllyCharacterBase>>& candidates)
 {
 	if (!JobContainer || !jobButtonClass) return;
 
-	const UWorld* world = GetWorld();
-	const UPWGameInstance* gameInstance = world ? world->GetGameInstance<UPWGameInstance>() : nullptr;
-	if (!gameInstance) return;
-
 	JobContainer->ClearChildren();
 
-	//편성과 같은 목록이라 인덱스가 그대로 통한다
-	const TArray<TSubclassOf<AAllyCharacterBase>> jobs = gameInstance->GetUnlockedJobs();
-	for (int32 i = 0; i < jobs.Num(); ++i)
+	for (const TSubclassOf<AAllyCharacterBase>& characterClass : candidates)
 	{
-		if (!jobs[i]) continue;
+		if (!characterClass) continue;
 
 		UJobSelectButton* entry = CreateWidget<UJobSelectButton>(this, jobButtonClass);
 		if (!entry) continue;
 
-		const FText& jobName = jobs[i]->GetDefaultObject<AAllyCharacterBase>()->jobName;
-		entry->InitEntry(jobName.IsEmpty() ? FText::FromString(jobs[i]->GetName()) : jobName, i);
-		entry->OnClicked.BindUObject(this, &UCampRecruitWidget::HandleJobClicked);
+		entry->InitEntry(characterClass);
+		entry->OnClicked.BindUObject(this, &UCampRecruitWidget::HandleCharacterClicked);
 		JobContainer->AddChild(entry);
 	}
 }
@@ -50,7 +42,7 @@ void UCampRecruitWidget::SetRemaining(int32 remaining)
 	}
 }
 
-void UCampRecruitWidget::HandleJobClicked(int32 jobIndex)
+void UCampRecruitWidget::HandleCharacterClicked(TSubclassOf<AAllyCharacterBase> characterClass)
 {
-	OnJobChosen.ExecuteIfBound(jobIndex);
+	OnCharacterChosen.ExecuteIfBound(characterClass);
 }
