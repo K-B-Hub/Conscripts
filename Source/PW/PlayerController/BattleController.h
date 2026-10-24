@@ -68,8 +68,8 @@ public:
 	//증원 강화가 호출, 직업 선택은 강화 선택이 모두 끝난 뒤로 미룬다
 	void RequestReinforcement(AAllyCharacterBase* caller, int32 count);
 
-	//캐릭터 선택 화면이 호출, 신병 한 명을 합류시킨다. 남은 인원이 없으면 턴을 이어간다
-	void ChooseReinforcementCharacter(TSubclassOf<AAllyCharacterBase> characterClass);
+	//캐릭터 선택 화면이 호출, 확정한 신병을 합류시키고 턴을 이어간다
+	void ChooseReinforcementCharacters(const TArray<TSubclassOf<AAllyCharacterBase>>& characterClasses);
 
 	//적 턴 시작 시 GameMode에서 호출, 카메라 폰 스프링암을 피벗으로 AI 추적
 	void BeginAITurnFollow(ACharacterBase* AIUnit);

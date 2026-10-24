@@ -7,6 +7,7 @@
 #include "MissionData.generated.h"
 
 class ABattleGameMode;
+class UTexture2D;
 
 //스테이지의 승리 조건
 //타입마다 필요한 데이터가 달라(암살=대상, 도달=위치, 생존=턴 수) 파생 클래스로 나눈다
@@ -25,6 +26,10 @@ public:
 	//출격 화면과 전투 HUD에 표시할 목표 설명
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mission")
 	FText Description;
+
+	//스테이지 예고에 표시할 임무 아이콘
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mission")
+	TObjectPtr<UTexture2D> Icon;
 
 	//목표 달성 여부, 파생 클래스가 정의
 	//GameMode를 통째로 받으므로 새 목표가 필요한 정보는 접근자만 추가하면 된다

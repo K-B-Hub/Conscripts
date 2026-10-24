@@ -136,8 +136,6 @@ void ACampController::ChooseCampOption(int32 optionIndex)
 
 void ACampController::BeginRecruitFlow(int32 count)
 {
-	remainingRecruits = count;
-
 	ACampGameMode* camp = GetWorld() ? GetWorld()->GetAuthGameMode<ACampGameMode>() : nullptr;
 
 	if (!recruitWidgetClass)
@@ -148,10 +146,10 @@ void ACampController::BeginRecruitFlow(int32 count)
 	}
 
 	//부를 사람이 남지 않았으면 빈 화면을 띄우지 않고 그대로 출발한다
-	if (BuildRecruitCandidates().Num() == 0)
+	const TArray<TSubclassOf<AAllyCharacterBase>> candidates = BuildRecruitCandidates();
+	if (candidates.Num() == 0)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[CampController] 부를 수 있는 동료가 없어 충원을 건너뜁니다"));
-		remainingRecruits = 0;
 		if (camp) camp->LeaveCamp();
 		return;
 	}
@@ -163,51 +161,31 @@ void ACampController::BeginRecruitFlow(int32 count)
 		return;
 	}
 
-	recruitWidgetInstance->OnCharacterChosen.BindUObject(this, &ACampController::RecruitCharacter);
+	recruitWidgetInstance->OnRecruitConfirmed.BindUObject(this, &ACampController::RecruitCharacters);
 	recruitWidgetInstance->AddToViewport();
-	recruitWidgetInstance->SetRemaining(remainingRecruits);
-	recruitWidgetInstance->SetCandidates(BuildRecruitCandidates());
+	recruitWidgetInstance->Open(candidates, count);
 }
 
-void ACampController::RecruitCharacter(TSubclassOf<AAllyCharacterBase> characterClass)
+void ACampController::RecruitCharacters(const TArray<TSubclassOf<AAllyCharacterBase>>& characterClasses)
 {
 	ACampGameMode* camp = GetWorld() ? GetWorld()->GetAuthGameMode<ACampGameMode>() : nullptr;
-	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
-	if (!camp || !gameInstance || remainingRecruits <= 0) return;
+	if (!camp) return;
 
-	//후보 목록이 이미 걸렀지만 통지는 늦게 들어올 수 있어 여기서 한 번 더 본다
-	if (!BuildRecruitCandidates().Contains(characterClass)) return;
-
-	//평균 레벨은 합류 전 기준이라 매번 다시 계산하지 않고 고정해도 되지만,
-	//연속 충원 시 새 동료가 평균에 섞이지 않도록 여기서 그때그때 조회한다
-	const int32 level = camp->GetAverageLevel();
-
-	AAllyCharacterBase* recruit = camp->AddRecruit(characterClass, level);
-	if (!recruit)
+	for (const TSubclassOf<AAllyCharacterBase>& characterClass : characterClasses)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[CampController] 빈 자리가 없어 충원하지 못했습니다"));
-		remainingRecruits = 0;
-	}
-	else
-	{
+		//후보 목록이 이미 걸렀지만 통지는 늦게 들어올 수 있어 여기서 한 번 더 본다
+		if (!BuildRecruitCandidates().Contains(characterClass)) continue;
+
+		//평균 레벨은 합류 전 기준이라 매번 다시 계산하지 않고 고정해도 되지만,
+		//연속 충원 시 새 동료가 평균에 섞이지 않도록 여기서 그때그때 조회한다
+		const int32 level = camp->GetAverageLevel();
+
 		//ForceLevelUpTo가 쌓은 강화 대기 큐는 로스터에 실려 전투 첫 턴에 소비된다
-		--remainingRecruits;
-	}
-
-	//방금 합류한 동료가 후보에 남지 않도록 목록을 다시 만든다
-	const TArray<TSubclassOf<AAllyCharacterBase>> remainingCandidates = BuildRecruitCandidates();
-
-	//부를 사람이 바닥나면 남은 인원을 포기한다, 고를 수 없는 화면에 갇히지 않도록
-	if (remainingCandidates.Num() == 0) remainingRecruits = 0;
-
-	if (remainingRecruits > 0)
-	{
-		if (recruitWidgetInstance)
+		if (!camp->AddRecruit(characterClass, level))
 		{
-			recruitWidgetInstance->SetRemaining(remainingRecruits);
-			recruitWidgetInstance->SetCandidates(remainingCandidates);
+			UE_LOG(LogTemp, Warning, TEXT("[CampController] 빈 자리가 없어 충원하지 못했습니다"));
+			break;
 		}
-		return;
 	}
 
 	if (recruitWidgetInstance)

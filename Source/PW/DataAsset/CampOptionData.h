@@ -7,6 +7,7 @@
 #include "CampOptionData.generated.h"
 
 class ACampGameMode;
+class UTexture2D;
 
 //야영지 정비 선택지 하나
 //회복·휴식·증원·보급이 모두 "비율 회복 + 충원 인원" 한 가지 모양이라 파생 없이 인스턴스로 구분한다
@@ -22,6 +23,10 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camp")
 	FText Description;
+
+	//선택 카드에 표시할 아이콘
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camp")
+	TObjectPtr<UTexture2D> Icon;
 
 	//최대 체력 대비 회복 비율
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camp|Restore", meta = (ClampMin = "0.0", ClampMax = "1.0"))
