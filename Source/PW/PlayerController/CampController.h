@@ -28,8 +28,8 @@ public:
 	//선택하지 않고 창만 닫는다
 	void CloseCampOptions();
 
-	//충원할 캐릭터 선택, 충원 위젯이 호출
-	void RecruitCharacter(TSubclassOf<AAllyCharacterBase> characterClass);
+	//확정한 인원을 합류시키고 야영지를 떠난다, 충원 위젯이 호출
+	void RecruitCharacters(const TArray<TSubclassOf<AAllyCharacterBase>>& characterClasses);
 
 protected:
 	virtual void BeginPlay() override;
@@ -79,7 +79,4 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UCampRecruitWidget> recruitWidgetInstance = nullptr;
-
-	//아직 고르지 않은 충원 인원 수
-	int32 remainingRecruits = 0;
 };

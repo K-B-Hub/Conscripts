@@ -429,42 +429,25 @@ void ABattleController::ShowReinforcementSelect()
 		return;
 	}
 
-	recruitWidgetInstance->OnCharacterChosen.BindUObject(this, &ABattleController::ChooseReinforcementCharacter);
+	recruitWidgetInstance->OnRecruitConfirmed.BindUObject(this, &ABattleController::ChooseReinforcementCharacters);
 	recruitWidgetInstance->AddToViewport(10);
-	recruitWidgetInstance->SetRemaining(remainingReinforcements);
-	recruitWidgetInstance->SetCandidates(candidates);
+	recruitWidgetInstance->Open(candidates, remainingReinforcements);
 }
 
-void ABattleController::ChooseReinforcementCharacter(TSubclassOf<AAllyCharacterBase> characterClass)
+void ABattleController::ChooseReinforcementCharacters(const TArray<TSubclassOf<AAllyCharacterBase>>& characterClasses)
 {
 	ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
-	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
-	if (!gameMode || !gameInstance || !IsValid(reinforcementCaller))
+
+	if (gameMode && IsValid(reinforcementCaller))
 	{
-		FinishReinforcement();
-		return;
-	}
+		for (const TSubclassOf<AAllyCharacterBase>& characterClass : characterClasses)
+		{
+			//후보 목록이 이미 걸렀지만 통지는 늦게 들어올 수 있어 여기서 한 번 더 본다
+			if (!BuildReinforcementCandidates().Contains(characterClass)) continue;
 
-	//후보 목록이 이미 걸렀지만 통지는 늦게 들어올 수 있어 여기서 한 번 더 본다
-	if (!BuildReinforcementCandidates().Contains(characterClass)) return;
-
-	//자리가 없으면 남은 인원을 포기한다, 고를 수 없는 화면에 갇히지 않도록
-	if (!gameMode->JoinReinforcement(characterClass, reinforcementCaller))
-	{
-		FinishReinforcement();
-		return;
-	}
-
-	--remainingReinforcements;
-
-	//방금 합류한 신병이 후보에 남지 않도록 목록을 다시 만든다
-	const TArray<TSubclassOf<AAllyCharacterBase>> remainingCandidates = BuildReinforcementCandidates();
-
-	if (remainingReinforcements > 0 && remainingCandidates.Num() > 0 && IsValid(recruitWidgetInstance))
-	{
-		recruitWidgetInstance->SetRemaining(remainingReinforcements);
-		recruitWidgetInstance->SetCandidates(remainingCandidates);
-		return;
+			//자리가 없으면 남은 인원을 포기한다
+			if (!gameMode->JoinReinforcement(characterClass, reinforcementCaller)) break;
+		}
 	}
 
 	FinishReinforcement();
