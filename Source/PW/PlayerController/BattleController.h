@@ -385,7 +385,7 @@ private:
 	//강화 선택 완료 핸들러, 습득 후 남은 큐가 있으면 이어서 표시
 	void OnUpgradeChosen(TSubclassOf<USkillBase> Chosen);
 
-	//activeUnit->OnVitalsChanged 수신, 게이지 수치 갱신
+	//activeUnit->OnVitalsChanged 수신, 게이지 수치·버프 아이콘 갱신
 	UFUNCTION()
 	void RefreshGauges();
 

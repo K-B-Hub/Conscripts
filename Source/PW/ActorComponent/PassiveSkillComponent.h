@@ -41,6 +41,9 @@ public:
 	//투척 한정으로 광역 치명타 봉쇄를 푸는 패시브를 보유 중인지, 봉쇄 지점 두 곳이 모두 이 값을 본다
 	bool HasThrowCriticalUnlock() const;
 
+	//해당 스킬 클래스에 걸린 행동력 할인 합계
+	int32 GetActionPointDiscount(const UClass* skillClass) const;
+
 	const TArray<TObjectPtr<UPassiveSkillBase>>& GetActivePassives() const { return activePassives; }
 
 	//피해 계산 전 패시브 실행, attackerLocation은 거리 조건 패시브가 쓰는 공격 시점 좌표

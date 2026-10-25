@@ -868,7 +868,7 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 		//자원 비용 페널티
 		if (Action.Skill)
 		{
-			const int32 resCost = Action.Skill->actionPointCost + Action.Skill->battleResourceCost;
+			const int32 resCost = Action.Skill->GetActionPointCost() + Action.Skill->battleResourceCost;
 			score += resCost * p->weightResourceCost;
 		}
 
@@ -913,7 +913,7 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 		int32 postRes = ownerCharacter->GetBattleResource();
 		if (!Action.IsMove() && !Action.IsWait() && Action.Skill)
 		{
-			postAp  -= Action.Skill->actionPointCost;
+			postAp  -= Action.Skill->GetActionPointCost();
 			postRes -= Action.Skill->battleResourceCost;
 		}
 		score += (postAp + postRes) * p->weightRemainingResource;

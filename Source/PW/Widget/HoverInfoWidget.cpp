@@ -2,6 +2,7 @@
 
 #include "Widget/HoverInfoWidget.h"
 #include "Widget/StatTextHelpers.h"
+#include "Widget/StatusEffectIcon.h"
 #include "Characters/CharacterBase.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
@@ -78,4 +79,6 @@ void UHoverInfoWidget::ShowFor(ACharacterBase* target)
 	//이름·직업 미지정 BP면 클래스명으로 대신한다, 상세 정보 창과 같은 폴백
 	if (TopBarNameText) TopBarNameText->SetText(target->GetCharacterNameText());
 	if (TopBarJobText)  TopBarJobText->SetText(target->GetJobNameText());
+
+	UStatusEffectIcon::FillContainer(TopBarStatusBox, statusIconClass, target, this);
 }

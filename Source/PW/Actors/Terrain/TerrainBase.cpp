@@ -78,6 +78,15 @@ void ATerrainBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+bool ATerrainBase::TickLifetime()
+{
+	//영구 지형은 수명 개념이 없다
+	if (lifeRound <= 0) return true;
+
+	--lifeRound;
+	return lifeRound > 0;
+}
+
 bool ATerrainBase::IsLocationInside(const FVector& location) const
 {
 	if (!terrainBox) return false;

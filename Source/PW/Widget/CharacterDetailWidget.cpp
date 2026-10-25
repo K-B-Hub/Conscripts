@@ -3,6 +3,7 @@
 #include "Widget/CharacterDetailWidget.h"
 #include "Widget/StatTextHelpers.h"
 #include "Widget/SkillListEntry.h"
+#include "Widget/StatusEffectIcon.h"
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
@@ -110,6 +111,8 @@ void UCharacterDetailWidget::InitDetail(ACharacterBase* target)
 	}
 	FillSkillList(PassiveSkillList, passiveSkills, bPassiveDescending);
 	ApplySortText(PassiveSortText, bPassiveDescending);
+
+	UStatusEffectIcon::FillContainer(StatusEffectList, statusIconClass, target, this);
 }
 
 void UCharacterDetailWidget::FillSkillList(UPanelWidget* list, const TArray<TObjectPtr<USkillBase>>& skills, bool bDescending)

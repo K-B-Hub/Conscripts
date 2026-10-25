@@ -523,6 +523,7 @@ void ABattleController::RefreshGauges()
 	if (!IsValid(activeUnit) || !IsValid(turnHudWidgetInstance)) return;
 
 	turnHudWidgetInstance->RefreshGauges(activeUnit);
+	turnHudWidgetInstance->RefreshStatusEffects(activeUnit);
 }
 
 void ABattleController::SetupInputComponent()

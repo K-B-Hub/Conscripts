@@ -96,6 +96,9 @@ public:
 	//해당 인원이 이미 배치되었는지, 배치 위젯의 표시용
 	bool IsDeployed(int32 rosterIndex) const;
 
+	//배치된 인원의 액터, 미배치면 nullptr
+	AAllyCharacterBase* GetDeployedAlly(int32 rosterIndex) const;
+
 	//로스터 전원이 배치되었는지
 	bool IsDeploymentComplete() const;
 
@@ -108,6 +111,8 @@ public:
 	//턴 순서 UI가 생성 시점의 상태를 당겨올 때 사용
 	const TArray<ACharacterBase*>& GetTurnOrder() const { return turnOrder; }
 	int32 GetCurrentTurnIndex() const { return currentTurnIndex; }
+	//경과 라운드를 조건으로 쓰는 패시브가 조회한다
+	int32 GetCurrentRound() const { return currentRound; }
 
 	//현재 턴의 유닛이 행동을 마쳤을 때 BattleController에서 호출
 	void OnTurnEnd();
@@ -141,6 +146,9 @@ public:
 	void RegisterTerrain(ATerrainBase* Terrain);
 	void UnregisterTerrain(ATerrainBase* Terrain);
 	const TArray<TObjectPtr<ATerrainBase>>& GetTerrains() const { return terrains; }
+
+	//수명이 있는 지형의 잔여 라운드를 줄이고 만료된 지형을 파괴, 라운드 시작마다 1회
+	void TickTerrainLifetime();
 
 	//캐릭터가 스킬을 사용했을 때 위협 프로파일 갱신, 플레이어·AI 공통
 	void RecordSkillUse(ACharacterBase* Character, const UActiveSkillBase* Skill);

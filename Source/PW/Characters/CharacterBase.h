@@ -503,4 +503,11 @@ public:
 	//지형 진입/이탈 시 스탯 델타 일괄 가감 — sign: +1=진입, -1=이탈
 	//ApplyBuffDelta와 동일한 가역성 원칙
 	void ApplyTerrainStatDelta(const ATerrainBase* terrain, int32 sign);
+
+	//조건부 패시브가 지금 걸어 둔 스탯 가감과 중첩 수, 상태 아이콘 표시용
+	const TMap<TWeakObjectPtr<const UPassiveSkillBase>, int32>& GetPassiveDeltaStacks() const { return passiveDeltaStacks; }
+
+private:
+	//다른 캐릭터의 패시브도 담긴다(지휘 계열), 0이 되면 항목 제거
+	TMap<TWeakObjectPtr<const UPassiveSkillBase>, int32> passiveDeltaStacks;
 };

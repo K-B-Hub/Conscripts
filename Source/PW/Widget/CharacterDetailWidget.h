@@ -13,6 +13,7 @@ class UPanelWidget;
 class USkillBase;
 class USkillListEntry;
 class UTextBlock;
+class UStatusEffectIcon;
 
 //닫기 요청 통지, 창을 띄운 컨트롤러가 바인딩
 DECLARE_DELEGATE(FOnDetailWidgetClosed);
@@ -36,6 +37,10 @@ protected:
 	//스킬 목록에 채울 항목 위젯, WBP에서 지정
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<USkillListEntry> skillEntryClass;
+
+	//버프·상태이상 아이콘 항목, 툴팁 클래스가 지정된 WBP를 쓴다
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UStatusEffectIcon> statusIconClass;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> CloseButton;
@@ -99,6 +104,10 @@ protected:
 	TObjectPtr<UPanelWidget> ActiveSkillList;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UPanelWidget> PassiveSkillList;
+
+	//스킬 패널 아래 버프·상태이상 아이콘 칸, WrapBox로 두면 칸이 모자랄 때 줄이 늘어난다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPanelWidget> StatusEffectList;
 
 	//등급 정렬 방향 토글, 두 목록이 각자 버튼과 각자 방향을 갖는다
 	UPROPERTY(meta = (BindWidgetOptional))

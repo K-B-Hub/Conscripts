@@ -8,6 +8,7 @@
 #include "PassiveSkillBase.generated.h"
 
 class ACharacterBase;
+class UActiveSkillBase;
 UCLASS()
 class PW_API UPassiveSkillBase : public USkillBase
 {
@@ -55,6 +56,13 @@ public:
 	//동일 클래스 중복 획득 허용 여부, false면 이미 보유 시 재등록 생략
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
 	bool bAllowDuplicate = false;
+
+	//행동력 소모를 깎아줄 스킬, 지정된 클래스에만 적용되며 조건 검사를 거치지 않는다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Cost")
+	TSubclassOf<UActiveSkillBase> discountSkillClass;
+	//깎아줄 행동력, discountSkillClass 미지정이면 무의미
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Cost")
+	int32 actionPointDiscount = 0;
 
 	//스트레스 이벤트 추첨을 긍정 풀로 고정, 만땅 도달 시 턴 손실 페널티는 그대로 유지
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stress")

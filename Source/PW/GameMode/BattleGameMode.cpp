@@ -185,6 +185,12 @@ bool ABattleGameMode::IsDeployed(int32 rosterIndex) const
 	return found && IsValid(*found);
 }
 
+AAllyCharacterBase* ABattleGameMode::GetDeployedAlly(int32 rosterIndex) const
+{
+	const TObjectPtr<AAllyCharacterBase>* found = deployedAllies.Find(rosterIndex);
+	return (found && IsValid(*found)) ? found->Get() : nullptr;
+}
+
 bool ABattleGameMode::IsDeploymentComplete() const
 {
 	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
@@ -814,6 +820,9 @@ void ABattleGameMode::OnTurnEnd()
 		//라운드마다 속도 재산정이 필요하면 BuildTurnOrder() 재호출
 		BuildTurnOrder();
 
+		//만료 지형을 먼저 걷어내 RoundStart 패시브가 사라질 지형을 보지 않게 한다
+		TickTerrainLifetime();
+
 		//라운드 시작 Conditional 패시브, 첫 턴 시작 전에 발동
 		BroadcastRoundStart();
 	}
@@ -832,6 +841,22 @@ void ABattleGameMode::RegisterTerrain(ATerrainBase* Terrain)
 void ABattleGameMode::UnregisterTerrain(ATerrainBase* Terrain)
 {
 	terrains.Remove(Terrain);
+}
+
+void ABattleGameMode::TickTerrainLifetime()
+{
+	//Destroy가 UnregisterTerrain으로 배열을 줄이므로 역순 순회
+	for (int32 i = terrains.Num() - 1; i >= 0; --i)
+	{
+		ATerrainBase* terrain = terrains[i].Get();
+		if (!IsValid(terrain)) continue;
+
+		//체류자 스탯 회수는 지형 EndPlay가 담당
+		if (!terrain->TickLifetime())
+		{
+			terrain->Destroy();
+		}
+	}
 }
 
 void ABattleGameMode::BroadcastRoundStart()

@@ -10,6 +10,8 @@ class ACharacterBase;
 class UImage;
 class UProgressBar;
 class UTextBlock;
+class UPanelWidget;
+class UStatusEffectIcon;
 
 //호버한 캐릭터의 간단 정보, 화면 좌측 하단에 고정된다
 //커서 아래 캐릭터와 턴 순서 초상화가 같은 위젯을 쓴다
@@ -63,4 +65,11 @@ protected:
 	TObjectPtr<UTextBlock> TopBarNameText;
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> TopBarJobText;
+
+	//표시줄의 버프·상태이상 아이콘 가로줄, 위젯 전체가 HitTestInvisible이라 툴팁은 없다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPanelWidget> TopBarStatusBox;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UStatusEffectIcon> statusIconClass;
 };

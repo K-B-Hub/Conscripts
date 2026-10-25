@@ -2,5 +2,6 @@
 
 
 #include "Object/Skill/PassiveSkillBase.h"
+#include "Object/Skill/ActiveSkillBase.h"
 
 
