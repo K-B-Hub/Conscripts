@@ -3,6 +3,7 @@
 
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/PassiveSkillBase.h"
+#include "Object/Skill/ActiveSkillBase.h"
 #include "Characters/CharacterBase.h"
 #include "Enum/SkillTypes.h"
 
@@ -222,6 +223,24 @@ bool UPassiveSkillComponent::HasThrowCriticalUnlock() const
 		}
 	}
 	return false;
+}
+
+int32 UPassiveSkillComponent::GetActionPointDiscount(const UClass* skillClass) const
+{
+	if (!skillClass) return 0;
+
+	int32 discount = 0;
+	for (const UPassiveSkillBase* passive : activePassives)
+	{
+		if (!passive || !passive->discountSkillClass) continue;
+
+		//스킬 BP 파생도 같은 할인을 받도록 파생 관계로 판정
+		if (skillClass->IsChildOf(passive->discountSkillClass.Get()))
+		{
+			discount += passive->actionPointDiscount;
+		}
+	}
+	return discount;
 }
 
 void UPassiveSkillComponent::RemovePassiveByClass(TSubclassOf<UPassiveSkillBase> passiveClass)

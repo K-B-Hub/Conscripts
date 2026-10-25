@@ -28,6 +28,15 @@ void UDeployWidget::NativeConstruct()
 	RefreshList();
 }
 
+void UDeployWidget::NativeDestruct()
+{
+	//확정으로 위젯이 사라져도 선택 강조가 전투까지 남지 않게 끈다
+	if (highlightedAlly.IsValid()) highlightedAlly->SetHighlighted(false);
+	highlightedAlly = nullptr;
+
+	Super::NativeDestruct();
+}
+
 void UDeployWidget::RefreshList()
 {
 	if (!MemberContainer || !memberEntryClass) return;
@@ -54,6 +63,15 @@ void UDeployWidget::RefreshList()
 		if (bDeployed) ++deployedCount;
 
 		if (memberEntries[i]) memberEntries[i]->SetEntryState(i == selectedIndex, bDeployed);
+	}
+
+	//선택 인원이 배치되어 있으면 오버레이로 표시, 미배치면 끌 대상만 정리
+	AAllyCharacterBase* newHighlight = gameMode->GetDeployedAlly(selectedIndex);
+	if (highlightedAlly.Get() != newHighlight)
+	{
+		if (highlightedAlly.IsValid()) highlightedAlly->SetHighlighted(false);
+		if (newHighlight) newHighlight->SetHighlighted(true);
+		highlightedAlly = newHighlight;
 	}
 
 	const bool bComplete = gameMode->IsDeploymentComplete();

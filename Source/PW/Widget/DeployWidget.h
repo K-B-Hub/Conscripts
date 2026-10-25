@@ -31,6 +31,7 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
 
 	//로스터 인원 목록
 	UPROPERTY(meta = (BindWidget))
@@ -106,6 +107,9 @@ private:
 
 	//배치 대상으로 고른 로스터 인덱스
 	int32 selectedIndex = INDEX_NONE;
+
+	//선택 인원 중 배치되어 오버레이를 켠 액터, 초기화로 파괴될 수 있어 약참조
+	TWeakObjectPtr<AAllyCharacterBase> highlightedAlly;
 
 	//로스터 인덱스 순서 그대로의 항목 위젯
 	UPROPERTY()

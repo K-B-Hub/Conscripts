@@ -6,6 +6,7 @@
 #include "Widget/SkillWidget.h"
 #include "Widget/CircularGaugeWidget.h"
 #include "Widget/MovingPointWidget.h"
+#include "Widget/StatusEffectIcon.h"
 #include "Characters/AllyCharacterBase.h"
 #include "ActorComponent/SkillComponent.h"
 
@@ -34,6 +35,7 @@ void UBattleTurnWidget::InitTurnHUD(AAllyCharacterBase* TurnUnit)
 
 	//게이지 넷은 초기화와 갱신이 같은 일이다
 	RefreshGauges(TurnUnit);
+	RefreshStatusEffects(TurnUnit);
 }
 
 void UBattleTurnWidget::RefreshMoveButton(float currentMovingPoint)
@@ -72,4 +74,9 @@ void UBattleTurnWidget::RefreshGauges(ACharacterBase* unit)
 	{
 		BattleResourceGauge->InitGauge(unit->GetMaxBattleResource(), unit->GetBattleResource());
 	}
+}
+
+void UBattleTurnWidget::RefreshStatusEffects(ACharacterBase* unit)
+{
+	UStatusEffectIcon::FillContainer(StatusEffectBox, statusIconClass, unit, this);
 }

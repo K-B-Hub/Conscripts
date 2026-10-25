@@ -8,6 +8,8 @@
 #include "ActorComponent/AilmentComponent.h"
 #include "Object/Ailment/AilmentBase.h"
 #include "ActorComponent/PassiveSkillComponent.h"
+#include "Actors/Terrain/TerrainBase.h"
+#include "Components/BoxComponent.h"
 
 bool UActiveSkillBase::CanExecute() const
 {
@@ -15,7 +17,7 @@ bool UActiveSkillBase::CanExecute() const
 	if (!ownerPtr) return false;
 
 	//행동력 부족 시 사용 불가
-	if (ownerPtr->GetCurrentActionPoint() < actionPointCost) return false;
+	if (ownerPtr->GetCurrentActionPoint() < GetActionPointCost()) return false;
 
 	//전투 자원 부족 시 사용 불가
 	if (ownerPtr->GetBattleResource() < battleResourceCost) return false;
@@ -64,13 +66,44 @@ void UActiveSkillBase::SetCalcedStats()
 	calcPenetration = owner->GetPenetration() + bonusPenetration;
 }
 
+int32 UActiveSkillBase::GetActionPointCost() const
+{
+	ACharacterBase* ownerPtr = GetOwner();
+	const UPassiveSkillComponent* passiveComp = ownerPtr ? ownerPtr->GetPassiveSkillComponent() : nullptr;
+	if (!passiveComp) return actionPointCost;
+
+	//할인이 쌓여도 공짜 스킬은 되지 않는다
+	const int32 discount = passiveComp->GetActionPointDiscount(GetClass());
+	return FMath::Max(1, actionPointCost - discount);
+}
+
 void UActiveSkillBase::BeginUse()
 {
 	ACharacterBase* ownerPtr = GetOwner();
 	if (!ownerPtr) return;
 
-	ownerPtr->ReduceActionPoint(actionPointCost);
+	ownerPtr->ReduceActionPoint(GetActionPointCost());
 	ownerPtr->ReduceBattleResource(battleResourceCost);
+}
+
+void UActiveSkillBase::OnCommit()
+{
+	if (!spawnTerrainClass) return;
+
+	const ACharacterBase* ownerPtr = GetOwner();
+	UWorld* world = ownerPtr ? ownerPtr->GetWorld() : nullptr;
+	if (!world) return;
+
+	//시전 지점은 지면 좌표, 박스 중심을 반높이만큼 올려 지형이 땅 위에 서게 한다
+	const ATerrainBase* defaultTerrain = spawnTerrainClass->GetDefaultObject<ATerrainBase>();
+	const UBoxComponent* defaultBox = defaultTerrain ? defaultTerrain->GetTerrainBox() : nullptr;
+	FVector spawnLocation = skillPointLocation;
+	if (defaultBox)
+	{
+		spawnLocation.Z += defaultBox->GetUnscaledBoxExtent().Z;
+	}
+
+	world->SpawnActor<ATerrainBase>(spawnTerrainClass, FTransform(spawnLocation));
 }
 
 void UActiveSkillBase::Execute(const ACharacterBase* target)

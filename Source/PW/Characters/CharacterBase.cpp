@@ -138,7 +138,9 @@ ACharacterBase::ACharacterBase()
 	//형상을 못 찾을 때 쓰는 크기, 기본값 (100,100,100)은 캡슐의 3배라 구멍이 과하게 넓다
 	//bounds가 컴포넌트 등록 시 캐시되므로 BeginPlay에서 늦게 넣으면 첫 턴 전까지 반영되지 않는다
 	//모든 캐릭터의 캡슐이 34/88로 같다는 전제, 캡슐 규격을 바꾸면 이 값도 함께 고칠 것
-	navObstacle->FailsafeExtent = FVector(34.f, 34.f, 88.f);
+	//엔진이 FailsafeExtent를 월드 단위로 그대로 쓰므로(액터 스케일 미적용) 캐릭터 배율을 직접 곱한다
+	//수평은 캡슐 반경 34보다 넓혀 캐릭터 사이를 비집고 지나가는 경로를 막는다
+	navObstacle->FailsafeExtent = FVector(40.f, 40.f, 88.f) * CharacterScale;
 
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
@@ -845,6 +847,15 @@ void ACharacterBase::ApplyBuffDelta(const UBuffBase* buff, int32 sign)
 void ACharacterBase::ApplyPassiveStatDelta(const UPassiveSkillBase* passive, int32 sign)
 {
 	if (!passive || (sign != 1 && sign != -1)) return;
+
+	//Stat 타입은 습득 즉시 영구 적용이라 걸린 효과로 세지 않는다
+	if (passive->passiveType != EPassiveType::Stat)
+	{
+		const TWeakObjectPtr<const UPassiveSkillBase> key(passive);
+		int32& stack = passiveDeltaStacks.FindOrAdd(key);
+		stack += sign;
+		if (stack <= 0) passiveDeltaStacks.Remove(key);
+	}
 
 	UE_LOG(LogTemp, Log, TEXT("[Passive] %s 패시브 '%s' 적용 시작 (sign=%d)"),
 		*GetName(),

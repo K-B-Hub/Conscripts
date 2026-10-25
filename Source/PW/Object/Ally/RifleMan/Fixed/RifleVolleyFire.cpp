@@ -13,7 +13,7 @@ URifleVolleyFire::URifleVolleyFire()
 	//부채꼴은 시전자에 붙어 방향만 조준한다
 	selectMode = ESelectMode::GroundPoint;
 	pickTeam = EPickTeam::EnemyOnly;
-	areaTarget = EAreaTarget::EnemyOnly;
+	areaTarget = EAreaTarget::All;
 	areaForm = EAreaForm::Cone;
 	//반지름 8m, 중심각 90도
 	areaParameter1 = 8.f * CmPerMeter;

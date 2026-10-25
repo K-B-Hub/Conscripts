@@ -73,6 +73,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Terrain|Move")
 	float movingPointCostMultiplier = 1.f;
 
+	//지속 라운드, 0이면 영구(레벨에 미리 배치된 지형)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Terrain|Lifetime")
+	int32 lifeRound = 0;
+
 	//AI 평가용 체류 가치(턴당, 기대 HP 환산), 음수면 회피 대상
 	//지형은 객관적 손익만 기술하고, 자기 상태에 비춘 해석은 AI가 담당
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Terrain|AI")
@@ -94,6 +98,9 @@ public:
 
 	//임의 위치가 지형 내부인지, AI가 이동 후보를 사전 평가할 때 사용
 	bool IsLocationInside(const FVector& location) const;
+
+	//라운드 시작마다 1회, 잔여 라운드를 줄이고 계속 존재하는지 반환, 영구 지형은 항상 true
+	bool TickLifetime();
 
 	//현재 체류 중인 캐릭터 목록, 주변 대상 판정이 필요한 지형이 사용
 	const TArray<TWeakObjectPtr<ACharacterBase>>& GetOccupants() const { return occupants; }

@@ -3,6 +3,7 @@
 #include "Widget/SkillTooltipWidget.h"
 #include "Object/Skill/SkillBase.h"
 #include "Object/Skill/ActiveSkillBase.h"
+#include "Widget/StatusEffectIcon.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
 
@@ -32,7 +33,7 @@ void USkillTooltipWidget::InitTooltip(const USkillBase* skill)
 	{
 		if (active)
 		{
-			ActionPointCostText->SetText(FText::FromString(FString::Printf(TEXT("AP : %d"), active->actionPointCost)));
+			ActionPointCostText->SetText(FText::FromString(FString::Printf(TEXT("AP : %d"), active->GetActionPointCost())));
 		}
 		ActionPointCostText->SetVisibility(active ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
@@ -62,6 +63,40 @@ void USkillTooltipWidget::InitTooltip(const USkillBase* skill)
 	}
 
 	//클릭을 먹지 않게 HitTestInvisible로 띄운다, 뒤의 스킬 목록을 계속 누를 수 있어야 한다
+	SetVisibility(ESlateVisibility::HitTestInvisible);
+}
+
+void USkillTooltipWidget::InitStatusTooltip(const FStatusEffectView& view)
+{
+	if (SkillNameText) SkillNameText->SetText(view.name);
+	if (SkillDescriptionText) SkillDescriptionText->SetText(view.description);
+
+	//턴 제한 없는 패시브는 남은 턴을 띄우지 않는다
+	if (ActionPointCostText)
+	{
+		const bool bHasTurn = view.remainingTurn != INDEX_NONE;
+		if (bHasTurn)
+		{
+			ActionPointCostText->SetText(FText::FromString(FString::Printf(TEXT("남은 턴 : %d"), view.remainingTurn)));
+		}
+		ActionPointCostText->SetVisibility(bHasTurn ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	}
+
+	if (BattleResourceCostText) BattleResourceCostText->SetVisibility(ESlateVisibility::Collapsed);
+
+	if (SkillIcon)
+	{
+		if (view.icon)
+		{
+			SkillIcon->SetBrushFromTexture(view.icon);
+			SkillIcon->SetVisibility(ESlateVisibility::HitTestInvisible);
+		}
+		else
+		{
+			SkillIcon->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
 	SetVisibility(ESlateVisibility::HitTestInvisible);
 }
 

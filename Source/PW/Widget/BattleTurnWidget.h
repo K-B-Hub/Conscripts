@@ -12,6 +12,8 @@ class UCircularGaugeWidget;
 class UMovingPointWidget;
 class ACharacterBase;
 class AAllyCharacterBase;
+class UPanelWidget;
+class UStatusEffectIcon;
 
 //아군 턴 동안만 표시되는 HUD 컨테이너, 이동/스킬/턴종료/게이지 위젯을 하나로 묶음
 //TurnEndWidget은 C++ 접근이 불필요해 바인딩 없이 BP에 자유 배치
@@ -33,6 +35,9 @@ public:
 	//게이지 네 개 갱신, 레벨업·패시브로 최대치도 변하므로 유닛을 그대로 받아 max까지 함께 읽는다
 	//값을 나열해 받으면 게이지를 더할 때마다 인자가 둘씩 늘어난다
 	void RefreshGauges(ACharacterBase* unit);
+
+	//턴 유닛의 버프·상태이상 아이콘 갱신
+	void RefreshStatusEffects(ACharacterBase* unit);
 
 protected:
 	//BP에서 각 이름으로 자동 바인딩
@@ -58,4 +63,11 @@ protected:
 	//이동력만 폴링이라 자체 Tick을 가진 별도 위젯이다
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UMovingPointWidget> MovingPointWidget;
+
+	//스킬 위젯 상단 바에 겹쳐 둔 아이콘 칸, ScrollBox 안 WrapBox를 바인딩해 줄이 늘게 한다
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPanelWidget> StatusEffectBox;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UStatusEffectIcon> statusIconClass;
 };

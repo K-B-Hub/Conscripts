@@ -33,6 +33,8 @@ void UAilmentComponent::AddAilment(TSubclassOf<UAilmentBase> ailmentClass, AChar
 			if (existing && existing->GetClass() == ailmentClass)
 			{
 				existing->remainingTurn += ailmentCDO->ailmentTurn;
+				//턴 HUD 아이콘·툴팁 갱신용
+				ownerCharacter->OnVitalsChanged.Broadcast();
 				return;
 			}
 		}
@@ -47,6 +49,9 @@ void UAilmentComponent::AddAilment(TSubclassOf<UAilmentBase> ailmentClass, AChar
 	ailmentInstance->remainingTurn = ailmentInstance->ailmentTurn;
 
 	activeAilments.Add(ailmentInstance);
+
+	//턴 HUD 아이콘 갱신용
+	ownerCharacter->OnVitalsChanged.Broadcast();
 }
 
 void UAilmentComponent::RemoveAilmentAt(int32 Index)

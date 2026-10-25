@@ -101,6 +101,7 @@ void AAttackRangeIndicator::SetupAreaDecal(const UActiveSkillBase* Skill)
 	UMaterialInterface* decalMaterial = areaDecalMaterial;
 	FVector decalSize = FVector(decalProjectionDepth, Skill->areaParameter1, Skill->areaParameter1);
 	FVector decalOffset = FVector::ZeroVector;
+	FRotator decalRotation(-90.f, 0.f, 0.f);
 
 	switch (Skill->areaForm)
 	{
@@ -114,6 +115,8 @@ void AAttackRangeIndicator::SetupAreaDecal(const UActiveSkillBase* Skill)
 		break;
 	case EAreaForm::Cone:
 		decalMaterial = coneDecalMaterial;
+		//머티리얼의 +V가 데칼 Y(우측)에 붙으므로 -90도 돌려 전방에 맞춤
+		decalRotation.Yaw = -90.f;
 		break;
 	}
 
@@ -123,6 +126,7 @@ void AAttackRangeIndicator::SetupAreaDecal(const UActiveSkillBase* Skill)
 	}
 	areaDecal->DecalSize = decalSize;
 	areaDecal->SetRelativeLocation(decalOffset);
+	areaDecal->SetRelativeRotation(decalRotation);
 	areaDecal->SetVisibility(true);
 
 	//Ray/Cone은 윤곽선만 그리므로 UV를 월드 cm로 환산할 실제 치수를 넘겨야 선 두께가 균일해짐

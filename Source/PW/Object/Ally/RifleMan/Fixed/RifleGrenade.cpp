@@ -11,7 +11,7 @@ URifleGrenade::URifleGrenade()
 	skillType = ESkillType::Throw;
 	damageType = EDamageType::Area;
 	selectMode = ESelectMode::GroundPoint;
-	pickTeam = EPickTeam::EnemyOnly;
+	pickTeam = EPickTeam::Any;
 	areaTarget = EAreaTarget::All;
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 2.f * CmPerMeter;
