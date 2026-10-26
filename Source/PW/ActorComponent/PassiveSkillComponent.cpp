@@ -225,17 +225,20 @@ bool UPassiveSkillComponent::HasThrowCriticalUnlock() const
 	return false;
 }
 
-int32 UPassiveSkillComponent::GetActionPointDiscount(const UClass* skillClass) const
+int32 UPassiveSkillComponent::GetActionPointDiscount(const UClass* skillClass, ESkillType skillType) const
 {
 	if (!skillClass) return 0;
 
 	int32 discount = 0;
 	for (const UPassiveSkillBase* passive : activePassives)
 	{
-		if (!passive || !passive->discountSkillClass) continue;
+		if (!passive) continue;
 
 		//스킬 BP 파생도 같은 할인을 받도록 파생 관계로 판정
-		if (skillClass->IsChildOf(passive->discountSkillClass.Get()))
+		const bool bClassMatch = passive->discountSkillClass
+			&& skillClass->IsChildOf(passive->discountSkillClass.Get());
+		const bool bTypeMatch = passive->discountSkillTypes.Contains(skillType);
+		if (bClassMatch || bTypeMatch)
 		{
 			discount += passive->actionPointDiscount;
 		}

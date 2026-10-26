@@ -14,6 +14,9 @@ void UPWGameUserSettings::SetToDefaults()
 
 	enemyTurnSpeed = 1.f;
 	bEnemyTurnCameraFollow = true;
+	masterVolume = 1.f;
+	musicVolume = 1.f;
+	sfxVolume = 1.f;
 }
 
 const TArray<float>& UPWGameUserSettings::GetEnemyTurnSpeedOptions()

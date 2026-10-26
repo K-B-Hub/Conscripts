@@ -15,11 +15,8 @@ class PW_API UHealthWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	//캐릭터 BeginPlay에서 최대/현재 체력으로 초기화
+	//최대/현재 체력을 받아 바와 수치를 갱신, 체력이 바뀌는 모든 경로가 이것만 호출한다
 	void InitHealth(int32 InMaxHp, int32 InCurrentHp);
-
-	//데미지 적용 후 체력 바 갱신, 양수는 데미지 음수는 회복
-	void ApplyDamage(int32 Amount);
 
 protected:
 	virtual void NativeConstruct() override;

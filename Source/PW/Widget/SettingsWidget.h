@@ -10,11 +10,13 @@
 class UButton;
 class UCheckBox;
 class UComboBoxString;
+class UProgressBar;
+class USlider;
 class UTextBlock;
 class UPWGameUserSettings;
 
 //설정 화면
-//해상도·창모드만 적용 버튼을 거치고 나머지는 즉시 적용된다 — 잘못된 해상도는 되돌릴 UI가 안 보일 수 있으므로
+//컨트롤 조작은 화면에만 머물고 적용 버튼이 전부 한 번에 반영한다
 UCLASS()
 class PW_API USettingsWidget : public UUserWidget
 {
@@ -27,15 +29,12 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
-	virtual void NativeDestruct() override;
 
-	//화면 — 적용 버튼을 거치는 둘
+	//화면
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UComboBoxString> ResolutionCombo;
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UComboBoxString> WindowModeCombo;
-
-	//화면 — 즉시 적용
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UCheckBox> VSyncCheck;
 	UPROPERTY(meta = (BindWidget))
@@ -57,88 +56,66 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UComboBoxString> ViewDistanceQualityCombo;
 
+	//오디오 — 슬라이더는 손잡이만, 채움은 뒤에 깔린 프로그레스바가 그린다
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<USlider> MasterVolumeSlider;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UProgressBar> MasterVolumeBar;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MasterVolumeText;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<USlider> MusicVolumeSlider;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UProgressBar> MusicVolumeBar;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MusicVolumeText;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<USlider> SfxVolumeSlider;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UProgressBar> SfxVolumeBar;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> SfxVolumeText;
+
 	//게임플레이
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UComboBoxString> EnemyTurnSpeedCombo;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UCheckBox> EnemyTurnCameraCheck;
 
-	//해상도 적용과 되돌리기 확인
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> ApplyButton;
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UWidget> ConfirmPanel;
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UButton> ConfirmButton;
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UTextBlock> ConfirmCountdownText;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> DefaultsButton;
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> BackButton;
 
-	//해상도 적용 후 확인을 기다리는 시간, 넘기면 이전 모드로 되돌린다
-	UPROPERTY(EditDefaultsOnly, Category = "Settings")
-	int32 videoConfirmSeconds = 15;
-
 private:
-	//현재 설정값을 모든 컨트롤에 반영, 생성 시점과 기본값 복원 후에 호출
-	void RefreshFromSettings();
-
-	//품질 6축만 갱신, 프리셋을 바꾸면 개별 축이 따라 움직이므로 분리해 둔다
-	void RefreshQualityCombos(const UPWGameUserSettings* settings);
+	//source의 값을 모든 컨트롤에 표시, 열 때·적용 후엔 실제 설정, 초기화 땐 기본값 객체를 넘긴다
+	void RefreshFromSettings(const UPWGameUserSettings* source);
 
 	//5단계 척도를 채우고 현재 단계를 선택, 품질 콤보 7개가 공유한다
 	void FillQualityOptions(UComboBoxString* combo, int32 level);
 
-	//즉시 적용 항목의 공통 마무리
-	void ApplyImmediate(UPWGameUserSettings* settings);
-
-	//해상도 확인 패널 표시·숨김과 1초 카운트다운
-	void ShowVideoConfirm();
-	void HideVideoConfirm();
-	void TickVideoConfirm();
-
-	//확인 없이 시간이 다 가면 이전 해상도로 복구
-	void RevertVideoMode();
+	//슬라이더 값을 채움과 퍼센트 글자에 맞춘다, SetValue는 OnValueChanged를 쏘지 않아 표시 때도 직접 부른다
+	void SetVolumeDisplay(USlider* slider, UProgressBar* bar, UTextBlock* text, float volume);
 
 	//ResolutionCombo 인덱스 → 실제 해상도, 문자열을 되파싱하지 않기 위해 들고 있는다
 	TArray<FIntPoint> resolutionOptions;
 
-	FTimerHandle videoConfirmTimerHandle;
-	int32 videoConfirmRemaining = 0;
-
-	UFUNCTION()
-	void HandleVSyncChanged(bool bIsChecked);
-	UFUNCTION()
-	void HandleFrameRateChanged(FString selectedItem, ESelectInfo::Type selectInfo);
-
 	UFUNCTION()
 	void HandleOverallQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo);
-	UFUNCTION()
-	void HandleShadowQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo);
-	UFUNCTION()
-	void HandleTextureQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo);
-	UFUNCTION()
-	void HandleEffectQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo);
-	UFUNCTION()
-	void HandlePostProcessQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo);
-	UFUNCTION()
-	void HandleAntiAliasingQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo);
-	UFUNCTION()
-	void HandleViewDistanceQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo);
 
 	UFUNCTION()
-	void HandleEnemyTurnSpeedChanged(FString selectedItem, ESelectInfo::Type selectInfo);
+	void HandleMasterVolumeChanged(float value);
 	UFUNCTION()
-	void HandleEnemyTurnCameraChanged(bool bIsChecked);
+	void HandleMusicVolumeChanged(float value);
+	UFUNCTION()
+	void HandleSfxVolumeChanged(float value);
 
 	UFUNCTION()
 	void HandleApplyClicked();
-	UFUNCTION()
-	void HandleConfirmClicked();
 	UFUNCTION()
 	void HandleDefaultsClicked();
 	UFUNCTION()

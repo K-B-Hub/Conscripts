@@ -41,8 +41,8 @@ public:
 	//투척 한정으로 광역 치명타 봉쇄를 푸는 패시브를 보유 중인지, 봉쇄 지점 두 곳이 모두 이 값을 본다
 	bool HasThrowCriticalUnlock() const;
 
-	//해당 스킬 클래스에 걸린 행동력 할인 합계
-	int32 GetActionPointDiscount(const UClass* skillClass) const;
+	//해당 스킬에 걸린 행동력 할인 합계, 클래스 지정과 유형 지정을 모두 더한다
+	int32 GetActionPointDiscount(const UClass* skillClass, ESkillType skillType) const;
 
 	const TArray<TObjectPtr<UPassiveSkillBase>>& GetActivePassives() const { return activePassives; }
 

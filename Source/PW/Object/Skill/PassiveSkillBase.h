@@ -60,7 +60,11 @@ public:
 	//행동력 소모를 깎아줄 스킬, 지정된 클래스에만 적용되며 조건 검사를 거치지 않는다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Cost")
 	TSubclassOf<UActiveSkillBase> discountSkillClass;
-	//깎아줄 행동력, discountSkillClass 미지정이면 무의미
+	//행동력 소모를 깎아줄 스킬 유형, 비어 있으면 유형 기준 할인 없음
+	//"근접 공격 전체" 처럼 클래스가 여럿인 대상을 한 번에 지정할 때 쓴다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Cost")
+	TArray<ESkillType> discountSkillTypes;
+	//깎아줄 행동력, discountSkillClass·discountSkillTypes 둘 다 미지정이면 무의미
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Cost")
 	int32 actionPointDiscount = 0;
 

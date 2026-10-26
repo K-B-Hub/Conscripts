@@ -119,7 +119,8 @@ public:
 	//현재 이동력 기준 실제 사용 가능 사거리(cm), 점프는 이동력 예산으로 제한, 그 외는 pickRange
 	float GetEffectivePickRange() const;
 
-	void SetCalcedStats();
+	//스킬 계산값 갱신, 피해량이 공격력에서 나오지 않는 스킬은 파생에서 덮어쓴다
+	virtual void SetCalcedStats();
 
 	//피해량이 고정이 아니라 구간을 갖는가, 인디케이터 표기와 적중 굴림 분기에 쓴다
 	bool HasDamageRange() const { return damageRatioMax > damageRatio; }

@@ -7,6 +7,10 @@
 #include "DataAsset/RunModeData.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Settings/PWGameUserSettings.h"
+#include "AudioDevice.h"
+#include "Sound/SoundMix.h"
+#include "Sound/SoundClass.h"
 
 namespace
 {
@@ -39,6 +43,8 @@ void UPWGameInstance::Init()
 {
 	Super::Init();
 
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UPWGameInstance::HandlePostLoadMap);
+
 	runProgress = NewObject<URunProgress>(this);
 
 	const bool bSlotExists = UGameplayStatics::DoesSaveGameExist(SaveSlotName, SaveUserIndex);
@@ -60,6 +66,49 @@ void UPWGameInstance::Init()
 		bSlotExists ? TEXT("있음") : TEXT("없음"),
 		bLoaded ? TEXT("성공") : TEXT("실패, 새로 생성"),
 		saveGame ? saveGame->clearedStoryRoutes.Num() : 0);
+}
+
+void UPWGameInstance::OnStart()
+{
+	Super::OnStart();
+
+	//PIE 첫 월드는 맵 로드 통지를 거치지 않는다
+	ApplyAudioSettings();
+}
+
+void UPWGameInstance::HandlePostLoadMap(UWorld* loadedWorld)
+{
+	//PIE 다중 인스턴스면 다른 인스턴스의 로드도 통지된다
+	if (loadedWorld != GetWorld()) return;
+
+	ApplyAudioSettings();
+}
+
+void UPWGameInstance::ApplyAudioSettings()
+{
+	const UPWGameUserSettings* settings = UPWGameUserSettings::Get();
+	UWorld* world = GetWorld();
+	if (!settings || !world) return;
+
+	//마스터는 사운드 클래스 계층과 무관하게 디바이스 전체에 건다
+	FAudioDeviceHandle audioDevice = world->GetAudioDevice();
+	if (audioDevice.IsValid())
+	{
+		audioDevice->SetTransientPrimaryVolume(settings->GetMasterVolume());
+	}
+
+	if (!volumeSoundMix) return;
+
+	if (musicSoundClass)
+	{
+		UGameplayStatics::SetSoundMixClassOverride(world, volumeSoundMix, musicSoundClass, settings->GetMusicVolume(), 1.f, 0.f);
+	}
+	if (sfxSoundClass)
+	{
+		UGameplayStatics::SetSoundMixClassOverride(world, volumeSoundMix, sfxSoundClass, settings->GetSfxVolume(), 1.f, 0.f);
+	}
+
+	UGameplayStatics::PushSoundMixModifier(world, volumeSoundMix);
 }
 
 void UPWGameInstance::SaveProgress()

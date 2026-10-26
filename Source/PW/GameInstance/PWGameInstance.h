@@ -17,6 +17,8 @@ class URunProgress;
 class UPWSaveGame;
 class AAllyCharacterBase;
 class USquadData;
+class USoundMix;
+class USoundClass;
 
 //전투 맵 하나에 나올 적 인원 범위, 분대는 쪼개지 않으므로 Max를 조금 넘을 수 있다
 USTRUCT(BlueprintType)
@@ -124,7 +126,22 @@ public:
 	//시퀀스를 고정으로 줄지 규칙으로 만들지는 난이도를 아는 이쪽이 판단한다
 	void StartRun(const TArray<FAllyRunState>& roster, FName storyRouteId);
 
+	//설정의 음량을 오디오에 반영, 설정 화면 적용·게임 시작·맵 로드 때 호출
+	void ApplyAudioSettings();
+
 protected:
+	virtual void OnStart() override;
+
+	//음악·효과음 음량 덮어쓰기를 담는 믹스
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundMix> volumeSoundMix;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundClass> musicSoundClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundClass> sfxSoundClass;
+
 	//현재 런의 난이도
 	//메인메뉴를 거치지 않고 전투 맵에 직접 들어가 테스트할 때의 기본값 역할도 한다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game")
@@ -181,6 +198,9 @@ protected:
 	TSoftObjectPtr<UWorld> hubMap;
 
 private:
+	//맵 전환이 사운드 믹스를 비울 수 있어 로드마다 다시 건다
+	void HandlePostLoadMap(UWorld* loadedWorld);
+
 	//런 진행 상태, 런 시작 시 통째로 교체
 	UPROPERTY()
 	TObjectPtr<URunProgress> runProgress;

@@ -17,12 +17,6 @@ void UHealthWidget::InitHealth(int32 InMaxHp, int32 InCurrentHp)
 	UpdateHealthBar();
 }
 
-void UHealthWidget::ApplyDamage(int32 Amount)
-{
-	currentHp = FMath::Clamp(currentHp - Amount, 0, maxHp);
-	UpdateHealthBar();
-}
-
 void UHealthWidget::UpdateHealthBar()
 {
 	if (HealthBar)
