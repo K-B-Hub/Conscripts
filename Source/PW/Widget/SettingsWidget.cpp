@@ -2,12 +2,14 @@
 
 #include "Widget/SettingsWidget.h"
 #include "Settings/PWGameUserSettings.h"
+#include "GameInstance/PWGameInstance.h"
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 #include "Components/ComboBoxString.h"
+#include "Components/ProgressBar.h"
+#include "Components/Slider.h"
 #include "Components/TextBlock.h"
 #include "Kismet/KismetSystemLibrary.h"
-#include "TimerManager.h"
 
 namespace
 {
@@ -37,44 +39,22 @@ void USettingsWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (VSyncCheck)                VSyncCheck->OnCheckStateChanged.AddDynamic(this, &USettingsWidget::HandleVSyncChanged);
-	if (FrameRateCombo)            FrameRateCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleFrameRateChanged);
+	if (OverallQualityCombo) OverallQualityCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleOverallQualityChanged);
 
-	if (OverallQualityCombo)       OverallQualityCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleOverallQualityChanged);
-	if (ShadowQualityCombo)        ShadowQualityCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleShadowQualityChanged);
-	if (TextureQualityCombo)       TextureQualityCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleTextureQualityChanged);
-	if (EffectQualityCombo)        EffectQualityCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleEffectQualityChanged);
-	if (PostProcessQualityCombo)   PostProcessQualityCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandlePostProcessQualityChanged);
-	if (AntiAliasingQualityCombo)  AntiAliasingQualityCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleAntiAliasingQualityChanged);
-	if (ViewDistanceQualityCombo)  ViewDistanceQualityCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleViewDistanceQualityChanged);
-
-	if (EnemyTurnSpeedCombo)       EnemyTurnSpeedCombo->OnSelectionChanged.AddDynamic(this, &USettingsWidget::HandleEnemyTurnSpeedChanged);
-	if (EnemyTurnCameraCheck)      EnemyTurnCameraCheck->OnCheckStateChanged.AddDynamic(this, &USettingsWidget::HandleEnemyTurnCameraChanged);
+	if (MasterVolumeSlider) MasterVolumeSlider->OnValueChanged.AddDynamic(this, &USettingsWidget::HandleMasterVolumeChanged);
+	if (MusicVolumeSlider)  MusicVolumeSlider->OnValueChanged.AddDynamic(this, &USettingsWidget::HandleMusicVolumeChanged);
+	if (SfxVolumeSlider)    SfxVolumeSlider->OnValueChanged.AddDynamic(this, &USettingsWidget::HandleSfxVolumeChanged);
 
 	if (ApplyButton)    ApplyButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleApplyClicked);
-	if (ConfirmButton)  ConfirmButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleConfirmClicked);
 	if (DefaultsButton) DefaultsButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleDefaultsClicked);
 	if (BackButton)     BackButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleBackClicked);
 
-	HideVideoConfirm();
-	RefreshFromSettings();
+	RefreshFromSettings(UPWGameUserSettings::Get());
 }
 
-void USettingsWidget::NativeDestruct()
+void USettingsWidget::RefreshFromSettings(const UPWGameUserSettings* source)
 {
-	//확인 대기 중에 화면을 떠나면 타이머만 남아 죽은 위젯을 두드린다
-	if (UWorld* world = GetWorld())
-	{
-		world->GetTimerManager().ClearTimer(videoConfirmTimerHandle);
-	}
-
-	Super::NativeDestruct();
-}
-
-void USettingsWidget::RefreshFromSettings()
-{
-	UPWGameUserSettings* settings = UPWGameUserSettings::Get();
-	if (!settings) return;
+	if (!source) return;
 
 	//해상도 — 모니터가 보고한 모드만 올린다
 	if (ResolutionCombo)
@@ -82,8 +62,14 @@ void USettingsWidget::RefreshFromSettings()
 		resolutionOptions.Reset();
 		UKismetSystemLibrary::GetSupportedFullscreenResolutions(resolutionOptions);
 
+		//기본값은 0x0(데스크톱 해상도 사용)이라 실제 크기로 바꿔 표시한다
+		FIntPoint current = source->GetScreenResolution();
+		if (current.X <= 0 || current.Y <= 0)
+		{
+			current = source->GetDesktopResolution();
+		}
+
 		//현재 해상도가 목록에 없을 수 있다(창 모드에서 임의 크기), 그때도 고를 수 있게 끼워 넣는다
-		const FIntPoint current = settings->GetScreenResolution();
 		if (!resolutionOptions.Contains(current))
 		{
 			resolutionOptions.Add(current);
@@ -104,12 +90,12 @@ void USettingsWidget::RefreshFromSettings()
 		{
 			WindowModeCombo->AddOption(label);
 		}
-		WindowModeCombo->SetSelectedIndex(static_cast<int32>(settings->GetFullscreenMode()));
+		WindowModeCombo->SetSelectedIndex(static_cast<int32>(source->GetFullscreenMode()));
 	}
 
 	if (VSyncCheck)
 	{
-		VSyncCheck->SetIsChecked(settings->IsVSyncEnabled());
+		VSyncCheck->SetIsChecked(source->IsVSyncEnabled());
 	}
 
 	if (FrameRateCombo)
@@ -121,9 +107,21 @@ void USettingsWidget::RefreshFromSettings()
 		}
 
 		//저장된 상한이 후보에 없으면 무제한(마지막 항목)으로 표시한다
-		const int32 index = FrameRateOptions().IndexOfByKey(settings->GetFrameRateLimit());
+		const int32 index = FrameRateOptions().IndexOfByKey(source->GetFrameRateLimit());
 		FrameRateCombo->SetSelectedIndex(index != INDEX_NONE ? index : FrameRateOptions().Num() - 1);
 	}
+
+	FillQualityOptions(OverallQualityCombo, source->GetOverallScalabilityLevel());
+	FillQualityOptions(ShadowQualityCombo, source->GetShadowQuality());
+	FillQualityOptions(TextureQualityCombo, source->GetTextureQuality());
+	FillQualityOptions(EffectQualityCombo, source->GetVisualEffectQuality());
+	FillQualityOptions(PostProcessQualityCombo, source->GetPostProcessingQuality());
+	FillQualityOptions(AntiAliasingQualityCombo, source->GetAntiAliasingQuality());
+	FillQualityOptions(ViewDistanceQualityCombo, source->GetViewDistanceQuality());
+
+	SetVolumeDisplay(MasterVolumeSlider, MasterVolumeBar, MasterVolumeText, source->GetMasterVolume());
+	SetVolumeDisplay(MusicVolumeSlider, MusicVolumeBar, MusicVolumeText, source->GetMusicVolume());
+	SetVolumeDisplay(SfxVolumeSlider, SfxVolumeBar, SfxVolumeText, source->GetSfxVolume());
 
 	if (EnemyTurnSpeedCombo)
 	{
@@ -135,33 +133,14 @@ void USettingsWidget::RefreshFromSettings()
 		}
 
 		//ini를 손편집해 후보에 없는 값이 들어와도 선택이 비지 않도록 1x로 떨어뜨린다
-		const int32 index = speeds.IndexOfByKey(settings->GetEnemyTurnSpeed());
+		const int32 index = speeds.IndexOfByKey(source->GetEnemyTurnSpeed());
 		EnemyTurnSpeedCombo->SetSelectedIndex(index != INDEX_NONE ? index : 0);
 	}
 
 	if (EnemyTurnCameraCheck)
 	{
-		EnemyTurnCameraCheck->SetIsChecked(settings->IsEnemyTurnCameraFollowEnabled());
+		EnemyTurnCameraCheck->SetIsChecked(source->IsEnemyTurnCameraFollowEnabled());
 	}
-
-	RefreshQualityCombos(settings);
-}
-
-void USettingsWidget::RefreshQualityCombos(const UPWGameUserSettings* settings)
-{
-	if (!settings) return;
-
-	if (OverallQualityCombo)
-	{
-		FillQualityOptions(OverallQualityCombo, settings->GetOverallScalabilityLevel());
-	}
-
-	FillQualityOptions(ShadowQualityCombo, settings->GetShadowQuality());
-	FillQualityOptions(TextureQualityCombo, settings->GetTextureQuality());
-	FillQualityOptions(EffectQualityCombo, settings->GetVisualEffectQuality());
-	FillQualityOptions(PostProcessQualityCombo, settings->GetPostProcessingQuality());
-	FillQualityOptions(AntiAliasingQualityCombo, settings->GetAntiAliasingQuality());
-	FillQualityOptions(ViewDistanceQualityCombo, settings->GetViewDistanceQuality());
 }
 
 void USettingsWidget::FillQualityOptions(UComboBoxString* combo, int32 level)
@@ -185,252 +164,126 @@ void USettingsWidget::FillQualityOptions(UComboBoxString* combo, int32 level)
 	}
 }
 
-void USettingsWidget::ApplyImmediate(UPWGameUserSettings* settings)
+void USettingsWidget::SetVolumeDisplay(USlider* slider, UProgressBar* bar, UTextBlock* text, float volume)
 {
-	settings->ApplyNonResolutionSettings();
-	settings->SaveSettings();
-}
-
-void USettingsWidget::HandleVSyncChanged(bool bIsChecked)
-{
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetVSyncEnabled(bIsChecked);
-		ApplyImmediate(settings);
-	}
-}
-
-void USettingsWidget::HandleFrameRateChanged(FString selectedItem, ESelectInfo::Type selectInfo)
-{
-	//코드가 선택을 바꿀 때도 이 델리게이트가 Direct로 불린다, 초기화가 ini를 덮어쓰지 않도록 걸러낸다
-	if (selectInfo == ESelectInfo::Direct) return;
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		const int32 index = FrameRateCombo->GetSelectedIndex();
-		if (!FrameRateOptions().IsValidIndex(index)) return;
-
-		settings->SetFrameRateLimit(FrameRateOptions()[index]);
-		ApplyImmediate(settings);
-	}
+	if (slider) slider->SetValue(volume);
+	if (bar)    bar->SetPercent(volume);
+	if (text)   text->SetText(FText::FromString(FString::Printf(TEXT("%d%%"), FMath::RoundToInt(volume * 100.f))));
 }
 
 void USettingsWidget::HandleOverallQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo)
 {
+	//코드가 선택을 바꿀 때도 Direct로 불린다, 표시 갱신이 개별 축을 덮지 않도록 걸러낸다
 	if (selectInfo == ESelectInfo::Direct) return;
 
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetOverallScalabilityLevel(OverallQualityCombo->GetSelectedIndex());
-		ApplyImmediate(settings);
+	const int32 level = OverallQualityCombo->GetSelectedIndex();
+	if (!QualityLabels().IsValidIndex(level)) return;
 
-		//프리셋이 개별 축을 통째로 덮었으므로 표시를 다시 맞춘다
-		RefreshQualityCombos(settings);
+	//프리셋은 개별 축을 통째로 정하므로 화면만 따라 맞춘다
+	for (UComboBoxString* combo : { ShadowQualityCombo.Get(), TextureQualityCombo.Get(), EffectQualityCombo.Get(),
+		PostProcessQualityCombo.Get(), AntiAliasingQualityCombo.Get(), ViewDistanceQualityCombo.Get() })
+	{
+		if (combo) combo->SetSelectedIndex(level);
 	}
 }
 
-void USettingsWidget::HandleShadowQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo)
+void USettingsWidget::HandleMasterVolumeChanged(float value)
 {
-	if (selectInfo == ESelectInfo::Direct) return;
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetShadowQuality(ShadowQualityCombo->GetSelectedIndex());
-		ApplyImmediate(settings);
-	}
+	SetVolumeDisplay(MasterVolumeSlider, MasterVolumeBar, MasterVolumeText, value);
 }
 
-void USettingsWidget::HandleTextureQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo)
+void USettingsWidget::HandleMusicVolumeChanged(float value)
 {
-	if (selectInfo == ESelectInfo::Direct) return;
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetTextureQuality(TextureQualityCombo->GetSelectedIndex());
-		ApplyImmediate(settings);
-	}
+	SetVolumeDisplay(MusicVolumeSlider, MusicVolumeBar, MusicVolumeText, value);
 }
 
-void USettingsWidget::HandleEffectQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo)
+void USettingsWidget::HandleSfxVolumeChanged(float value)
 {
-	if (selectInfo == ESelectInfo::Direct) return;
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetVisualEffectQuality(EffectQualityCombo->GetSelectedIndex());
-		ApplyImmediate(settings);
-	}
-}
-
-void USettingsWidget::HandlePostProcessQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo)
-{
-	if (selectInfo == ESelectInfo::Direct) return;
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetPostProcessingQuality(PostProcessQualityCombo->GetSelectedIndex());
-		ApplyImmediate(settings);
-	}
-}
-
-void USettingsWidget::HandleAntiAliasingQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo)
-{
-	if (selectInfo == ESelectInfo::Direct) return;
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetAntiAliasingQuality(AntiAliasingQualityCombo->GetSelectedIndex());
-		ApplyImmediate(settings);
-	}
-}
-
-void USettingsWidget::HandleViewDistanceQualityChanged(FString selectedItem, ESelectInfo::Type selectInfo)
-{
-	if (selectInfo == ESelectInfo::Direct) return;
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetViewDistanceQuality(ViewDistanceQualityCombo->GetSelectedIndex());
-		ApplyImmediate(settings);
-	}
-}
-
-void USettingsWidget::HandleEnemyTurnSpeedChanged(FString selectedItem, ESelectInfo::Type selectInfo)
-{
-	if (selectInfo == ESelectInfo::Direct) return;
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		const TArray<float>& speeds = UPWGameUserSettings::GetEnemyTurnSpeedOptions();
-		const int32 index = EnemyTurnSpeedCombo->GetSelectedIndex();
-		if (!speeds.IsValidIndex(index)) return;
-
-		settings->SetEnemyTurnSpeed(speeds[index]);
-
-		//엔진 CVar가 아니라 적용할 것이 없다, 다음 적 턴이 시작될 때 읽힌다
-		settings->SaveSettings();
-	}
-}
-
-void USettingsWidget::HandleEnemyTurnCameraChanged(bool bIsChecked)
-{
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
-	{
-		settings->SetEnemyTurnCameraFollowEnabled(bIsChecked);
-		settings->SaveSettings();
-	}
+	SetVolumeDisplay(SfxVolumeSlider, SfxVolumeBar, SfxVolumeText, value);
 }
 
 void USettingsWidget::HandleApplyClicked()
 {
 	UPWGameUserSettings* settings = UPWGameUserSettings::Get();
-	if (!settings || !ResolutionCombo || !WindowModeCombo) return;
-
-	const int32 resIndex = ResolutionCombo->GetSelectedIndex();
-	if (!resolutionOptions.IsValidIndex(resIndex)) return;
-
-	settings->SetScreenResolution(resolutionOptions[resIndex]);
-	settings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(WindowModeCombo->GetSelectedIndex()));
-	settings->ApplyResolutionSettings(false);
-
-	//아직 저장하지 않는다, 확인을 받아야 확정이다
-	ShowVideoConfirm();
-}
-
-void USettingsWidget::ShowVideoConfirm()
-{
-	if (!ConfirmPanel) return;
-
-	ConfirmPanel->SetVisibility(ESlateVisibility::Visible);
-	videoConfirmRemaining = videoConfirmSeconds;
-
-	if (ConfirmCountdownText)
-	{
-		ConfirmCountdownText->SetText(FText::AsNumber(videoConfirmRemaining));
-	}
-
-	if (UWorld* world = GetWorld())
-	{
-		world->GetTimerManager().SetTimer(videoConfirmTimerHandle, this,
-			&USettingsWidget::TickVideoConfirm, 1.f, true);
-	}
-}
-
-void USettingsWidget::HideVideoConfirm()
-{
-	if (ConfirmPanel)
-	{
-		ConfirmPanel->SetVisibility(ESlateVisibility::Collapsed);
-	}
-
-	if (UWorld* world = GetWorld())
-	{
-		world->GetTimerManager().ClearTimer(videoConfirmTimerHandle);
-	}
-}
-
-void USettingsWidget::TickVideoConfirm()
-{
-	--videoConfirmRemaining;
-
-	if (videoConfirmRemaining <= 0)
-	{
-		RevertVideoMode();
-		return;
-	}
-
-	if (ConfirmCountdownText)
-	{
-		ConfirmCountdownText->SetText(FText::AsNumber(videoConfirmRemaining));
-	}
-}
-
-void USettingsWidget::RevertVideoMode()
-{
-	HideVideoConfirm();
-
-	UPWGameUserSettings* settings = UPWGameUserSettings::Get();
 	if (!settings) return;
 
-	//RevertVideoMode는 필드만 되돌리므로 적용은 따로 불러야 한다
-	settings->RevertVideoMode();
-	settings->ApplyResolutionSettings(false);
-
-	//되돌린 결과를 ini에도 반영한다, 적용 시점에 저장됐는지 여부와 무관하게 상태가 일치하도록
-	settings->SaveSettings();
-
-	RefreshFromSettings();
-}
-
-void USettingsWidget::HandleConfirmClicked()
-{
-	HideVideoConfirm();
-
-	if (UPWGameUserSettings* settings = UPWGameUserSettings::Get())
+	const int32 resIndex = ResolutionCombo ? ResolutionCombo->GetSelectedIndex() : INDEX_NONE;
+	if (resolutionOptions.IsValidIndex(resIndex))
 	{
-		settings->ConfirmVideoMode();
-		settings->SaveSettings();
+		settings->SetScreenResolution(resolutionOptions[resIndex]);
 	}
+
+	const int32 windowIndex = WindowModeCombo ? WindowModeCombo->GetSelectedIndex() : INDEX_NONE;
+	if (WindowModeLabels().IsValidIndex(windowIndex))
+	{
+		settings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(windowIndex));
+	}
+
+	if (VSyncCheck)
+	{
+		settings->SetVSyncEnabled(VSyncCheck->IsChecked());
+	}
+
+	const int32 frameIndex = FrameRateCombo ? FrameRateCombo->GetSelectedIndex() : INDEX_NONE;
+	if (FrameRateOptions().IsValidIndex(frameIndex))
+	{
+		settings->SetFrameRateLimit(FrameRateOptions()[frameIndex]);
+	}
+
+	//빈 선택(-1)은 건너뛴다, 축이 섞여 프리셋이 비어 있을 때 개별 축만 반영하기 위함
+	const auto applyQuality = [settings](const UComboBoxString* combo, void (UGameUserSettings::*setter)(int32))
+	{
+		const int32 level = combo ? combo->GetSelectedIndex() : INDEX_NONE;
+		if (QualityLabels().IsValidIndex(level))
+		{
+			(settings->*setter)(level);
+		}
+	};
+
+	//프리셋을 먼저 걸어 개별 축에 없는 항목(GI·반사 등)까지 맞춘 뒤 개별 축으로 덮는다
+	applyQuality(OverallQualityCombo, &UGameUserSettings::SetOverallScalabilityLevel);
+	applyQuality(ShadowQualityCombo, &UGameUserSettings::SetShadowQuality);
+	applyQuality(TextureQualityCombo, &UGameUserSettings::SetTextureQuality);
+	applyQuality(EffectQualityCombo, &UGameUserSettings::SetVisualEffectQuality);
+	applyQuality(PostProcessQualityCombo, &UGameUserSettings::SetPostProcessingQuality);
+	applyQuality(AntiAliasingQualityCombo, &UGameUserSettings::SetAntiAliasingQuality);
+	applyQuality(ViewDistanceQualityCombo, &UGameUserSettings::SetViewDistanceQuality);
+
+	if (MasterVolumeSlider) settings->SetMasterVolume(MasterVolumeSlider->GetValue());
+	if (MusicVolumeSlider)  settings->SetMusicVolume(MusicVolumeSlider->GetValue());
+	if (SfxVolumeSlider)    settings->SetSfxVolume(SfxVolumeSlider->GetValue());
+
+	const TArray<float>& speeds = UPWGameUserSettings::GetEnemyTurnSpeedOptions();
+	const int32 speedIndex = EnemyTurnSpeedCombo ? EnemyTurnSpeedCombo->GetSelectedIndex() : INDEX_NONE;
+	if (speeds.IsValidIndex(speedIndex))
+	{
+		settings->SetEnemyTurnSpeed(speeds[speedIndex]);
+	}
+
+	if (EnemyTurnCameraCheck)
+	{
+		settings->SetEnemyTurnCameraFollowEnabled(EnemyTurnCameraCheck->IsChecked());
+	}
+
+	//확인 대기 없이 확정한다, ApplySettings가 저장까지 하므로 그 전에 확정값을 맞춘다
+	settings->ConfirmVideoMode();
+	settings->ApplySettings(false);
+
+	if (UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>())
+	{
+		gameInstance->ApplyAudioSettings();
+	}
+
+	//축이 섞이면 프리셋 표시가 비는 등 실제 결과를 다시 보여준다
+	RefreshFromSettings(settings);
 }
 
 void USettingsWidget::HandleDefaultsClicked()
 {
-	UPWGameUserSettings* settings = UPWGameUserSettings::Get();
-	if (!settings) return;
-
-	HideVideoConfirm();
-
-	settings->SetToDefaults();
-
-	//SetToDefaults는 해상도를 0으로 두므로 데스크톱 해상도로 메워야 한다
-	settings->ValidateSettings();
-	settings->ApplySettings(false);
-
-	//기본값 해상도는 데스크톱 native라 되돌리기 확인이 필요 없다
-	settings->ConfirmVideoMode();
-	settings->SaveSettings();
-
-	RefreshFromSettings();
+	//실제 설정은 적용 전까지 건드리지 않는다, 기본값만 담은 임시 객체로 화면을 채운다
+	UPWGameUserSettings* defaults = NewObject<UPWGameUserSettings>();
+	defaults->SetToDefaults();
+	RefreshFromSettings(defaults);
 }
 
 void USettingsWidget::HandleBackClicked()

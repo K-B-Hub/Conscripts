@@ -1039,9 +1039,10 @@ void ACharacterBase::ReceiveDamage(int32 Amount, bool bIsLethal)
 
 	hp = FMath::Clamp(hp - Amount, minHp, maxHp);
 
+	//피해량이 아니라 클램프를 거친 실제 체력을 넘긴다, 비치명 하한 1·생존 패시브가 깎인 분을 위젯이 알 수 없다
 	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
-		HealthWidget->ApplyDamage(Amount);
+		HealthWidget->InitHealth(maxHp, hp);
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 데미지 %d 수신 → 잔여 체력 %d / %d"), *GetName(), Amount, hp, maxHp);

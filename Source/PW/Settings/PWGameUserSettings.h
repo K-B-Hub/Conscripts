@@ -34,10 +34,29 @@ public:
 	//저장값이 인덱스가 아니라 배율 자체라 목록이 바뀌어도 기존 ini의 의미가 유지된다
 	static const TArray<float>& GetEnemyTurnSpeedOptions();
 
+	//음량 0~1, ini 손편집 대비로 읽을 때 묶는다
+	float GetMasterVolume() const { return FMath::Clamp(masterVolume, 0.f, 1.f); }
+	void SetMasterVolume(float newVolume) { masterVolume = newVolume; }
+
+	float GetMusicVolume() const { return FMath::Clamp(musicVolume, 0.f, 1.f); }
+	void SetMusicVolume(float newVolume) { musicVolume = newVolume; }
+
+	float GetSfxVolume() const { return FMath::Clamp(sfxVolume, 0.f, 1.f); }
+	void SetSfxVolume(float newVolume) { sfxVolume = newVolume; }
+
 private:
 	UPROPERTY(config)
 	float enemyTurnSpeed = 1.f;
 
 	UPROPERTY(config)
 	bool bEnemyTurnCameraFollow = true;
+
+	UPROPERTY(config)
+	float masterVolume = 1.f;
+
+	UPROPERTY(config)
+	float musicVolume = 1.f;
+
+	UPROPERTY(config)
+	float sfxVolume = 1.f;
 };

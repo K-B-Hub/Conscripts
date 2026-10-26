@@ -73,7 +73,7 @@ int32 UActiveSkillBase::GetActionPointCost() const
 	if (!passiveComp) return actionPointCost;
 
 	//할인이 쌓여도 공짜 스킬은 되지 않는다
-	const int32 discount = passiveComp->GetActionPointDiscount(GetClass());
+	const int32 discount = passiveComp->GetActionPointDiscount(GetClass(), skillType);
 	return FMath::Max(1, actionPointCost - discount);
 }
 
