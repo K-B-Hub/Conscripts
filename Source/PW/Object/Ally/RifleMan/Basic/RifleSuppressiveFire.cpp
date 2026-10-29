@@ -14,7 +14,7 @@ URifleSuppressiveFire::URifleSuppressiveFire()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 
-	pickRange = 12.f * CmPerMeter;
+	pickRange = 24.f * CmPerMeter;
 	pickCount = 1;
 
 	//탄창 1개 소모

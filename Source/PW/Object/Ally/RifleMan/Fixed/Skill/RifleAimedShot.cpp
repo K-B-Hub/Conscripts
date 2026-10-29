@@ -14,7 +14,7 @@ URifleAimedShot::URifleAimedShot()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 
-	pickRange = 12.f * CmPerMeter;
+	pickRange = 24.f * CmPerMeter;
 	pickCount = 1;
 
 	battleResourceCost = 1;

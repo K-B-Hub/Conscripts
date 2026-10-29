@@ -6,8 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "StoryRouteButton.generated.h"
 
-class UButton;
-class UTextBlock;
+class UImageButton;
 class UStoryRouteData;
 
 //줄기 항목을 클릭하면 대응 줄기 ID를 통지
@@ -20,8 +19,8 @@ class PW_API UStoryRouteButton : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	//표시할 줄기와 클리어 여부 설정
-	void InitRoute(const UStoryRouteData* route, bool bCleared);
+	//표시할 줄기 설정
+	void InitRoute(const UStoryRouteData* route);
 
 	//클릭 통지, 목록 위젯이 바인딩
 	FOnStoryRouteClicked OnClicked;
@@ -29,12 +28,11 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 
+	//줄기 이름은 버튼 아트에 들어 있어 별도 라벨을 두지 않는다
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UButton> RouteButton;
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UTextBlock> NameText;
+	TObjectPtr<UImageButton> RouteButton;
 
-	//클리어 표식, BP에서 체크 아이콘 등으로 구성
+	//BP에 남은 클리어 표식, 띄우지 않으므로 접기 위해서만 바인딩한다
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UWidget> ClearedMark;
 

@@ -17,7 +17,7 @@ URifleCoveringFire::URifleCoveringFire()
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 2.f * CmPerMeter;
 
-	pickRange = 8.f * CmPerMeter;
+	pickRange = 16.f * CmPerMeter;
 	pickCount = 1;
 
 	battleResourceCost = 1;
