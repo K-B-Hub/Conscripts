@@ -14,7 +14,7 @@ URiflePreciseShot::URiflePreciseShot()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 
-	pickRange = 14.f * CmPerMeter;
+	pickRange = 28.f * CmPerMeter;
 	pickCount = 1;
 
 	battleResourceCost = 2;

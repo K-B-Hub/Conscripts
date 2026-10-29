@@ -20,7 +20,7 @@ URifleFirebomb::URifleFirebomb()
 	areaForm = EAreaForm::Circle;
 	areaParameter1 = 1.f * CmPerMeter;
 
-	pickRange = 6.f * CmPerMeter;
+	pickRange = 9.f * CmPerMeter;
 	pickCount = 1;
 
 	battleResourceCost = 0;

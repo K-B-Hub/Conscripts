@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "Run/StageEntry.h"
+#include "Widget/ImageButton.h"
 #include "StoryRouteData.generated.h"
 
 class AAllyCharacterBase;
@@ -23,6 +24,10 @@ public:
 	//줄기 선택 화면에 표시할 이름
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Story")
 	FText displayName;
+
+	//줄기 항목 버튼의 상태별 아트, 한 위젯 클래스를 줄기마다 생성하므로 그림은 데이터가 들고 있다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Story")
+	FImageButtonArt buttonArt;
 
 	//이 줄기에서 고를 수 있는 캐릭터, 편성과 증원이 모두 이 목록에서만 뽑는다
 	//스토리는 해금과 무관하게 줄기가 정한 인물들로만 싸운다

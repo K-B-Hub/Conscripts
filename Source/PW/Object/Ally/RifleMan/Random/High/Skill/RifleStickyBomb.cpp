@@ -16,7 +16,7 @@ URifleStickyBomb::URifleStickyBomb()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 
-	pickRange = 4.f * CmPerMeter;
+	pickRange = 6.f * CmPerMeter;
 	pickCount = 1;
 
 	battleResourceCost = 0;

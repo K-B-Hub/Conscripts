@@ -14,7 +14,7 @@ URifleBurstFire::URifleBurstFire()
 	pickTeam = EPickTeam::EnemyOnly;
 	areaTarget = EAreaTarget::None;
 
-	pickRange = 8.f * CmPerMeter;
+	pickRange = 16.f * CmPerMeter;
 	//3회 사격을 멀티픽으로 표현, 같은 대상을 거듭 고르면 그만큼 중복 적중한다
 	pickCount = 3;
 
