@@ -11,6 +11,8 @@
 class UAnimMontage;
 class AProjectileBase;
 class ATerrainBase;
+class UNiagaraSystem;
+class USoundBase;
 //모든 액티브 스킬의 기반 클래스
 UCLASS(Abstract, BlueprintType)
 class PW_API UActiveSkillBase : public USkillBase
@@ -110,6 +112,30 @@ public:
 	//지속 라운드는 지형 자신의 lifeRound가 들고 있다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Terrain")
 	TSubclassOf<ATerrainBase> spawnTerrainClass;
+	//시전 시작 시 시전자에 붙여 출력
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Effect")
+	TObjectPtr<UNiagaraSystem> castEffect;
+	//임팩트 노티파이 시점에 무기 발사 소켓에서 출력
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Effect")
+	TObjectPtr<UNiagaraSystem> muzzleEffect;
+	//명중한 대상 위치에 출력, 빗나가면 출력 안 함
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Effect")
+	TObjectPtr<UNiagaraSystem> hitEffect;
+	//커밋 시점에 시전 지점에서 1회 출력, 폭발+충격파처럼 여러 개를 겹친다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Effect")
+	TArray<TObjectPtr<UNiagaraSystem>> pointEffects;
+	//castEffect와 같은 시점·위치
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Sound")
+	TObjectPtr<USoundBase> castSound;
+	//muzzleEffect와 같은 시점·위치
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Sound")
+	TObjectPtr<USoundBase> muzzleSound;
+	//hitEffect와 같은 시점·위치, 빗나가면 재생 안 함
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Sound")
+	TObjectPtr<USoundBase> hitSound;
+	//pointEffects와 같은 시점·위치
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Sound")
+	TObjectPtr<USoundBase> pointSound;
 	//스킬 사용 가능 여부 검사, 파생에서 추가 조건 가능(알람 1회 제한 등)
 	virtual bool CanExecute() const;
 	//실행 시 시전자를 궤적을 따라 이동시키는가(점프), 기본은 아님(투척물 등 다른 소비)
@@ -146,4 +172,6 @@ public:
 	virtual void OnCommit();
 	//적중한 대상마다 호출
 	virtual void Execute(const ACharacterBase* target);
+	//착탄 이펙트·사운드 출력, 대상이 사망해도 되도록 판정 전 위치를 받는다
+	void SpawnHitEffect(const FVector& Location) const;
 };

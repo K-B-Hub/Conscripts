@@ -14,6 +14,8 @@
 #include "Animation/AnimMontage.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 USkillComponent::USkillComponent()
 {
@@ -263,7 +265,11 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<AChara
 			if (!IsValid(Target)) continue;
 			RecalculatePending(Skill, Target);
 			Target->SetLastAttacker(ownerCharacter);
-			if (Target->ReflectDamage() && IsValid(Target))
+			//판정에서 사망하면 위치를 잃으므로 미리 기록
+			const FVector hitLocation = Target->GetActorLocation();
+			if (!Target->ReflectDamage()) continue;
+			Skill->SpawnHitEffect(hitLocation);
+			if (IsValid(Target))
 			{
 				Skill->Execute(Target);
 			}
@@ -278,6 +284,21 @@ void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, TFunction<v
 
 	pendingSkill = Skill;
 	pendingAction = MoveTemp(Action);
+
+	//시전자에 붙여 이동·도약을 따라가게 함
+	if (Skill && ownerCharacter)
+	{
+		USceneComponent* root = ownerCharacter->GetRootComponent();
+		if (Skill->castEffect)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAttached(Skill->castEffect, root, NAME_None,
+				FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true);
+		}
+		if (Skill->castSound)
+		{
+			UGameplayStatics::SpawnSoundAttached(Skill->castSound, root);
+		}
+	}
 
 	float duration = 0.f;
 	UAnimMontage* montage = Skill ? Skill->GetCommitMontage() : nullptr;
@@ -313,6 +334,30 @@ void USkillComponent::OnSkillImpact()
 {
 	//커밋 대기 중이 아니면 할 일 없음
 	if (!pendingAction) return;
+
+	//발사 소켓이 있으면 총구에 붙이고, 없으면 시전자 루트
+	if (pendingSkill && ownerCharacter)
+	{
+		USceneComponent* attachTo = ownerCharacter->GetRootComponent();
+		FName socket = NAME_None;
+		UStaticMeshComponent* weapon = ownerCharacter->GetWeaponMeshComponent();
+		if (weapon && !pendingSkill->muzzleSocketName.IsNone() && weapon->DoesSocketExist(pendingSkill->muzzleSocketName))
+		{
+			attachTo = weapon;
+			socket = pendingSkill->muzzleSocketName;
+		}
+
+		if (pendingSkill->muzzleEffect)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAttached(pendingSkill->muzzleEffect, attachTo, socket,
+				FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::SnapToTarget, true);
+		}
+		if (pendingSkill->muzzleSound)
+		{
+			UGameplayStatics::SpawnSoundAttached(pendingSkill->muzzleSound, attachTo, socket,
+				FVector::ZeroVector, EAttachLocation::SnapToTarget);
+		}
+	}
 
 	//투사체가 있으면 발사만 하고 커밋은 도착 시점으로 미룸
 	if (LaunchProjectile(pendingSkill)) return;
@@ -414,6 +459,18 @@ void USkillComponent::CommitPendingExecution()
 	if (skill)
 	{
 		skill->OnCommit();
+		//OnCommit 오버라이드가 Super를 생략해도 출력되도록 여기서 처리
+		for (const TObjectPtr<UNiagaraSystem>& effect : skill->pointEffects)
+		{
+			if (effect)
+			{
+				UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), effect, skill->skillPointLocation);
+			}
+		}
+		if (skill->pointSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), skill->pointSound, skill->skillPointLocation);
+		}
 	}
 	action();
 }
