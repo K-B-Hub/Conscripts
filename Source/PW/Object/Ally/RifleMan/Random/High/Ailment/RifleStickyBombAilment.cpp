@@ -5,6 +5,8 @@
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "GameMode/BattleGameMode.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 URifleStickyBombAilment::URifleStickyBombAilment()
 {
@@ -38,6 +40,20 @@ void URifleStickyBombAilment::Execute(ACharacterBase* affected)
 	Super::Execute(affected);
 
 	if (!affected) return;
+
+	//피해 판정과 무관하게 폭발 연출은 항상 출력
+	const FVector explodeLocation = affected->GetActorLocation();
+	for (const TObjectPtr<UNiagaraSystem>& effect : explodeEffects)
+	{
+		if (effect)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(affected, effect, explodeLocation);
+		}
+	}
+	if (explodeSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(affected, explodeSound, explodeLocation);
+	}
 
 	const UWorld* world = affected->GetWorld();
 	const ABattleGameMode* gameMode = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;

@@ -24,6 +24,8 @@
 #include "PlayerController/BattleController.h"
 #include "ActorComponent/TerrainComponent.h"
 #include "Actors/Terrain/TerrainBase.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 //데미지 산식의 단일 출처, CalculateDamage와 PreviewDamage가 공유
 static void ComputeDamageNumbers(const ACharacterBase* Target,
@@ -418,10 +420,25 @@ void ACharacterBase::GainExp(float amount)
 {
 	exp += amount;
 
+	const int32 levelBefore = level;
 	while (exp >= maxExp)
 	{
 		LevelUp();
 		exp -= maxExp;
+	}
+
+	//여러 레벨이 한 번에 올라도 연출은 1회
+	if (level > levelBefore)
+	{
+		if (levelUpEffect)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAttached(levelUpEffect, GetRootComponent(), NAME_None,
+				FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true);
+		}
+		if (levelUpSound)
+		{
+			UGameplayStatics::SpawnSoundAttached(levelUpSound, GetRootComponent());
+		}
 	}
 }
 

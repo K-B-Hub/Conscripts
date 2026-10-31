@@ -10,6 +10,8 @@
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Actors/Terrain/TerrainBase.h"
 #include "Components/BoxComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 bool UActiveSkillBase::CanExecute() const
 {
@@ -144,5 +146,21 @@ void UActiveSkillBase::Execute(const ACharacterBase* target)
 			: ownerPtr->GetActorLocation();
 		//이동은 대상 액터를 직접 변경, 컴포넌트 경유 변경과 동일한 const 예외
 		const_cast<ACharacterBase*>(target)->ApplyKnockback(origin, knockbackForce, knockbackAngle);
+	}
+}
+
+void UActiveSkillBase::SpawnHitEffect(const FVector& Location) const
+{
+	const ACharacterBase* ownerPtr = GetOwner();
+	UWorld* world = ownerPtr ? ownerPtr->GetWorld() : nullptr;
+	if (!world) return;
+
+	if (hitEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(world, hitEffect, Location);
+	}
+	if (hitSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(world, hitSound, Location);
 	}
 }

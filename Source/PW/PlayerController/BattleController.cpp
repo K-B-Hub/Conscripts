@@ -1468,7 +1468,10 @@ void ABattleController::StartPendingSkillOnTargets(USkillComponent* SkillComp, U
 			if (!IsValid(Target)) continue;
 			SkillComp->RecalculatePending(Skill, Target);
 			Target->SetLastAttacker(caster.Get());
+			//판정에서 사망하면 위치를 잃으므로 미리 기록
+			const FVector hitLocation = Target->GetActorLocation();
 			if (!Target->ReflectDamage()) continue;
+			Skill->SpawnHitEffect(hitLocation);
 			if (!IsValid(Target)) continue;
 			Skill->Execute(Target);
 		}

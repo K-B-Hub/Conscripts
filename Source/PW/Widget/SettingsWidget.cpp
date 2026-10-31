@@ -219,6 +219,17 @@ void USettingsWidget::HandleApplyClicked()
 		settings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(windowIndex));
 	}
 
+	//독점 전체화면은 모니터 모드만 받는다, 목록 밖 크기면 640x480으로 떨어지므로 데스크톱 해상도로 바꾼다
+	if (settings->GetFullscreenMode() == EWindowMode::Fullscreen)
+	{
+		TArray<FIntPoint> supported;
+		UKismetSystemLibrary::GetSupportedFullscreenResolutions(supported);
+		if (!supported.Contains(settings->GetScreenResolution()))
+		{
+			settings->SetScreenResolution(settings->GetDesktopResolution());
+		}
+	}
+
 	if (VSyncCheck)
 	{
 		settings->SetVSyncEnabled(VSyncCheck->IsChecked());

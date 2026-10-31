@@ -26,6 +26,8 @@ class UNavModifierComponent;
 class UAnimMontage;
 class UTexture2D;
 class UMaterialInterface;
+class UNiagaraSystem;
+class USoundBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 //hp/스트레스 변동 시 HUD 게이지 등 외부 통지
@@ -177,6 +179,12 @@ protected:
 	int32 defGrowth = 50;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Growth")
 	int32 mentalityGrowth = 5;
+
+	//전투 중 경험치로 레벨업했을 때 캐릭터에 붙여 출력, 강제 레벨업(증원·적 스케일링)은 제외
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect")
+	TObjectPtr<UNiagaraSystem> levelUpEffect;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect")
+	TObjectPtr<USoundBase> levelUpSound;
 	
 	//AttackRangeIndicator와 오버렙 시 미리 계산해 값을 저장
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")

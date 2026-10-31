@@ -5,6 +5,9 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/Image.h"
 #include "Engine/Texture2D.h"
+#if WITH_EDITOR
+#include "TextureCompiler.h"
+#endif
 
 TSharedRef<SWidget> UImageButton::RebuildWidget()
 {
@@ -153,6 +156,14 @@ void UImageButton::ApplyArt(UTexture2D* texture)
 
 	//아트는 버튼을 가리지 않는다, 히트 대상이 되면 버튼 위에서 클릭이 먹히지 않는다
 	art->SetVisibility(ESlateVisibility::HitTestInvisible);
+
+#if WITH_EDITOR
+	//컴파일 중인 텍스처는 대체 텍스처 크기를 돌려준다(Standalone 첫 화면), 크기를 읽기 전에 기다린다
+	if (texture->IsCompiling())
+	{
+		FTextureCompilingManager::Get().FinishCompilation({ texture });
+	}
+#endif
 
 	//네이티브 해상도 × 배율로 그린다, 상태별 캔버스 크기 차이가 그대로 살아난다
 	const FVector2D nativeSize(texture->GetSizeX(), texture->GetSizeY());
