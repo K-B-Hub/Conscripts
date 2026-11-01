@@ -89,6 +89,9 @@ public:
 
 	EBattlePhase GetPhase() const { return phase; }
 
+	//적 스폰 완료 여부, 로딩창 해제 조건
+	bool AreEnemiesSpawned() const { return bEnemiesSpawned; }
+
 	//로스터의 해당 인원을 지점에 배치, 이미 배치되어 있으면 위치만 옮긴다
 	//구획 밖이거나 Deploy 페이즈가 아니면 false
 	bool DeployAt(int32 rosterIndex, const FVector& location);
@@ -173,6 +176,8 @@ protected:
 private:
 	//현재 진행 단계
 	EBattlePhase phase = EBattlePhase::Deploy;
+
+	bool bEnemiesSpawned = false;
 
 	//배치 구획 수집 및 배치 위젯 표시
 	void StartDeployPhase();

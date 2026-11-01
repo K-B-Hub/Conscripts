@@ -10,7 +10,7 @@ public class PW : ModuleRules
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "NavigationSystem", "AIModule", "Landscape", "Niagara" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "UMG" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "UMG", "RenderCore" });
 		
 		PublicIncludePaths.AddRange(new string[] { "PW" });
 

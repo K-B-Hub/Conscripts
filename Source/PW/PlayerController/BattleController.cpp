@@ -632,7 +632,9 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 	//카메라를 움직이면 추적 모드 해제
 	bIsFollowingCharacter = false;
 
-	const FRotator YawRotation(0.f, currentCameraYaw, 0.f);
+	//AddWorldOffset이 월드 기준이므로 방향 기준축도 월드 Yaw여야 한다
+	//currentCameraYaw는 상대 Yaw라, 폰이 회전해 스폰된 맵에서는 화면과 어긋난다
+	const FRotator YawRotation(0.f, SpringArm->GetComponentRotation().Yaw, 0.f);
 	const FVector ForwardDir = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 	const FVector RightDir   = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 

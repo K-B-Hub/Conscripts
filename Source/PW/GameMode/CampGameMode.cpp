@@ -26,6 +26,7 @@ void ACampGameMode::BeginPlay()
 	{
 		ApplyFixedCamera();
 		SpawnRoster();
+		bRosterSpawned = true;
 	});
 }
 

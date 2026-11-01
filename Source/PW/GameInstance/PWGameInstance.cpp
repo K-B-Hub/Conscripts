@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "GameInstance/PWGameInstance.h"
+#include "GameInstance/LoadingScreenSubsystem.h"
 #include "Run/RunProgress.h"
 #include "Run/PWSaveGame.h"
 #include "DataAsset/StoryRouteData.h"
@@ -133,7 +134,7 @@ bool UPWGameInstance::TravelToCurrentStage(const UObject* worldContext)
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 스테이지 %d로 이동"), runProgress->GetStageIndex() + 1);
-	UGameplayStatics::OpenLevelBySoftObjectPtr(worldContext, stage->Map);
+	GetSubsystem<ULoadingScreenSubsystem>()->TravelTo(stage->Map);
 	return true;
 }
 
@@ -165,7 +166,7 @@ void UPWGameInstance::EndRunAndReturnToHub(const UObject* worldContext, bool bCl
 
 	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 런 종료(%s), 허브로 복귀"),
 		bCleared ? TEXT("완주") : TEXT("중단"));
-	UGameplayStatics::OpenLevelBySoftObjectPtr(worldContext, hubMap);
+	GetSubsystem<ULoadingScreenSubsystem>()->TravelTo(hubMap);
 }
 
 void UPWGameInstance::ReturnToHubKeepingRun(const UObject* worldContext)
@@ -186,7 +187,7 @@ void UPWGameInstance::ReturnToHubKeepingRun(const UObject* worldContext)
 
 	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 런 유지, 허브로 복귀 (스테이지 %d)"),
 		runProgress ? runProgress->GetStageIndex() : -1);
-	UGameplayStatics::OpenLevelBySoftObjectPtr(worldContext, hubMap);
+	GetSubsystem<ULoadingScreenSubsystem>()->TravelTo(hubMap);
 }
 
 bool UPWGameInstance::HasSavedRun() const
