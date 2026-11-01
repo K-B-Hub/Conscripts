@@ -37,6 +37,9 @@ public:
 	//이 야영지가 제시하는 정비 선택지
 	const TArray<TObjectPtr<UCampOptionData>>& GetCampOptions() const { return campOptions; }
 
+	//로스터 스폰 완료 여부, 로딩창 해제 조건
+	bool IsRosterSpawned() const { return bRosterSpawned; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -61,4 +64,6 @@ private:
 	//레벨에 배치된 자리, 발견 순서대로 채운다
 	UPROPERTY()
 	TArray<TObjectPtr<ACampSpawnPoint>> spawnPoints;
+
+	bool bRosterSpawned = false;
 };

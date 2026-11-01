@@ -19,6 +19,7 @@ class AAllyCharacterBase;
 class USquadData;
 class USoundMix;
 class USoundClass;
+class UUserWidget;
 
 //전투 맵 하나에 나올 적 인원 범위, 분대는 쪼개지 않으므로 Max를 조금 넘을 수 있다
 USTRUCT(BlueprintType)
@@ -129,6 +130,10 @@ public:
 	//설정의 음량을 오디오에 반영, 설정 화면 적용·게임 시작·맵 로드 때 호출
 	void ApplyAudioSettings();
 
+	TSubclassOf<UUserWidget> GetLoadingScreenClass() const { return loadingScreenClass; }
+	float GetLoadingHoldSeconds() const { return loadingHoldSeconds; }
+	float GetLoadingFadeSeconds() const { return loadingFadeSeconds; }
+
 protected:
 	virtual void OnStart() override;
 
@@ -196,6 +201,19 @@ protected:
 	//런이 끝나면 돌아갈 허브 레벨
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stage")
 	TSoftObjectPtr<UWorld> hubMap;
+
+	//레벨 전환 중 표시할 위젯, 비우면 로딩창 없이 전환
+	//루트는 Visible이어야 전환 직전 클릭을 막는다
+	UPROPERTY(EditDefaultsOnly, Category = "Loading")
+	TSubclassOf<UUserWidget> loadingScreenClass;
+
+	//준비 완료 후 로딩창을 더 유지할 시간, 텍스처 스트리밍을 가린다
+	UPROPERTY(EditDefaultsOnly, Category = "Loading", meta = (ClampMin = "0"))
+	float loadingHoldSeconds = 2.f;
+
+	//로딩창 페이드 인/아웃 각각의 시간, 0이면 즉시 전환
+	UPROPERTY(EditDefaultsOnly, Category = "Loading", meta = (ClampMin = "0"))
+	float loadingFadeSeconds = 0.3f;
 
 private:
 	//맵 전환이 사운드 믹스를 비울 수 있어 로드마다 다시 건다

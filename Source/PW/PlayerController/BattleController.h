@@ -213,7 +213,8 @@ private:
 	//pause가 적 턴 타이머·AI 이동·카메라 입력을 함께 멈춘다
 	void SetPaused(bool bPaused);
 
-	//현재 카메라가 바라보는 Yaw 각도, 회전 누적용
+	//스프링암의 상대 Yaw, 회전 누적용
+	//월드 방향이 필요하면 폰 회전이 더해진 GetComponentRotation을 쓸 것
 	float currentCameraYaw = 0.f;
 
 	//상시 빙의 중인 카메라 폰의 스프링암 캐시

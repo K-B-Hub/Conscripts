@@ -42,6 +42,7 @@ void ABattleGameMode::BeginPlay()
 	{
 		//적을 먼저 세운다, 플레이어가 적 배치를 보고 아군을 놓는 것이 Deploy의 목적이다
 		SpawnEnemySquads();
+		bEnemiesSpawned = true;
 		StartDeployPhase();
 	});
 }
