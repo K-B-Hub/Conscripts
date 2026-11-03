@@ -1,12 +1,12 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Object/CommonUpgrade/High/PassiveSkill/HighFirstAidPassive.h"
+#include "Object/Ally/RifleMan/Random/High/Skill/HighFirstAidPassive.h"
 #include "Characters/CharacterBase.h"
 
 UHighFirstAidPassive::UHighFirstAidPassive()
 {
-	skillName = NSLOCTEXT("Skill", "HighFirstAid_Name", "응급 처치");
+	skillName = NSLOCTEXT("Skill", "HighFirstAid_Name", "숨 고르기");
 	skillDescription = NSLOCTEXT("Skill", "HighFirstAid_Description", "턴이 시작할 때 체력을 10% 회복한다");
 
 	passiveType = EPassiveType::Conditional;

@@ -1,7 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Object/CommonUpgrade/High/PassiveSkill/HighEndurancePassive.h"
+#include "Object/Ally/RifleMan/Random/High/Skill/HighEndurancePassive.h"
 #include "Characters/CharacterBase.h"
 
 UHighEndurancePassive::UHighEndurancePassive()

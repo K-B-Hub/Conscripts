@@ -185,7 +185,19 @@ protected:
 	TObjectPtr<UNiagaraSystem> levelUpEffect;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect")
 	TObjectPtr<USoundBase> levelUpSound;
-	
+
+	//피격 반응 연출, 미지정 시 생략
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<UAnimMontage> evadeMontage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<UAnimMontage> hitMontage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<UAnimMontage> deathMontage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<USoundBase> evadeSound;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<USoundBase> hitSound;
+
 	//AttackRangeIndicator와 오버렙 시 미리 계산해 값을 저장
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
 	float pendingDMG;
@@ -270,7 +282,7 @@ protected:
 	//체력 비율 경계(50%/30%) 하향 통과 시 스트레스 부여
 	void ApplyHpThresholdStress(int32 hpBefore);
 
-	//캐릭터가 처음부터 가지는 스킬, BP에서 지정한다
+	//캐릭터가 처음부터 가지는 스킬, BP에서 지정한다, 패시브도 넣을 수 있다
 	//BP 서브클래스를 넣어야 아이콘 등 에셋 참조가 따라온다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill")
 	TArray<TSubclassOf<USkillBase>> defaultSkills;

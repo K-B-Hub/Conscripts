@@ -1,7 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Object/CommonUpgrade/Middle/PassiveSkill/MiddleAdversityPassive.h"
+#include "Object/Ally/RifleMan/Random/Middle/Skill/MiddleAdversityPassive.h"
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/TerrainComponent.h"
 
