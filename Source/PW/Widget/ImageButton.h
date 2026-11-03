@@ -50,6 +50,8 @@ class PW_API UImageButton : public UButton
 	GENERATED_BODY()
 
 public:
+	UImageButton(const FObjectInitializer& ObjectInitializer);
+
 	//상태 아트 세트를 런타임에 교체, 현재 보이는 상태도 즉시 갱신된다
 	void SetStateTextures(const FImageButtonArt& InArt);
 

@@ -206,6 +206,12 @@ void ACharacterBase::SetDefaultSkills()
 
 	for (const TSubclassOf<USkillBase>& skillClass : defaultSkills)
 	{
+		//패시브는 PassiveSkillComponent에 등록해야 효과가 발동
+		if (skillClass && skillClass->IsChildOf(UPassiveSkillBase::StaticClass()))
+		{
+			if (passiveSkillComponent) passiveSkillComponent->AddPassive(TSubclassOf<UPassiveSkillBase>(skillClass));
+			continue;
+		}
 		skillComponent->AddSkill(skillClass);
 	}
 }
@@ -669,6 +675,9 @@ bool ACharacterBase::ReflectDamage()
 	if (hitRoll > pendingAccuracy)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 공격 회피"), *GetName());
+		//포복 중엔 선 자세 몽타주가 자세를 깨므로 사운드만
+		if (evadeMontage && !bIsProne) PlayAnimMontage(evadeMontage);
+		if (evadeSound) UGameplayStatics::SpawnSoundAttached(evadeSound, GetRootComponent());
 		//회피자는 스트레스 3~5 감소
 		RelieveStress(FMath::RandRange(3, 5));
 		//공격이 빗나가면 공격자가 스트레스 1~3 획득
@@ -701,6 +710,10 @@ bool ACharacterBase::ReflectDamage()
 	}
 
 	ReceiveDamage(finalDamage, true);
+
+	//사망 시엔 HandleDeath의 사망 몽타주가 우선
+	if (hitMontage && !bIsProne && !IsDead()) PlayAnimMontage(hitMontage);
+	if (hitSound) UGameplayStatics::SpawnSoundAttached(hitSound, GetRootComponent());
 
 	return true;
 }
@@ -1233,7 +1246,16 @@ void ACharacterBase::HandleDeath()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	Destroy();
+	//사망 몽타주가 있으면 재생 길이만큼 Destroy 지연, SetLifeSpan(0)은 무한이라 길이 0이면 즉시 제거
+	const float deathLength = (deathMontage && !bIsProne) ? PlayAnimMontage(deathMontage) : 0.f;
+	if (deathLength > 0.f)
+	{
+		SetLifeSpan(deathLength);
+	}
+	else
+	{
+		Destroy();
+	}
 }
 
 void ACharacterBase::ShowSkillInfo()

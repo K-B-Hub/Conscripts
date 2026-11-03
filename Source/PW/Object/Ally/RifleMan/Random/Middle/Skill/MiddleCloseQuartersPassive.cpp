@@ -1,7 +1,7 @@
 //Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Object/CommonUpgrade/Middle/PassiveSkill/MiddleCloseQuartersPassive.h"
+#include "Object/Ally/RifleMan/Random/Middle/Skill/MiddleCloseQuartersPassive.h"
 #include "Characters/CharacterBase.h"
 
 UMiddleCloseQuartersPassive::UMiddleCloseQuartersPassive()

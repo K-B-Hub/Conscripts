@@ -3,6 +3,8 @@
 #include "Widget/CircularButtonWidget.h"
 
 #include "Components/Image.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widget/ImageButton.h"
 
 void UCircularButtonWidget::NativePreConstruct()
 {
@@ -46,6 +48,8 @@ FReply UCircularButtonWidget::NativeOnMouseButtonDown(const FGeometry& InGeometr
 
 	bPressed = true;
 	ApplyTexture(PressedTexture);
+	//UButton처럼 누르는 순간 재생, 클릭음은 UImageButton 기본 스타일과 공유
+	FSlateApplication::Get().PlaySound(GetDefault<UImageButton>()->GetStyle().PressedSlateSound);
 	//드래그로 벗어나도 ButtonUp을 받도록 마우스 캡처
 	return FReply::Handled().CaptureMouse(TakeWidget());
 }

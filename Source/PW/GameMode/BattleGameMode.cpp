@@ -235,7 +235,8 @@ void ABattleGameMode::BuildTurnOrder()
 	for (TActorIterator<ACharacterBase> It(GetWorld()); It; ++It)
 	{
 		ACharacterBase* Character = *It;
-		if (!IsValid(Character)) continue;
+		//사망 몽타주 재생 중인 시체 제외
+		if (!IsValid(Character) || Character->IsDead()) continue;
 
 		//비전투 적은 턴 순서 제외, 실시간 BT로 행동하다 전투 합류 시 다음 라운드부터 참여
 		if (AEnemyBase* Enemy = Cast<AEnemyBase>(Character))
