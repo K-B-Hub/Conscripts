@@ -14,6 +14,7 @@
 #include "Animation/AnimMontage.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -285,6 +286,15 @@ void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, TFunction<v
 	pendingSkill = Skill;
 	pendingAction = MoveTemp(Action);
 
+	//인디케이터는 곧 파괴되므로 확정 시점 조준 지점을 커밋까지 보관, AI 직접 시전은 조준 없음
+	bHasPendingAim = false;
+	FVector aimPoint;
+	if (GetAimPoint(aimPoint))
+	{
+		pendingAimPoint = aimPoint;
+		bHasPendingAim = true;
+	}
+
 	//시전자에 붙여 이동·도약을 따라가게 함
 	if (Skill && ownerCharacter)
 	{
@@ -473,6 +483,38 @@ void USkillComponent::CommitPendingExecution()
 		}
 	}
 	action();
+}
+
+bool USkillComponent::GetAimPoint(FVector& OutPoint) const
+{
+	if (!ownerCharacter) return false;
+
+	//조준 중, 본인 대상 스킬은 회전 없음
+	if (currentSkill && currentSkill->selectMode != ESelectMode::Self && attackRangeIndicator)
+	{
+		//Ray/Cone은 인디케이터가 시전자 위치에 겹치므로 회전 방향 앞쪽 지점을 쓴다
+		if (UAreaShapeLibrary::IsCasterAnchored(currentSkill))
+		{
+			OutPoint = ownerCharacter->GetActorLocation() + attackRangeIndicator->GetActorForwardVector() * 1000.f;
+			return true;
+		}
+
+		OutPoint = attackRangeIndicator->GetActorLocation();
+		//지면 지점은 캐릭터 중심 높이로 올려 같은 높이면 피치 0
+		if (!attackRangeIndicator->GetSnappedTarget())
+		{
+			OutPoint.Z += ownerCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		}
+		return true;
+	}
+
+	//커밋 대기 중, 확정 시점 지점 유지
+	if (bHasPendingAim && HasPendingExecution())
+	{
+		OutPoint = pendingAimPoint;
+		return true;
+	}
+	return false;
 }
 
 void USkillComponent::OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupted)

@@ -40,6 +40,20 @@ void UAnimInstanceBase::NativeUpdateAnimation(float DeltaTime)
 		bIsAirborne = OwnerCharacter->IsAirborne();
 		bIsProne = OwnerCharacter->IsProne();
 
+		//몸통이 아직 못 돈 만큼 상체가 메움, 이동·공중에선 해제
+		float targetYaw = 0.f;
+		float targetPitch = 0.f;
+		FVector aimPoint;
+		if (speed < 1.f && !bIsAirborne && OwnerCharacter->GetAimPoint(aimPoint))
+		{
+			const FRotator toAim = (aimPoint - OwnerCharacter->GetActorLocation()).Rotation();
+			const FRotator delta = (toAim - OwnerCharacter->GetActorRotation()).GetNormalized();
+			targetYaw = FMath::Clamp(delta.Yaw, -90.f, 90.f);
+			targetPitch = FMath::Clamp(delta.Pitch, -45.f, 45.f);
+		}
+		aimYaw = FMath::FInterpTo(aimYaw, targetYaw, DeltaTime, aimInterpSpeed);
+		aimPitch = FMath::FInterpTo(aimPitch, targetPitch, DeltaTime, aimInterpSpeed);
+
 		if (bEnableLeftHandIK)
 		{
 			UpdateLeftHandIK();

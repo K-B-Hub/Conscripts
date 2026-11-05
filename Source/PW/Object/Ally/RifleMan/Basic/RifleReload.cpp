@@ -29,11 +29,15 @@ URifleReload::URifleReload()
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 
-	//플레이스홀더 몽타주, 재장전 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_Reload"));
 	if (MontageAsset.Succeeded())
 	{
 		skillMontage = MontageAsset.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> CrouchMontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_Reload_Crouch"));
+	if (CrouchMontageAsset.Succeeded())
+	{
+		crouchSkillMontage = CrouchMontageAsset.Object;
 	}
 }
 

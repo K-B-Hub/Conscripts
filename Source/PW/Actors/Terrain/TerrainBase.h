@@ -9,6 +9,7 @@
 class UBoxComponent;
 class UStaticMeshComponent;
 class UNiagaraComponent;
+class UAudioComponent;
 class ACharacterBase;
 class UBuffBase;
 class UAilmentBase;
@@ -121,6 +122,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Terrain|Component")
 	TObjectPtr<UNiagaraComponent> terrainVfx;
+
+	//지형 유지 중 재생할 소리, 반복 여부는 사운드 에셋이 정한다
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Terrain|Component")
+	TObjectPtr<UAudioComponent> terrainSfx;
 
 	//체류 중인 캐릭터 목록
 	TArray<TWeakObjectPtr<ACharacterBase>> occupants;
