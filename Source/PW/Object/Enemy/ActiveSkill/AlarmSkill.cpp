@@ -31,12 +31,6 @@ UAlarmSkill::UAlarmSkill()
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire"));
-	if (MontageAsset.Succeeded())
-	{
-		skillMontage = MontageAsset.Object;
-	}
-
 	buffs.Add(UAlarmBuff::StaticClass());
 }
 

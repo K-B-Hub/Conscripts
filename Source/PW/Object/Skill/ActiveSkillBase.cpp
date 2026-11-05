@@ -27,6 +27,12 @@ bool UActiveSkillBase::CanExecute() const
 	return true;
 }
 
+UAnimMontage* UActiveSkillBase::GetCommitMontage() const
+{
+	const ACharacterBase* ownerPtr = GetOwner();
+	return (crouchSkillMontage && ownerPtr && ownerPtr->IsProne()) ? crouchSkillMontage : skillMontage;
+}
+
 float UActiveSkillBase::GetEffectivePickRange() const
 {
 	//점프처럼 궤적 이동에 이동력을 쓰는 스킬은 사거리가 곧 현재 이동력으로 갈 수 있는 거리

@@ -4,6 +4,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "NiagaraComponent.h"
+#include "Components/AudioComponent.h"
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/TerrainComponent.h"
 #include "GameMode/BattleGameMode.h"
@@ -30,6 +31,9 @@ ATerrainBase::ATerrainBase()
 
 	terrainVfx = CreateDefaultSubobject<UNiagaraComponent>(TEXT("TerrainVfx"));
 	terrainVfx->SetupAttachment(terrainBox);
+
+	terrainSfx = CreateDefaultSubobject<UAudioComponent>(TEXT("TerrainSfx"));
+	terrainSfx->SetupAttachment(terrainBox);
 }
 
 void ATerrainBase::BeginPlay()

@@ -24,10 +24,13 @@ class UTerrainComponent;
 class ATerrainBase;
 class UNavModifierComponent;
 class UAnimMontage;
+class UAnimSequence;
 class UTexture2D;
 class UMaterialInterface;
 class UNiagaraSystem;
 class USoundBase;
+class UMeshComponent;
+class UCharacterAppearanceData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterDeath, ACharacterBase*, DeadCharacter);
 //hp/스트레스 변동 시 HUD 게이지 등 외부 통지
@@ -67,6 +70,38 @@ struct FDamageResult
 	ESkillType SkillType = ESkillType::Melee;
 };
 
+//자세별 제자리 회전 애니, 루트모션으로 몸통을 돌린다
+USTRUCT()
+struct FAimTurnAnims
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimSequence> left90;
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimSequence> right90;
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimSequence> left180;
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimSequence> right180;
+};
+
+//공격자 방향별 반응 애니, 빈 방향은 front로 대체
+USTRUCT()
+struct FDirectionalAnims
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimSequence> front;
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimSequence> back;
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimSequence> left;
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimSequence> right;
+};
+
 UCLASS()
 class PW_API ACharacterBase : public ACharacter
 {
@@ -77,6 +112,19 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	//에디터 뷰포트에서도 외형이 보이도록 여기서 적용
+	virtual void OnConstruction(const FTransform& Transform) override;
+
+	//외형 프리셋, 지정 시 메시·머티리얼·파츠를 덮어쓴다. 비우면 BP 메시 그대로
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+	TObjectPtr<UCharacterAppearanceData> appearance;
+
+	//appearance로 만든 파츠·부착물, 재적용 시 정리 대상
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMeshComponent>> appearanceComponents;
+
+	//appearance를 메시에 반영, 이전 파츠는 지우고 다시 만든다
+	void ApplyAppearance();
 
 	//체력 위젯 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "UI")
@@ -186,13 +234,20 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect")
 	TObjectPtr<USoundBase> levelUpSound;
 
-	//피격 반응 연출, 미지정 시 생략
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
-	TObjectPtr<UAnimMontage> evadeMontage;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
-	TObjectPtr<UAnimMontage> hitMontage;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
-	TObjectPtr<UAnimMontage> deathMontage;
+	//피격·사망 반응 애니, 자세와 공격자 방향으로 고름, 미지정 시 생략
+	UPROPERTY(EditDefaultsOnly, Category = "Reaction")
+	FDirectionalAnims standHitAnims;
+	UPROPERTY(EditDefaultsOnly, Category = "Reaction")
+	FDirectionalAnims crouchHitAnims;
+	UPROPERTY(EditDefaultsOnly, Category = "Reaction")
+	FDirectionalAnims standDeathAnims;
+	UPROPERTY(EditDefaultsOnly, Category = "Reaction")
+	FDirectionalAnims crouchDeathAnims;
+	//회피 애니, 자세별 무작위
+	UPROPERTY(EditDefaultsOnly, Category = "Reaction")
+	TArray<TObjectPtr<UAnimSequence>> standEvadeAnims;
+	UPROPERTY(EditDefaultsOnly, Category = "Reaction")
+	TArray<TObjectPtr<UAnimSequence>> crouchEvadeAnims;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
 	TObjectPtr<USoundBase> evadeSound;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
@@ -261,6 +316,43 @@ protected:
 
 	//아치 궤적 한 프레임 진행, 완료 시 착지 처리
 	void UpdateArcMovement(float DeltaTime);
+
+	//스킬 조준 시 몸통 회전 속도(도/초), 회전 애니 미지정 시에만 사용
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Aim")
+	float aimTurnSpeed = 360.f;
+
+	//제자리 회전 애니, 135도 초과는 180 애니
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Aim")
+	FAimTurnAnims standTurnAnims;
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Aim")
+	FAimTurnAnims crouchTurnAnims;
+
+	//회전 애니 재생 속도
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Aim")
+	float aimTurnPlayRate = 1.5f;
+
+	//재생 중인 회전 몽타주, 끝나면 null
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> aimTurnMontage;
+
+	//각도차에 맞는 회전 애니 재생, 애니 없으면 false
+	bool PlayAimTurn(float DeltaYaw);
+	void OnAimTurnEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	//마지막 공격자 방향의 애니, 공격자 없으면 front
+	UAnimSequence* PickByAttacker(const FDirectionalAnims& Anims) const;
+	//반응 애니를 DefaultSlot에 재생, 재생 길이 반환(없으면 0)
+	float PlayReactionAnim(UAnimSequence* Anim, float BlendOut);
+
+	//몸통이 돌기 시작하는 조준 각도차(도), 안쪽은 상체만 따라감
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Aim")
+	float aimTurnDeadzone = 90.f;
+
+	//데드존을 벗어나 정렬될 때까지 회전 중, 조준 종료·이동 시 해제
+	bool bAimBodyTurning = false;
+
+	//조준 지점으로 몸통 한 프레임 회전
+	void UpdateAimTurn(const FVector& AimPoint, float DeltaTime);
 	//아치 이동 자연 완료(비강제) 시 호출, 아군은 OnMovementCompleted 브로드캐스트로 확장
 	virtual void NotifyArcMoveCompleted() {}
 
@@ -328,6 +420,8 @@ public:
 	void SetProne(bool bNewProne);
 	//아치 궤적(점프·밀치기) 추종 중 여부
 	bool IsAirborne() const { return bIsArcMoving; }
+	//스킬 조준 지점, SkillComponent 위임
+	bool GetAimPoint(FVector& OutPoint) const;
 	//포물선 궤적을 3D로 따라 이동, bForced=외력: 이동 패시브 훅·완료 통지 생략. 낙하 피해는 양쪽 공통
 	virtual void MoveAlongArc(const TArray<FVector>& ArcPoints, bool bForced = false);
 	//원점→대상 수평 일직선 방향으로 밀쳐냄, 궤적 계산·포복 강제 해제 포함

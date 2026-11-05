@@ -445,6 +445,23 @@ void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FAI
 		}
 	}
 
+	//자원 회복 가치 = 부족 비율 × 실제 채워지는 비율
+	float resourceRecovery = 0.f;
+	const int32 gain = Skill->GetBattleResourceGain();
+	const int32 maxRes = ownerCharacter->GetMaxBattleResource();
+	if (gain > 0 && maxRes > 0)
+	{
+		const int32 missing = FMath::Max(0, maxRes - ownerCharacter->GetBattleResource());
+		resourceRecovery = (static_cast<float>(missing) / maxRes) * (static_cast<float>(FMath::Min(gain, missing)) / gain);
+	}
+
+	//자원 회복만 있는 스킬은 시전자를 대표로
+	if (!bestEnemy && !bestHeal && !bestRider && resourceRecovery > 0.f)
+	{
+		bestRider = ownerCharacter;
+		bestRiderPreview = ownerCharacter->PreviewDamage(Skill, ownerCharacter, CastFrom);
+	}
+
 	//대표 선정, 유효 가치가 전혀 없으면 후보 미생성
 	ACharacterBase* primary = bestEnemy ? bestEnemy : (bestHeal ? bestHeal : bestRider);
 	if (!primary) return;
@@ -470,6 +487,7 @@ void UUtilityAIComponent::BuildActionFromCast(UActiveSkillBase* Skill, const FAI
 	action.HealExtremeLowHpCount = healExtremeLowHpCount;
 	action.BuffValueTotal = buffTotal;
 	action.AilmentValueTotal = ailmentTotal;
+	action.ResourceRecoveryValue = resourceRecovery;
 
 	//대표를 맨 앞에, 이어서 나머지 영향 대상 (실행 시 DirectExecute 대상 집합)
 	action.Targets.Add(primary);
@@ -858,6 +876,9 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 		//버프/상태이상 rider 점수, 기대 HP 환산치라 기대 피해와 같은 저울
 		score += Action.BuffValueTotal * p->weightBuffValue;
 		score += Action.AilmentValueTotal * p->weightAilmentValue;
+
+		//자원 회복 점수
+		score += Action.ResourceRecoveryValue * p->weightResourceRecovery;
 
 		//이동 거리 페널티
 		score += Action.PathLengthCm * p->weightDistancePenalty;

@@ -49,6 +49,7 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> buffClass, ACharacterBase* c
 	buffInstance->remainingTurn = buffInstance->buffTurn;
 
 	activeBuffs.Add(buffInstance);
+	buffInstance->StartPresentation(ownerCharacter);
 
 	//버프 적용
 	ownerCharacter->ApplyBuffDelta(buffInstance, +1);
@@ -62,6 +63,7 @@ void UBuffComponent::RemoveBuffAt(int32 Index)
 	{
 		//버프 값 초기화
 		ownerCharacter->ApplyBuffDelta(buffInstance, -1);
+		buffInstance->StopPresentation();
 	}
 	activeBuffs.RemoveAt(Index);
 }

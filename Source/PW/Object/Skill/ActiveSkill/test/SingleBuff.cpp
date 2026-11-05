@@ -32,7 +32,7 @@ USingleBuff::USingleBuff()
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 	
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_Fire"));
 	if (MontageAsset.Succeeded())
 	{
 		skillMontage = MontageAsset.Object;

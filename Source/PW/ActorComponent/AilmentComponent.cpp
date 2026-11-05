@@ -49,6 +49,7 @@ void UAilmentComponent::AddAilment(TSubclassOf<UAilmentBase> ailmentClass, AChar
 	ailmentInstance->remainingTurn = ailmentInstance->ailmentTurn;
 
 	activeAilments.Add(ailmentInstance);
+	ailmentInstance->StartPresentation(ownerCharacter);
 
 	//턴 HUD 아이콘 갱신용
 	ownerCharacter->OnVitalsChanged.Broadcast();
@@ -57,7 +58,11 @@ void UAilmentComponent::AddAilment(TSubclassOf<UAilmentBase> ailmentClass, AChar
 void UAilmentComponent::RemoveAilmentAt(int32 Index)
 {
 	if (!activeAilments.IsValidIndex(Index)) return;
-	
+
+	if (UAilmentBase* ailmentInstance = activeAilments[Index])
+	{
+		ailmentInstance->StopPresentation();
+	}
 	activeAilments.RemoveAt(Index);
 }
 

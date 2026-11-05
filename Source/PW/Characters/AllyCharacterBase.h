@@ -42,15 +42,15 @@ public:
 	}
 
 	//야영지 대기 애니메이션 후보, 파생 직업 BP에서 지정
-	//몽타주는 스켈레톤에 묶여 직업 간 공유가 불가능하므로 자리가 아니라 캐릭터가 들고 있는다
+	//애니는 스켈레톤에 묶여 직업 간 공유가 불가능하므로 자리가 아니라 캐릭터가 들고 있는다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camp")
-	TArray<TObjectPtr<UAnimMontage>> campIdleMontages;
+	TArray<TObjectPtr<UAnimSequence>> campIdleAnims;
 
 	//야영지 말풍선, 머리 위에 표시되며 야영지 밖에서는 꺼져 있다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camp")
 	TObjectPtr<UWidgetComponent> campDialogueComponent;
 
-	//후보 중 하나를 무작위로 재생, 비어 있으면 아무것도 하지 않는다
+	//후보 중 하나를 골라 야영지에 있는 동안 반복 재생, 비어 있으면 아무것도 하지 않는다
 	void PlayRandomCampIdle();
 
 	//현재 상태를 스냅샷으로 추출, CDO에 대해 호출하면 직업 기본 스탯이 나온다

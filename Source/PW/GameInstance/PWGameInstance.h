@@ -184,7 +184,7 @@ protected:
 
 	//로스터 상한, 야영지 자리가 모자라 못 세우는 것과 달리 이쪽은 의도된 규칙이다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
-	int32 maxRosterSize = 12;
+	int32 maxRosterSize = 10;
 
 	//줄기나 모드 설정이 비어 있을 때 쓰는 대체 시퀀스
 	//콘텐츠가 채워지기 전까지 모든 모드가 이걸로 돌아간다

@@ -87,6 +87,9 @@ public:
 	//pending 효과 실행 및 해제, 투사체 도착·SkillImpact 노티파이·몽타주 종료 폴백이 호출
 	void CommitPendingExecution();
 
+	//조준 지점, Self 외 스킬 조준 중이거나 그 스킬의 커밋 대기 중일 때만 true
+	bool GetAimPoint(FVector& OutPoint) const;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -128,6 +131,10 @@ private:
 
 	//커밋 시 실행할 효과, 등록 시점에 대상 스냅샷을 약참조로 캡처
 	TFunction<void()> pendingAction;
+
+	//커밋까지 유지할 조준 지점, 시전 확정 시 인디케이터에서 기록
+	FVector pendingAimPoint = FVector::ZeroVector;
+	bool bHasPendingAim = false;
 
 	//비행 중인 투사체, 도착할 때까지 커밋을 보류한다
 	UPROPERTY()

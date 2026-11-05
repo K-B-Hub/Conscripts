@@ -96,6 +96,10 @@ struct FAIAction
 	UPROPERTY(BlueprintReadOnly)
 	float AilmentValueTotal = 0.f;
 
+	//자원 회복 가치(0~1), 자원이 적을수록 크고 넘치는 회복분은 제외
+	UPROPERTY(BlueprintReadOnly)
+	float ResourceRecoveryValue = 0.f;
+
 	//시전 위치의 예상 피격 피해
 	UPROPERTY(BlueprintReadOnly)
 	float IncomingDangerExpected = 0.f;

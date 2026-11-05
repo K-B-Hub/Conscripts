@@ -7,6 +7,9 @@
 #include "Widget/HealthWidget.h"
 #include "Widget/CampDialogueWidget.h"
 #include "Components/WidgetComponent.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/AnimSequence.h"
 
 AAllyCharacterBase::AAllyCharacterBase()
 {
@@ -163,13 +166,17 @@ void AAllyCharacterBase::RestoreRunState(const FAllyRunState& state)
 void AAllyCharacterBase::PlayRandomCampIdle()
 {
 	//지정되지 않은 직업은 기본 대기 포즈로 둔다
-	if (campIdleMontages.Num() == 0) return;
+	UAnimInstance* animInstance = GetMesh()->GetAnimInstance();
+	if (campIdleAnims.Num() == 0 || !animInstance) return;
 
-	UAnimMontage* picked = campIdleMontages[FMath::RandRange(0, campIdleMontages.Num() - 1)];
+	UAnimSequence* picked = campIdleAnims[FMath::RandRange(0, campIdleAnims.Num() - 1)];
 	if (!picked) return;
 
-	//야영지는 턴이 없으므로 몽타주가 끝나도 되돌릴 상태가 없다
-	PlayAnimMontage(picked);
+	//섹션을 자기 자신으로 이어 무한 반복
+	UAnimMontage* montage = animInstance->PlaySlotAnimationAsDynamicMontage(picked, TEXT("DefaultSlot"), 0.25f, 0.25f);
+	if (!montage) return;
+	const FName section = montage->GetSectionName(0);
+	animInstance->Montage_SetNextSection(section, section, montage);
 }
 
 void AAllyCharacterBase::InitTurn()

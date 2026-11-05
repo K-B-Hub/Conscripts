@@ -44,6 +44,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation")
 	float InterpSpeed = 8.0f;
 
+	//조준 지점과 몸통 방향의 차, 에임오프셋 축에 연결 (좌우 +오른쪽, 상하 +위)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Aim")
+	float aimYaw = 0.f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Aim")
+	float aimPitch = 0.f;
+
+	//에임오프셋 보간 속도, 클수록 상체가 빨리 따라감
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation|Aim")
+	float aimInterpSpeed = 10.f;
+
 	//TwoBoneIK Effector Location 핀에 직접 연결
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Animation|IK")
 	FVector leftHandIKLocation;
