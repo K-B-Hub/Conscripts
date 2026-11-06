@@ -31,14 +31,14 @@ UProneSkill::UProneSkill()
 	bonusDamageAmplication = 0;
 	
 	//플레이스홀더 몽타주, 실제 달리기 준비 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_ProneToStand"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_CrouchToStand"));
 	if (MontageAsset.Succeeded())
 	{
 		standUpMontage = MontageAsset.Object;
 	}
 	
 	//플레이스홀더 몽타주, 실제 달리기 준비 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset2(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_StandToProne"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset2(TEXT("/Game/Animation/Soldier/AM_Soldier_StandToCrouch"));
 	if (MontageAsset2.Succeeded())
 	{
 		lieDownMontage = MontageAsset2.Object;

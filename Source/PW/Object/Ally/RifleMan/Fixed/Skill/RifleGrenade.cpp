@@ -34,10 +34,14 @@ URifleGrenade::URifleGrenade()
 	//궤적만 표시하고 시전자는 이동하지 않는다
 	arcApexRatio = 0.5f;
 
-	//플레이스홀더 몽타주, 투척 애니메이션으로 교체 예정
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Animations/Rifleman/AnimMontage/AM_Rifle_Fire"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_Throw"));
 	if (MontageAsset.Succeeded())
 	{
 		skillMontage = MontageAsset.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> CrouchMontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_Throw_Crouch"));
+	if (CrouchMontageAsset.Succeeded())
+	{
+		crouchSkillMontage = CrouchMontageAsset.Object;
 	}
 }

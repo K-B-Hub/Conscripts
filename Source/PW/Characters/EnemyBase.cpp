@@ -161,5 +161,8 @@ void AEnemyBase::HandleDeath()
 	//경험치 분배, Destroy 전에 호출해야 유효한 참조 전달
 	OnEnemyDeath.Broadcast(this, killer);
 
+	//사망 몽타주 동안 BT가 시체를 움직이지 않도록 즉시 빙의 해제
+	DetachFromControllerPendingDestroy();
+
 	Super::HandleDeath();
 }

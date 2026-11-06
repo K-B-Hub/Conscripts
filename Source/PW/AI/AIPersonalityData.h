@@ -82,6 +82,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Cost")
 	float weightRemainingResource = 0.f;
 
+	//자원 회복 가중치, 자원이 바닥났을 때 받는 최대 점수
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Cost")
+	float weightResourceRecovery = 30.f;
+
 	//버프 가치 가중치, 기대 HP 환산치에 곱산
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weights|Support")
 	float weightBuffValue = 1.0f;

@@ -80,6 +80,9 @@ public:
 	//스킬 몽타주
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
 	TObjectPtr<UAnimMontage> skillMontage;
+	//웅크린 상태 스킬 몽타주, 미지정이면 skillMontage
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
+	TObjectPtr<UAnimMontage> crouchSkillMontage;
 	//몽타주 재생 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
 	float montagePlayRate = 1.0f;
@@ -142,6 +145,8 @@ public:
 	virtual bool UsesArcMovement() const { return false; }
 	//투척 스킬 여부, 궤적 표시/비용 분기에 사용
 	bool IsThrow() const { return skillType == ESkillType::Throw; }
+	//시전자가 회복하는 전투 자원량, AI 평가용
+	virtual int32 GetBattleResourceGain() const { return 0; }
 	//현재 이동력 기준 실제 사용 가능 사거리(cm), 점프는 이동력 예산으로 제한, 그 외는 pickRange
 	float GetEffectivePickRange() const;
 
@@ -166,7 +171,7 @@ public:
 	//스킬 사용 확정 시 1회 호출, 비용 차감만 담당 (몽타주는 SkillComponent의 pending 흐름이 재생)
 	virtual void BeginUse();
 	//커밋 시점에 재생 중일 몽타주, 파생에서 상황별 교체 가능(포복 방향 등)
-	virtual UAnimMontage* GetCommitMontage() const { return skillMontage; }
+	virtual UAnimMontage* GetCommitMontage() const;
 	//커밋 시점 스킬 자체 효과(포복 토글 등), 대상 루프 이전 1회 호출
 	//베이스가 지형 생성을 담당하므로 override 시 Super::OnCommit() 호출 필요
 	virtual void OnCommit();

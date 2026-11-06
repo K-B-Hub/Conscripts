@@ -17,6 +17,7 @@ public:
 
 	//대상이 없는 자기 효과라 대상 루프가 아닌 커밋 시점에 1회 보충
 	virtual void OnCommit() override;
+	virtual int32 GetBattleResourceGain() const override { return reloadAmount; }
 
 protected:
 	//한 번에 보충할 탄창 수

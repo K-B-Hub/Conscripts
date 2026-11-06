@@ -4,7 +4,13 @@
 #include "PW.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimSequence.h"
+#include "Engine/StaticMesh.h"
+#include "DataAsset/CharacterAppearanceData.h"
 #include "Components/WidgetComponent.h"
 #include "NavigationSystem.h"
 #include "NavModifierComponent.h"
@@ -165,6 +171,12 @@ void ACharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	//레벨에 배치된 액터는 PIE 복제 때 Transient 파츠가 빠지고 OnConstruction도 다시 돌지 않는다
+	if (appearance && appearanceComponents.IsEmpty())
+	{
+		ApplyAppearance();
+	}
+
 	if (UHealthWidget* HealthWidget = Cast<UHealthWidget>(healthWidgetComponent->GetWidget()))
 	{
 		HealthWidget->InitHealth(maxHp, hp);
@@ -180,6 +192,80 @@ void ACharacterBase::BeginPlay()
 		baseWalkSpeed = move->MaxWalkSpeed;
 	}
 
+}
+
+void ACharacterBase::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	ApplyAppearance();
+}
+
+//빈 칸은 건너뛰어 메시 기본 머티리얼을 남긴다
+static void ApplyMaterialOverrides(UMeshComponent* comp, const TArray<TObjectPtr<UMaterialInterface>>& materials)
+{
+	for (int32 i = 0; i < materials.Num(); ++i)
+	{
+		if (materials[i])
+		{
+			comp->SetMaterial(i, materials[i]);
+		}
+	}
+}
+
+void ACharacterBase::ApplyAppearance()
+{
+	for (UMeshComponent* comp : appearanceComponents)
+	{
+		if (comp)
+		{
+			comp->DestroyComponent();
+		}
+	}
+	appearanceComponents.Reset();
+
+	if (!appearance) return;
+
+	USkeletalMeshComponent* leader = GetMesh();
+	if (appearance->leader.Mesh)
+	{
+		leader->SetSkeletalMeshAsset(appearance->leader.Mesh);
+		//이전 프리셋의 덮어쓰기가 남지 않게 비우고 다시 칠한다
+		leader->EmptyOverrideMaterials();
+		ApplyMaterialOverrides(leader, appearance->leader.Materials);
+	}
+
+	for (const FAppearancePart& part : appearance->parts)
+	{
+		if (!part.Mesh) continue;
+
+		USkeletalMeshComponent* comp = NewObject<USkeletalMeshComponent>(this, NAME_None, RF_Transient);
+		comp->SetupAttachment(leader);
+		comp->SetSkeletalMeshAsset(part.Mesh);
+		ApplyMaterialOverrides(comp, part.Materials);
+		//판정은 캡슐 몫, 파츠는 보이기만 한다
+		comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		comp->SetCanEverAffectNavigation(false);
+		comp->RegisterComponent();
+		//애니메이션은 리더만 평가하고 파츠는 본 트랜스폼을 빌려 쓴다
+		comp->SetLeaderPoseComponent(leader);
+		appearanceComponents.Add(comp);
+	}
+
+	for (const FAppearanceAttachment& attachment : appearance->attachments)
+	{
+		if (!attachment.Mesh) continue;
+
+		UStaticMeshComponent* comp = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+		comp->SetupAttachment(leader, attachment.Socket);
+		comp->SetRelativeTransform(attachment.Offset);
+		comp->SetStaticMesh(attachment.Mesh);
+		ApplyMaterialOverrides(comp, attachment.Materials);
+		comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		comp->SetCanEverAffectNavigation(false);
+		comp->RegisterComponent();
+		appearanceComponents.Add(comp);
+	}
 }
 
 void ACharacterBase::SetProne(bool bNewProne)
@@ -206,6 +292,12 @@ void ACharacterBase::SetDefaultSkills()
 
 	for (const TSubclassOf<USkillBase>& skillClass : defaultSkills)
 	{
+		//패시브는 PassiveSkillComponent에 등록해야 효과가 발동
+		if (skillClass && skillClass->IsChildOf(UPassiveSkillBase::StaticClass()))
+		{
+			if (passiveSkillComponent) passiveSkillComponent->AddPassive(TSubclassOf<UPassiveSkillBase>(skillClass));
+			continue;
+		}
 		skillComponent->AddSkill(skillClass);
 	}
 }
@@ -254,6 +346,110 @@ void ACharacterBase::Tick(float DeltaTime)
 	{
 		UpdateArcMovement(DeltaTime);
 	}
+	//스킬 조준 중이면 정지 상태에서만 몸통을 조준 방향으로 회전
+	else
+	{
+		FVector aimPoint;
+		if (GetVelocity().IsNearlyZero(1.f) && GetAimPoint(aimPoint))
+		{
+			UpdateAimTurn(aimPoint, DeltaTime);
+		}
+		//조준 종료·이동 시 회전 중 래치 해제
+		else
+		{
+			bAimBodyTurning = false;
+			//회전 루트모션이 이동을 막지 않도록 중단
+			if (aimTurnMontage)
+			{
+				StopAnimMontage(aimTurnMontage);
+			}
+		}
+	}
+}
+
+bool ACharacterBase::GetAimPoint(FVector& OutPoint) const
+{
+	return skillComponent && skillComponent->GetAimPoint(OutPoint);
+}
+
+void ACharacterBase::UpdateAimTurn(const FVector& AimPoint, float DeltaTime)
+{
+	//회전 애니 재생 중엔 루트모션이 몸통을 돌림
+	if (aimTurnMontage) return;
+
+	FVector dir = AimPoint - GetActorLocation();
+	dir.Z = 0.f;
+	if (dir.IsNearlyZero()) return;
+
+	const float currentYaw = GetActorRotation().Yaw;
+	const float targetYaw = dir.Rotation().Yaw;
+	const float deltaYaw = FMath::FindDeltaAngleDegrees(currentYaw, targetYaw);
+
+	//데드존 안은 상체만 따라감, 벗어나면 회전 애니로 90/180도 회전(남는 각은 에임오프셋), 애니 없으면 정렬될 때까지 몸통 회전
+	if (!bAimBodyTurning && FMath::Abs(deltaYaw) > aimTurnDeadzone)
+	{
+		if (PlayAimTurn(deltaYaw)) return;
+		bAimBodyTurning = true;
+	}
+	if (!bAimBodyTurning) return;
+
+	const float newYaw = FMath::FixedTurn(currentYaw, targetYaw, aimTurnSpeed * DeltaTime);
+	SetActorRotation(FRotator(0.f, newYaw, 0.f));
+
+	//정렬 완료 시 해제
+	if (FMath::Abs(FMath::FindDeltaAngleDegrees(newYaw, targetYaw)) < 0.5f)
+	{
+		bAimBodyTurning = false;
+	}
+}
+
+bool ACharacterBase::PlayAimTurn(float DeltaYaw)
+{
+	const FAimTurnAnims& anims = IsProne() ? crouchTurnAnims : standTurnAnims;
+	const bool bRight = DeltaYaw > 0.f;
+	UAnimSequence* anim = FMath::Abs(DeltaYaw) > 135.f
+		? (bRight ? anims.right180 : anims.left180)
+		: (bRight ? anims.right90 : anims.left90);
+	UAnimInstance* animInstance = GetMesh()->GetAnimInstance();
+	if (!anim || !animInstance) return false;
+
+	aimTurnMontage = animInstance->PlaySlotAnimationAsDynamicMontage(anim, TEXT("DefaultSlot"), 0.15f, 0.15f, aimTurnPlayRate);
+	if (!aimTurnMontage) return false;
+
+	//발 디딤 이동분은 버리고 회전만 적용
+	SetAnimRootMotionTranslationScale(0.f);
+	FOnMontageEnded endDelegate = FOnMontageEnded::CreateUObject(this, &ACharacterBase::OnAimTurnEnded);
+	animInstance->Montage_SetEndDelegate(endDelegate, aimTurnMontage);
+	return true;
+}
+
+void ACharacterBase::OnAimTurnEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	aimTurnMontage = nullptr;
+	SetAnimRootMotionTranslationScale(1.f);
+}
+
+UAnimSequence* ACharacterBase::PickByAttacker(const FDirectionalAnims& Anims) const
+{
+	UAnimSequence* picked = Anims.front;
+	if (const ACharacterBase* attacker = lastAttacker.Get())
+	{
+		//몸 기준 공격자 각도, +는 오른쪽
+		const FVector local = GetActorTransform().InverseTransformVectorNoScale(attacker->GetActorLocation() - GetActorLocation());
+		const float angle = FMath::RadiansToDegrees(FMath::Atan2(local.Y, local.X));
+		if (FMath::Abs(angle) > 135.f) picked = Anims.back;
+		else if (angle > 45.f) picked = Anims.right;
+		else if (angle < -45.f) picked = Anims.left;
+	}
+	return picked ? picked : Anims.front.Get();
+}
+
+float ACharacterBase::PlayReactionAnim(UAnimSequence* Anim, float BlendOut)
+{
+	UAnimInstance* animInstance = GetMesh()->GetAnimInstance();
+	if (!Anim || !animInstance) return 0.f;
+
+	return animInstance->PlaySlotAnimationAsDynamicMontage(Anim, TEXT("DefaultSlot"), 0.1f, BlendOut) ? Anim->GetPlayLength() : 0.f;
 }
 
 void ACharacterBase::MoveAlongArc(const TArray<FVector>& ArcPoints, bool bForced)
@@ -669,6 +865,9 @@ bool ACharacterBase::ReflectDamage()
 	if (hitRoll > pendingAccuracy)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 공격 회피"), *GetName());
+		const TArray<TObjectPtr<UAnimSequence>>& evades = bIsProne ? crouchEvadeAnims : standEvadeAnims;
+		if (evades.Num() > 0) PlayReactionAnim(evades[FMath::RandRange(0, evades.Num() - 1)], 0.2f);
+		if (evadeSound) UGameplayStatics::SpawnSoundAttached(evadeSound, GetRootComponent());
 		//회피자는 스트레스 3~5 감소
 		RelieveStress(FMath::RandRange(3, 5));
 		//공격이 빗나가면 공격자가 스트레스 1~3 획득
@@ -701,6 +900,10 @@ bool ACharacterBase::ReflectDamage()
 	}
 
 	ReceiveDamage(finalDamage, true);
+
+	//사망 시엔 HandleDeath의 사망 애니가 우선
+	if (!IsDead()) PlayReactionAnim(PickByAttacker(bIsProne ? crouchHitAnims : standHitAnims), 0.2f);
+	if (hitSound) UGameplayStatics::SpawnSoundAttached(hitSound, GetRootComponent());
 
 	return true;
 }
@@ -1233,7 +1436,17 @@ void ACharacterBase::HandleDeath()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	Destroy();
+	//사망 애니가 있으면 재생 길이만큼 Destroy 지연, SetLifeSpan(0)은 무한이라 길이 0이면 즉시 제거
+	//쓰러진 포즈 유지 위해 블렌드아웃 없이, 끝나며 기본 포즈로 튀기 직전에 제거
+	const float deathLength = PlayReactionAnim(PickByAttacker(bIsProne ? crouchDeathAnims : standDeathAnims), 0.f);
+	if (deathLength > 0.f)
+	{
+		SetLifeSpan(FMath::Max(deathLength - 0.05f, KINDA_SMALL_NUMBER));
+	}
+	else
+	{
+		Destroy();
+	}
 }
 
 void ACharacterBase::ShowSkillInfo()
@@ -1270,7 +1483,16 @@ void ACharacterBase::SetHighlighted(bool bHighlighted)
 	//머티리얼 미지정이면 끄는 쪽도 할 일이 없다, 남이 깔아둔 오버레이를 지우지 않는다
 	if (!highlightOverlayMaterial) return;
 
-	GetMesh()->SetOverlayMaterial(bHighlighted ? highlightOverlayMaterial.Get() : nullptr);
+	UMaterialInterface* overlay = bHighlighted ? highlightOverlayMaterial.Get() : nullptr;
+	GetMesh()->SetOverlayMaterial(overlay);
+	//파츠가 몸 대부분을 덮으므로 함께 칠해야 강조가 보인다
+	for (UMeshComponent* comp : appearanceComponents)
+	{
+		if (comp)
+		{
+			comp->SetOverlayMaterial(overlay);
+		}
+	}
 }
 
 void ACharacterBase::ClearPendingDamage()

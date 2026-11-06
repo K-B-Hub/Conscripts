@@ -7,6 +7,10 @@
 #include "BuffBase.generated.h"
 
 class ACharacterBase;
+class UNiagaraSystem;
+class UNiagaraComponent;
+class USoundBase;
+class UAudioComponent;
 
 //모든 버프의 공통 기반
 //Blueprintable이어야 파생 BP를 만들 수 있다, 아이콘 등 에셋 지정이 BP에서 이뤄진다
@@ -92,4 +96,22 @@ public:
 
 	//턴 시작/종료 효과
 	virtual void Execute(ACharacterBase* affected);
+
+	//적용 시 대상에 붙여 재생, 반복 에셋이면 버프가 끝날 때까지 유지
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff|Presentation")
+	TObjectPtr<UNiagaraSystem> buffEffect;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff|Presentation")
+	TObjectPtr<USoundBase> buffSound;
+
+	//연출 시작·정리, 컴포넌트가 적용·제거 시 호출
+	void StartPresentation(ACharacterBase* affected);
+	void StopPresentation();
+
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<UNiagaraComponent> effectComponent;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> soundComponent;
 };

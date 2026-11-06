@@ -5,9 +5,24 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/Image.h"
 #include "Engine/Texture2D.h"
+#include "Sound/SoundBase.h"
+#include "UObject/ConstructorHelpers.h"
 #if WITH_EDITOR
 #include "TextureCompiler.h"
 #endif
+
+UImageButton::UImageButton(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	//모든 버튼의 기본 클릭음, 개별 버튼은 Style의 Pressed Sound로 덮어쓴다
+	static ConstructorHelpers::FObjectFinder<USoundBase> clickSound(TEXT("/Game/Sound/Assets/Button1"));
+	if (clickSound.Succeeded())
+	{
+		FButtonStyle style = GetStyle();
+		style.PressedSlateSound.SetResourceObject(clickSound.Object);
+		SetStyle(style);
+	}
+}
 
 TSharedRef<SWidget> UImageButton::RebuildWidget()
 {
