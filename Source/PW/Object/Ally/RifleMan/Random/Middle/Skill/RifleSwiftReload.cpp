@@ -6,7 +6,7 @@
 URifleSwiftReload::URifleSwiftReload()
 {
 	skillName = NSLOCTEXT("Skill", "RifleSwiftReload_Name", "신속한 재장전");
-	skillDescription = NSLOCTEXT("Skill", "RifleSwiftReload_Description", "재장전의 행동력 소모가 1 감소한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleSwiftReload_Description", "재장전의 행동력 소모 -1");
 	skillGrade = EUpgradeGrade::Mid;
 
 	//스탯 변화 없이 비용만 깎는다, 조건 검사도 필요 없다

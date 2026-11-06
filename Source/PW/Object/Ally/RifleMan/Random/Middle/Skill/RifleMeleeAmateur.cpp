@@ -5,7 +5,7 @@
 URifleMeleeAmateur::URifleMeleeAmateur()
 {
 	skillName = NSLOCTEXT("Skill", "RifleMeleeAmateur_Name", "근접전 아마추어");
-	skillDescription = NSLOCTEXT("Skill", "RifleMeleeAmateur_Description", "근접 공격의 공격력이 5 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleMeleeAmateur_Description", "근접 공격 시 공격력 +5");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;

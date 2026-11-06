@@ -6,7 +6,7 @@
 URifleGreatSword::URifleGreatSword()
 {
 	skillName = NSLOCTEXT("Skill", "RifleGreatSword_Name", "대검술");
-	skillDescription = NSLOCTEXT("Skill", "RifleGreatSword_Description", "대검으로 근접한 대상을 벤다");
+	skillDescription = NSLOCTEXT("Skill", "RifleGreatSword_Description", "1m 내의 적 1명에게 공격력 × 1.0 + 5의 근접 피해를 준다.\n명중 +90");
 
 	skillType = ESkillType::Melee;
 	damageType = EDamageType::Normal;

@@ -7,7 +7,7 @@
 URifleReload::URifleReload()
 {
 	skillName = NSLOCTEXT("Skill", "RifleReload_Name", "재장전");
-	skillDescription = NSLOCTEXT("Skill", "RifleReload_Description", "탄창을 보충한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleReload_Description", "탄창을 3개 보충한다.");
 
 	//피해가 없는 자기 대상 스킬
 	skillType = ESkillType::Buff;

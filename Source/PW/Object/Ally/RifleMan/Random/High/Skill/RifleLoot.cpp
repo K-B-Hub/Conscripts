@@ -6,7 +6,7 @@
 URifleLoot::URifleLoot()
 {
 	skillName = NSLOCTEXT("Skill", "RifleLoot_Name", "전리품 획득");
-	skillDescription = NSLOCTEXT("Skill", "RifleLoot_Description", "적을 처치하면 탄창을 3개 회복한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleLoot_Description", "적 처치 시 탄창을 3개 회복한다.");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Reactive;

@@ -215,8 +215,14 @@ protected:
 	//턴 종료 처리
 	void FinishTurn();
 
-	//제자리 공격 실행
-	void ExecuteAttackImmediate(const FAIAction& Action);
+	//제자리 공격 실행, 시전을 시작했으면 true (다음 행동은 결과 통지 후)
+	bool ExecuteAttackImmediate(const FAIAction& Action);
+
+	//공격 후 다음 행동 결정, 시전했으면 결과 통지를 기다리고 아니면 바로 진행
+	void ContinueAfterAttack(bool bStarted);
+
+	//GameMode 행동 결과 통지 수신
+	void OnActionResolved(ACharacterBase* actor);
 
 	//이동 후 예약 공격 실행, 행동 간 딜레이 뒤 호출
 	void ExecutePendingAfterMove();

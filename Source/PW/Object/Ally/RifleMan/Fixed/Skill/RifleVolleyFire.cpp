@@ -6,7 +6,7 @@
 URifleVolleyFire::URifleVolleyFire()
 {
 	skillName = NSLOCTEXT("Skill", "RifleVolleyFire_Name", "일제 사격");
-	skillDescription = NSLOCTEXT("Skill", "RifleVolleyFire_Description", "전방 부채꼴 범위의 적들을 일제히 사격한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleVolleyFire_Description", "전방 반지름 8m, 중심각 90°의 부채꼴 안의 모든 캐릭터(아군 포함)에게 공격력 × 1.1 + 5의 원거리 피해를 준다.\n명중 +80");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Area;

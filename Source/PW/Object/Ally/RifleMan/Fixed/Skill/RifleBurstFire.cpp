@@ -6,7 +6,7 @@
 URifleBurstFire::URifleBurstFire()
 {
 	skillName = NSLOCTEXT("Skill", "RifleBurstFire_Name", "연사");
-	skillDescription = NSLOCTEXT("Skill", "RifleBurstFire_Description", "연속으로 3회 사격한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleBurstFire_Description", "16m 내의 적을 3번 지정해 각각 공격력 × 1.0의 원거리 피해를 준다(같은 대상 중복 가능).\n명중 +75");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;

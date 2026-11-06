@@ -14,6 +14,7 @@ void UPWGameUserSettings::SetToDefaults()
 
 	enemyTurnSpeed = 1.f;
 	bEnemyTurnCameraFollow = true;
+	skillCameraMode = ESkillCameraMode::All;
 	masterVolume = 1.f;
 	musicVolume = 1.f;
 	sfxVolume = 1.f;
@@ -24,6 +25,12 @@ const TArray<float>& UPWGameUserSettings::GetEnemyTurnSpeedOptions()
 	//TODO 체감 밸런스 미확정 — 적 70명 전장에서 돌려 보고 확정
 	static const TArray<float> options = { 1.f, 2.f, 3.f, 4.f };
 	return options;
+}
+
+ESkillCameraMode UPWGameUserSettings::GetSkillCameraMode() const
+{
+	//범위 밖 값은 기본값으로
+	return skillCameraMode <= ESkillCameraMode::All ? skillCameraMode : ESkillCameraMode::All;
 }
 
 float UPWGameUserSettings::GetEnemyTurnSpeed() const

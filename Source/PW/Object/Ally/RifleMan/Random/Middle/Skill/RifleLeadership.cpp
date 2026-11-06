@@ -8,7 +8,7 @@
 URifleLeadership::URifleLeadership()
 {
 	skillName = NSLOCTEXT("Skill", "RifleLeadership_Name", "리더십");
-	skillDescription = NSLOCTEXT("Skill", "RifleLeadership_Description", "주변 5m 내의 모든 아군에게 공격력을 2 부여한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleLeadership_Description", "주변 5m 내의 다른 아군 전원에게 공격력 +2를 부여한다.");
 	skillGrade = EUpgradeGrade::Mid;
 
 	//누가 이동을 마칠 때마다 주변 인원이 바뀌므로 MoveComplete로 재평가

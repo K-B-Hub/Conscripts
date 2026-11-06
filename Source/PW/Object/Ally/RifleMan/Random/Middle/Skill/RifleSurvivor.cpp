@@ -7,7 +7,7 @@
 URifleSurvivor::URifleSurvivor()
 {
 	skillName = NSLOCTEXT("Skill", "RifleSurvivor_Name", "생존자");
-	skillDescription = NSLOCTEXT("Skill", "RifleSurvivor_Description", "8라운드부터 명중이 10, 치명이 5 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleSurvivor_Description", "8라운드부터 명중 +10 · 치명 +5");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Conditional;

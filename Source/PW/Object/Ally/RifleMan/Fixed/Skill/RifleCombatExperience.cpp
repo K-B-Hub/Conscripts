@@ -5,7 +5,7 @@
 URifleCombatExperience::URifleCombatExperience()
 {
 	skillName = NSLOCTEXT("Skill", "RifleCombatExperience_Name", "전투 숙련");
-	skillDescription = NSLOCTEXT("Skill", "RifleCombatExperience_Description", "행동력이 1, 탄창이 2 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleCombatExperience_Description", "행동력 +1 · 탄창 최대치 +2");
 
 	//조건 없이 상시 적용되는 스탯 강화
 	passiveType = EPassiveType::Stat;

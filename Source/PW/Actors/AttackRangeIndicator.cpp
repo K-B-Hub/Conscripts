@@ -313,9 +313,12 @@ void AAttackRangeIndicator::Tick(float DeltaTime)
 	if (bArc && caster.IsValid())
 	{
 		const FVector ArcFrom = caster->GetActorLocation();
-		//끝점은 지면 위치이므로 캡슐 half-height만큼 올려 착지 시 캡슐 중심 높이를 맞춤
+		//지면 지점은 캡슐 half-height만큼 올려 캡슐 중심 높이를 맞춤, 대상 스냅은 이미 캡슐 중심
 		FVector ArcTo = GetActorLocation();
-		ArcTo.Z += caster->GetSimpleCollisionHalfHeight();
+		if (!snappedTarget.IsValid())
+		{
+			ArcTo.Z += caster->GetSimpleCollisionHalfHeight();
+		}
 		const float HorizDist = FVector2D(ArcTo.X - ArcFrom.X, ArcTo.Y - ArcFrom.Y).Size();
 		arcPath = BuildArcPath(ArcFrom, ArcTo, HorizDist * cachedSkill->arcApexRatio, arcSampleCount);
 

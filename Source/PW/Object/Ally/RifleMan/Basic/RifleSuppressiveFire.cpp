@@ -6,7 +6,7 @@
 URifleSuppressiveFire::URifleSuppressiveFire()
 {
 	skillName = NSLOCTEXT("Skill", "RifleSuppressiveFire_Name", "견제 사격");
-	skillDescription = NSLOCTEXT("Skill", "RifleSuppressiveFire_Description", "1명의 대상에게 총을 쏴 사격을 한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleSuppressiveFire_Description", "24m 내의 적 1명에게 공격력 × 1.0 + 1의 원거리 피해를 준다.\n명중 +60");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;

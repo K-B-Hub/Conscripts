@@ -6,7 +6,7 @@
 URifleFirstAid::URifleFirstAid()
 {
 	skillName = NSLOCTEXT("Skill", "RifleFirstAid_Name", "응급처치");
-	skillDescription = NSLOCTEXT("Skill", "RifleFirstAid_Description", "응급처치로 자신의 체력을 20% 회복한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleFirstAid_Description", "자신의 체력을 최대 체력의 20%만큼 회복한다.");
 	skillGrade = EUpgradeGrade::High;
 
 	//회복 스킬, 대상은 자신뿐이라 아군 판정으로 반드시 적중한다

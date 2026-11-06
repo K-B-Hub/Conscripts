@@ -8,7 +8,7 @@
 URifleSolidarity::URifleSolidarity()
 {
 	skillName = NSLOCTEXT("Skill", "RifleSolidarity_Name", "연대 각성");
-	skillDescription = NSLOCTEXT("Skill", "RifleSolidarity_Description", "주변 5m 내의 모든 아군에게 공격력 3과 치명 10을 부여한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleSolidarity_Description", "주변 5m 내의 다른 아군 전원에게 공격력 +3 · 치명 +10을 부여한다.");
 	skillGrade = EUpgradeGrade::High;
 
 	//누가 이동을 마칠 때마다 주변 인원이 바뀌므로 MoveComplete로 재평가

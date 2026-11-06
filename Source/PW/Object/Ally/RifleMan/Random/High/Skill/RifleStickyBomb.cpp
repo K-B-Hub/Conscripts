@@ -6,7 +6,7 @@
 URifleStickyBomb::URifleStickyBomb()
 {
 	skillName = NSLOCTEXT("Skill", "RifleStickyBomb_Name", "점착 폭탄 투척");
-	skillDescription = NSLOCTEXT("Skill", "RifleStickyBomb_Description", "적에게 점착 폭탄을 붙인다. 대상의 다음 턴 시작에 터져 주변 3m에 공격력 1.0~1.5배의 피해를 준다");
+	skillDescription = NSLOCTEXT("Skill", "RifleStickyBomb_Description", "6m 내의 적 1명에게 점착 폭탄을 붙인다. 대상의 다음 턴 시작에 폭발해 반경 3m 안의 모든 캐릭터(아군 포함)에게 공격력 × 1.0~1.5의 피해를 준다(체력을 1 아래로 깎지 않음).");
 	skillGrade = EUpgradeGrade::High;
 
 	//부착 대상은 한 명, 폭발 범위는 상태이상이 들고 있어 여기선 광역이 아니다

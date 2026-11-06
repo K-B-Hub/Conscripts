@@ -3,7 +3,8 @@
 #include "Widget/CampDialogueWidget.h"
 #include "Components/TextBlock.h"
 
-void UCampDialogueWidget::SetLine(const FText& line)
+void UCampDialogueWidget::SetLine(const FText& speaker, const FText& line)
 {
+	if (NameText) NameText->SetText(speaker);
 	if (LineText) LineText->SetText(line);
 }

@@ -133,6 +133,7 @@ public:
 	TSubclassOf<UUserWidget> GetLoadingScreenClass() const { return loadingScreenClass; }
 	float GetLoadingHoldSeconds() const { return loadingHoldSeconds; }
 	float GetLoadingFadeSeconds() const { return loadingFadeSeconds; }
+	float GetLoadingMaxWaitSeconds() const { return loadingMaxWaitSeconds; }
 
 protected:
 	virtual void OnStart() override;
@@ -214,6 +215,10 @@ protected:
 	//로딩창 페이드 인/아웃 각각의 시간, 0이면 즉시 전환
 	UPROPERTY(EditDefaultsOnly, Category = "Loading", meta = (ClampMin = "0"))
 	float loadingFadeSeconds = 0.3f;
+
+	//맵 로드 후 유지 조건이 안 풀려도 로딩창을 걷는 상한, PSO 컴파일 등 끝을 모르는 대기에 갇히지 않게
+	UPROPERTY(EditDefaultsOnly, Category = "Loading", meta = (ClampMin = "1"))
+	float loadingMaxWaitSeconds = 30.f;
 
 private:
 	//맵 전환이 사운드 믹스를 비울 수 있어 로드마다 다시 건다

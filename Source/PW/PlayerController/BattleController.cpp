@@ -7,6 +7,8 @@
 #include "InputActionValue.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
 #include "Characters/AllyCharacterBase.h"
 #include "Actors/CursorIndicator.h"
 #include "Widget/BattleHudWidget.h"
@@ -601,10 +603,15 @@ void ABattleController::Tick(float DeltaTime)
 		AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
 		if (!followUnit) followUnit = IsValid(aiFollowTarget) ? static_cast<AActor*>(aiFollowTarget) : nullptr;
 
-		//카메라 추적 모드, 스프링암을 캐릭터 x,y,z에 그대로 고정 (지면 스냅 없음 — 점프 궤적을 그대로 따라감)
+		//카메라 추적 모드, 스프링암을 캐릭터 x,y,z로 보간 (지면 스냅 없음 — 점프 궤적을 따라감)
+		//턴 전환·초기화도 이 보간으로 옮겨간다
+		//높이는 발 + cameraGroundOffset, 자유 모드 지면 스냅과 맞춰 전환 시 튀지 않게
 		if (bIsFollowingCharacter && followUnit)
 		{
-			SpringArm->SetWorldLocation(followUnit->GetActorLocation());
+			const FVector followPos = followUnit->GetActorLocation()
+				- FVector(0.f, 0.f, followUnit->GetSimpleCollisionHalfHeight() - cameraGroundOffset);
+			SpringArm->SetWorldLocation(FMath::VInterpTo(SpringArm->GetComponentLocation(),
+				followPos, DeltaTime, cameraFollowInterpSpeed));
 		}
 		//자유 이동 모드, 입력 없으면 관성 감속, 항상 지면 스냅
 		else
@@ -623,6 +630,9 @@ void ABattleController::Tick(float DeltaTime)
 
 void ABattleController::OnCameraMove(const FInputActionValue& Value)
 {
+	//연출 카메라 중 조작 잠금
+	if (bSkillCameraActive) return;
+
 	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm) return;
 
@@ -652,6 +662,8 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 
 void ABattleController::OnCameraRotate(const FInputActionValue& Value)
 {
+	if (bSkillCameraActive) return;
+
 	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm) return;
 
@@ -666,6 +678,8 @@ void ABattleController::OnCameraRotate(const FInputActionValue& Value)
 
 void ABattleController::OnCameraZoom(const FInputActionValue& Value)
 {
+	if (bSkillCameraActive) return;
+
 	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm) return;
 
@@ -689,6 +703,9 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 	//강화 선택지를 접은 동안은 통과해 아래 상세보기 대상 전환까지 내려간다
 	if (IsBlockingWidgetOpen()) return;
 
+	//연출 카메라 중 월드 클릭 차단, 커서 아래가 보이는 화면과 다르다
+	if (bSkillCameraActive) return;
+
 	//Deploy 페이즈에서는 같은 클릭이 배치 명령이 된다
 	if (const ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr)
 	{
@@ -702,10 +719,10 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 	//상태이상이 턴을 진행 중이면 조작 불가, HUD 잠금이 막지 못하는 입력 경로 차단
 	if (activeUnit && activeUnit->IsAilmentDrivenTurn()) return;
 
-	//스킬 커밋 대기 중 신규 명령 차단, 효과 적용 전 다른 행동 방지
+	//행동 결과 확정 전 신규 명령 차단, 효과 적용·연출 중 다른 행동 방지
 	//적 턴에는 activeUnit이 없으므로 아래 스킬·이동 분기가 모두 지나가고 상세보기로 떨어진다
 	USkillComponent* SkillComp = activeUnit ? activeUnit->GetSkillComponent() : nullptr;
-	if (SkillComp && SkillComp->HasPendingExecution()) return;
+	if (activeUnit && IsActionInProgress()) return;
 
 	//스킬 모드 우선 처리
 	if (SkillComp && SkillComp->IsSkillActive())
@@ -759,6 +776,9 @@ bool ABattleController::IsHoverAllowed() const
 	const ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	if (!gameMode || gameMode->GetPhase() != EBattlePhase::Battle) return false;
 
+	//연출 카메라 중엔 화면이 바뀌어 커서 아래 대상이 의미 없다
+	if (bSkillCameraActive) return false;
+
 	return !IsBlockingWidgetOpen();
 }
 
@@ -797,11 +817,14 @@ void ABattleController::ClearHoverFromWidget(const ACharacterBase* owner)
 
 void ABattleController::FocusCameraOn(ACharacterBase* target)
 {
+	//연출 카메라 중 조작 잠금
+	if (bSkillCameraActive) return;
+
 	USpringArmComponent* SpringArm = ResolveSpringArm();
 	if (!SpringArm || !IsValid(target)) return;
 
 	//추적을 켜면 다음 틱에 activeUnit·aiFollowTarget으로 되돌아간다, 위치만 옮기고 자유 모드로 둔다
-	//Yaw는 건드리지 않는다 — OnCameraReset과 달리 플레이어가 맞춰 둔 시야각을 뒤집을 이유가 없다
+	//Yaw는 건드리지 않는다 — 플레이어가 맞춰 둔 시야각을 뒤집을 이유가 없다
 	SpringArm->SetWorldLocation(target->GetActorLocation());
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = false;
@@ -888,8 +911,8 @@ void ABattleController::OnCancelMove(const FInputActionValue& Value)
 	if (activeUnit)
 	{
 		USkillComponent* SkillComp = activeUnit->GetSkillComponent();
-		//커밋 대기 중엔 취소 불가, 비용은 이미 확정됨
-		if (SkillComp && SkillComp->HasPendingExecution()) return;
+		//행동 진행 중엔 취소 불가, 비용은 이미 확정됨
+		if (IsActionInProgress()) return;
 		if (SkillComp && SkillComp->IsSkillActive())
 		{
 			if (bPendingSkillExec)
@@ -911,19 +934,16 @@ void ABattleController::OnCancelMove(const FInputActionValue& Value)
 
 void ABattleController::OnCameraReset(const FInputActionValue& Value)
 {
+	if (bSkillCameraActive) return;
+
 	AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
 	if (!followUnit) followUnit = IsValid(aiFollowTarget) ? static_cast<AActor*>(aiFollowTarget) : nullptr;
-	USpringArmComponent* SpringArm = ResolveSpringArm();
-	if (!SpringArm || !followUnit) return;
+	if (!followUnit) return;
 
-	//스프링암을 즉시 캐릭터 위치로 이동 후 추적 모드 활성화 (추적 모드는 지면 스냅 안 함)
-	SpringArm->SetWorldLocation(followUnit->GetActorLocation());
+	//추적 모드만 켜고 이동은 Tick 보간에 맡긴다 (추적 모드는 지면 스냅 안 함)
+	//Yaw는 플레이어가 맞춰 둔 값을 유지
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = true;
-
-	//카메라 각도를 초기값으로 리셋, 턴 전환 시 이전 Yaw가 남는 문제 방지
-	currentCameraYaw = 0.f;
-	SpringArm->SetRelativeRotation(FRotator(cachedSpringArmPitch, currentCameraYaw, 0.f));
 }
 
 void ABattleController::TogglePauseMenu()
@@ -1099,11 +1119,7 @@ void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
 
 	aiFollowTarget = AIUnit;
 
-	USpringArmComponent* SpringArm = ResolveSpringArm();
-	if (!SpringArm) return;
-
-	//즉시 AI 위치로 이동 후 추적 모드 활성화 (추적 모드는 지면 스냅 안 함)
-	SpringArm->SetWorldLocation(AIUnit->GetActorLocation());
+	//추적 모드만 켜고 이동은 Tick 보간에 맡긴다 (추적 모드는 지면 스냅 안 함)
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = true;
 }
@@ -1111,6 +1127,9 @@ void ABattleController::BeginAITurnFollow(ACharacterBase* AIUnit)
 void ABattleController::ActivateSkill(UActiveSkillBase* Skill)
 {
 	if (!activeUnit || !Skill) return;
+
+	//행동 결과 확정 전엔 새 스킬을 고를 수 없다
+	if (IsActionInProgress()) return;
 
 	//이동 모드와 상호 배타
 	if (bIsMoveMode) ExitMoveMode();
@@ -1145,6 +1164,9 @@ void ABattleController::DeactivateSkill()
 
 void ABattleController::ToggleMoveMode()
 {
+	//행동 결과 확정 전엔 이동 모드 전환 불가
+	if (IsActionInProgress()) return;
+
 	if (activeUnit->GetCurrentMovingPoint() <= 0.f)
 	{
 		return;
@@ -1234,7 +1256,7 @@ void ABattleController::OnUnitMovementCompleted()
 		}
 
 		//효과 적용은 임팩트 커밋 시점으로 지연
-		StartPendingSkillOnTargets(SkillComp, Skill, Targets);
+		SkillComp->StartPendingOnTargets(Skill, Targets);
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
 
@@ -1315,7 +1337,7 @@ void ABattleController::ExecuteSkill()
 		//인디케이터 파괴 전에 궤적 복사, 도약 시작은 커밋 시점(도약 몽타주의 이륙 프레임)
 		TArray<FVector> arcCopy = Arc;
 		TWeakObjectPtr<AAllyCharacterBase> caster = activeUnit;
-		SkillComp->StartPendingExecution(Skill, [caster, arcCopy]()
+		SkillComp->StartPendingExecution(Skill, {}, [caster, arcCopy]()
 		{
 			if (caster.IsValid())
 			{
@@ -1373,7 +1395,7 @@ void ABattleController::ExecuteSkill()
 		}
 
 		//멀티픽 누적 대상으로 pending 등록, 사망자 필터는 스냅샷·커밋 양쪽에서 수행
-		StartPendingSkillOnTargets(SkillComp, Skill, SkillComp->GetAccumulatedTargets());
+		SkillComp->StartPendingOnTargets(Skill, SkillComp->GetAccumulatedTargets());
 		remainingPicks = 0;
 		SkillComp->DeactivateSkill();
 		RefreshSkillButtons();
@@ -1438,7 +1460,7 @@ void ABattleController::ExecuteSkill()
 	}
 
 	//예측값은 커밋 시점에 재계산되어 판정됨, 오버랩 시 값은 UI 표시용
-	StartPendingSkillOnTargets(SkillComp, Skill, Targets);
+	SkillComp->StartPendingOnTargets(Skill, Targets);
 
 	//스킬 사용 완료, 비활성화
 	SkillComp->DeactivateSkill();
@@ -1446,38 +1468,6 @@ void ABattleController::ExecuteSkill()
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleController] 스킬 실행: %s → %d명 대상"),
 		*Skill->skillName.ToString(), Targets.Num());
-}
-
-void ABattleController::StartPendingSkillOnTargets(USkillComponent* SkillComp, UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets)
-{
-	//커밋 시점까지 대상 생존 불확실, 약참조 스냅샷
-	TArray<TWeakObjectPtr<ACharacterBase>> pendingTargets;
-	for (ACharacterBase* Target : Targets)
-	{
-		if (IsValid(Target))
-		{
-			pendingTargets.Add(Target);
-		}
-	}
-	TWeakObjectPtr<ACharacterBase> caster = activeUnit;
-
-	//인디케이터 파괴 시 대상 이탈 처리가 pending 예측값을 지우므로, 커밋 시점에 재계산 후 판정
-	SkillComp->StartPendingExecution(Skill, [SkillComp, Skill, pendingTargets, caster]()
-	{
-		for (const TWeakObjectPtr<ACharacterBase>& Weak : pendingTargets)
-		{
-			ACharacterBase* Target = Weak.Get();
-			if (!IsValid(Target)) continue;
-			SkillComp->RecalculatePending(Skill, Target);
-			Target->SetLastAttacker(caster.Get());
-			//판정에서 사망하면 위치를 잃으므로 미리 기록
-			const FVector hitLocation = Target->GetActorLocation();
-			if (!Target->ReflectDamage()) continue;
-			Skill->SpawnHitEffect(hitLocation);
-			if (!IsValid(Target)) continue;
-			Skill->Execute(Target);
-		}
-	});
 }
 
 void ABattleController::RefreshSkillButtons()
@@ -1508,5 +1498,160 @@ void ABattleController::SnapSpringArmToGround(USpringArmComponent* SpringArm)
 			return;
 		}
 	}
+}
+
+bool ABattleController::IsActionInProgress() const
+{
+	const ABattleGameMode* gameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	return gameMode && gameMode->IsActionInProgress();
+}
+
+void ABattleController::RequestEndTurn()
+{
+	if (IsValid(activeUnit)) activeUnit->RequestEndTurn();
+}
+
+float ABattleController::BeginSkillCamera(const ACharacterBase* caster, const UActiveSkillBase* skill, const TArray<FVector>& framePoints)
+{
+	if (!caster) return 0.f;
+
+	//설정이 시전자 진영을 허용할 때만, 혼란으로 아군이 쓴 스킬도 아군 시전이다
+	const UPWGameUserSettings* settings = UPWGameUserSettings::Get();
+	const ESkillCameraMode mode = settings ? settings->GetSkillCameraMode() : ESkillCameraMode::All;
+	const bool bAllowed = mode == ESkillCameraMode::All
+		|| (mode == ESkillCameraMode::AllyOnly && caster->IsAlly())
+		|| (mode == ESkillCameraMode::EnemyOnly && !caster->IsAlly());
+	if (!bAllowed) return 0.f;
+
+	//본인 대상 스킬(포복 등)은 담을 대상이 시전자뿐이라, 아치 이동(점프)은 이동이라 연출하지 않는다
+	if (!skill || skill->selectMode == ESelectMode::Self || skill->UsesArcMovement()) return 0.f;
+
+	FVector location;
+	FRotator rotation;
+	if (!ComputeSkillCameraView(framePoints, location, rotation)) return 0.f;
+
+	if (!IsValid(skillCameraActor))
+	{
+		FActorSpawnParameters params;
+		params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		skillCameraActor = GetWorld()->SpawnActor<ACameraActor>(location, rotation, params);
+		if (!skillCameraActor) return 0.f;
+
+		//레터박스 없이 원래 화면비 그대로
+		skillCameraActor->GetCameraComponent()->bConstrainAspectRatio = false;
+	}
+
+	//원래 카메라와 화각을 맞춰 블렌드 중 줌이 튀지 않게
+	if (PlayerCameraManager)
+	{
+		skillCameraActor->GetCameraComponent()->SetFieldOfView(PlayerCameraManager->GetFOVAngle());
+	}
+	skillCameraActor->SetActorLocationAndRotation(location, rotation);
+
+	//남은 관성으로 원래 카메라가 미끄러지지 않게
+	cameraVelocity = FVector::ZeroVector;
+	bSkillCameraActive = true;
+	SetViewTargetWithBlend(skillCameraActor, skillCameraBlendInTime, VTBlend_Cubic);
+	return skillCameraBlendInTime;
+}
+
+void ABattleController::FinishSkillCamera(TFunction<void()> onReturned)
+{
+	FTimerManager& timers = GetWorldTimerManager();
+
+	//사망 처리 콜 스택을 벗어난 뒤 확정되도록 다음 틱
+	if (!bSkillCameraActive)
+	{
+		timers.SetTimerForNextTick(FTimerDelegate::CreateLambda([onReturned]() { onReturned(); }));
+		return;
+	}
+
+	//결과를 보여준 뒤 복귀, 0초 타이머는 등록되지 않으므로 최소값을 둔다
+	TWeakObjectPtr<ABattleController> weakThis(this);
+	timers.SetTimer(skillCameraTimer, FTimerDelegate::CreateLambda([weakThis, onReturned]()
+	{
+		if (!weakThis.IsValid()) return;
+		ABattleController* self = weakThis.Get();
+		self->SetViewTargetWithBlend(self->GetPawn(), self->skillCameraBlendOutTime, VTBlend_Cubic);
+
+		//복귀 블렌드가 끝날 때까지 조작 잠금 유지
+		self->GetWorldTimerManager().SetTimer(self->skillCameraTimer, FTimerDelegate::CreateLambda([weakThis, onReturned]()
+		{
+			if (!weakThis.IsValid()) return;
+			weakThis->bSkillCameraActive = false;
+			onReturned();
+		}), FMath::Max(self->skillCameraBlendOutTime, 0.01f), false);
+	}), FMath::Max(skillCameraHoldTime, 0.01f), false);
+}
+
+bool ABattleController::ComputeSkillCameraView(const TArray<FVector>& framePoints, FVector& outLocation, FRotator& outRotation) const
+{
+	if (framePoints.Num() == 0 || !PlayerCameraManager) return false;
+
+	int32 viewX = 0;
+	int32 viewY = 0;
+	GetViewportSize(viewX, viewY);
+	const float aspect = (viewX > 0 && viewY > 0) ? static_cast<float>(viewX) / viewY : 16.f / 9.f;
+	const float tanH = FMath::Tan(FMath::DegreesToRadians(PlayerCameraManager->GetFOVAngle() * 0.5f));
+	const float tanV = tanH / aspect;
+	const float hud = FMath::Clamp(skillCameraHudBottomRatio, 0.f, 0.8f);
+	const float tanVUsable = tanV * (1.f - hud);
+	const float pad = skillCameraFramePadding;
+
+	//지금 시야 방향은 유지하고 피치만 살짝 더 내려다본다
+	const FRotator currentRotation = PlayerCameraManager->GetCameraRotation();
+	const float currentDistance = FMath::Lerp(zoomNearArmLength, zoomFarArmLength, currentZoomAlpha);
+	outRotation = FRotator(FMath::Clamp(currentRotation.Pitch + skillCameraPitchOffset, -85.f, -10.f), currentRotation.Yaw, 0.f);
+	const FRotationMatrix basis(outRotation);
+	const FVector forward = basis.GetUnitAxis(EAxis::X);
+	const FVector side = basis.GetUnitAxis(EAxis::Y);
+	const FVector up = basis.GetUnitAxis(EAxis::Z);
+
+	TArray<FVector> points = framePoints;
+	FVector center = FVector::ZeroVector;
+	float required = 0.f;
+	const auto measure = [&]()
+	{
+		center = FBox(points).GetCenter();
+
+		//점마다 화면 안에 들어올 최소 거리, 세로는 HUD 위 영역만 쓴다
+		required = 0.f;
+		for (const FVector& p : points)
+		{
+			const FVector offset = p - center;
+			const float f = FVector::DotProduct(offset, forward);
+			const float r = FMath::Abs(FVector::DotProduct(offset, side));
+			const float u = FVector::DotProduct(offset, up);
+			required = FMath::Max(required, (r + pad) / tanH - f);
+			required = FMath::Max(required, (u + pad - f * tanV) / tanVUsable);
+			required = FMath::Max(required, (pad - u - (1.f - 2.f * hud) * f * tanV) / tanVUsable);
+		}
+	};
+	measure();
+
+	//다 못 담으면 시전자(0번)를 뺀 지점 중 중심에서 가장 먼 것부터 뺀다, 멀티픽에서 최대한 많이 담기 위함
+	while (required * skillCameraWidenRatio > skillCameraMaxDistance && points.Num() > 1)
+	{
+		int32 farthest = 1;
+		float farthestDistSq = -1.f;
+		for (int32 i = 1; i < points.Num(); ++i)
+		{
+			const float distSq = FVector::DistSquared(points[i], center);
+			if (distSq > farthestDistSq)
+			{
+				farthestDistSq = distSq;
+				farthest = i;
+			}
+		}
+		points.RemoveAt(farthest);
+		measure();
+	}
+
+	//최소 거리보다 넓게, 지금 거리로 이미 다 담기면 살짝만 당긴다
+	const float distance = FMath::Min(FMath::Max(required * skillCameraWidenRatio, currentDistance * skillCameraZoomInRatio), skillCameraMaxDistance);
+
+	//중심이 HUD 위 영역 가운데에 오도록 카메라를 화면 아래 방향으로 내린다
+	outLocation = center - forward * distance - up * (distance * tanV * hud);
+	return true;
 }
 

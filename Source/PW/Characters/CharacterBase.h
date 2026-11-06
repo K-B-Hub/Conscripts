@@ -252,6 +252,11 @@ protected:
 	TObjectPtr<USoundBase> evadeSound;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
 	TObjectPtr<USoundBase> hitSound;
+	//반응 애니 앞쪽 정지 구간을 건너뛸 시간, 착탄 순간에 이미 움직이고 있도록
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction", meta = (ClampMin = "0.0"))
+	float hitAnimStartTime = 0.1f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction", meta = (ClampMin = "0.0"))
+	float evadeAnimStartTime = 0.15f;
 
 	//AttackRangeIndicator와 오버렙 시 미리 계산해 값을 저장
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PendingDamage")
@@ -279,7 +284,7 @@ protected:
 	//isMoved는 인디케이터 미리보기·AI 후보 평가가 일시적으로 켰다 끄므로 "실제로 이동했는가"의 근거가 못 됨
 	bool hasConsumedMovingPoint = false;
 
-	//턴 강제 종료 예약 래치, 스트레스 오버플로우·행동 제약 상태이상이 세움, 턴 시작 시 리셋
+	//턴 종료 예약 래치, 턴 종료 버튼·스트레스 오버플로우·행동 제약 상태이상이 세움, 턴 시작 시 리셋
 	bool bTurnEndRequested = false;
 
 	//행동 제약 상태이상이 이번 턴을 대신 진행 중, 플레이어 조작 잠금 근거, 턴 시작 시 리셋
@@ -341,8 +346,8 @@ protected:
 
 	//마지막 공격자 방향의 애니, 공격자 없으면 front
 	UAnimSequence* PickByAttacker(const FDirectionalAnims& Anims) const;
-	//반응 애니를 DefaultSlot에 재생, 재생 길이 반환(없으면 0)
-	float PlayReactionAnim(UAnimSequence* Anim, float BlendOut);
+	//반응 애니를 DefaultSlot에 StartTime부터 재생, 남은 재생 길이 반환(없으면 0)
+	float PlayReactionAnim(UAnimSequence* Anim, float BlendOut, float StartTime = 0.f);
 
 	//몸통이 돌기 시작하는 조준 각도차(도), 안쪽은 상체만 따라감
 	UPROPERTY(EditDefaultsOnly, Category = "Animation|Aim")
@@ -539,9 +544,12 @@ public:
 	virtual void InitTurn();
 	virtual void EndTurn();
 
-	//턴 강제 종료 예약, 콜 스택 탈출 후 다음 틱에 종료 — 스트레스 오버플로우·행동 제약 상태이상용(아군 전용)
+	//턴 종료 예약, 콜 스택 탈출 후 다음 틱에 종료 — 턴 종료 버튼·스트레스 오버플로우·행동 제약 상태이상용(아군 전용)
 	void RequestEndTurn();
 	bool IsTurnEndRequested() const { return bTurnEndRequested; }
+
+	//예약된 턴 종료 실행, 행동 진행 중이면 보류하고 결과 확정 시 GameMode가 다시 부른다
+	void ExecuteRequestedEndTurn();
 
 	//상태이상이 턴 행동을 대신 수행함을 표시, 해제는 다음 턴 시작뿐
 	void MarkAilmentDrivenTurn() { bAilmentDrivenTurn = true; }

@@ -6,7 +6,7 @@
 URifleCoveringFire::URifleCoveringFire()
 {
 	skillName = NSLOCTEXT("Skill", "RifleCoveringFire_Name", "엄호 사격");
-	skillDescription = NSLOCTEXT("Skill", "RifleCoveringFire_Description", "아군 1명을 지정해 그 주변의 적들을 사격한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleCoveringFire_Description", "16m 내의 아군 1명을 지정해 반경 2m 안의 적에게 공격력 × 0.8~1.2의 원거리 피해를 준다.\n명중 +75");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Area;

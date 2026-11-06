@@ -10,7 +10,7 @@
 URiflePackLeader::URiflePackLeader()
 {
 	skillName = NSLOCTEXT("Skill", "RiflePackLeader_Name", "팩 리더");
-	skillDescription = NSLOCTEXT("Skill", "RiflePackLeader_Description", "자신이 버프로 얻은 능력치를 주변 8m 내의 아군에게 함께 제공한다");
+	skillDescription = NSLOCTEXT("Skill", "RiflePackLeader_Description", "자신이 버프로 얻은 능력치를 주변 8m 내의 다른 아군 전원에게 똑같이 부여한다.");
 	skillGrade = EUpgradeGrade::Top;
 
 	//누가 이동을 마칠 때마다 주변 인원과 버프 합계를 다시 평가

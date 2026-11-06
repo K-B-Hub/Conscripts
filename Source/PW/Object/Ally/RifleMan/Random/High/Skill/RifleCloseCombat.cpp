@@ -5,7 +5,7 @@
 URifleCloseCombat::URifleCloseCombat()
 {
 	skillName = NSLOCTEXT("Skill", "RifleCloseCombat_Name", "근접 전투술");
-	skillDescription = NSLOCTEXT("Skill", "RifleCloseCombat_Description", "근접 공격의 행동력 소모가 1 감소한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleCloseCombat_Description", "근접 스킬의 행동력 소모 -1");
 	skillGrade = EUpgradeGrade::High;
 
 	//스탯 변화 없이 비용만 깎는다, 조건 검사도 필요 없다

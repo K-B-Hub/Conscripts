@@ -27,6 +27,13 @@ namespace
 		return options;
 	}
 
+	//스킬 연출 카메라 선택지, 인덱스가 곧 ESkillCameraMode 값이다
+	const TArray<FString>& SkillCameraLabels()
+	{
+		static const TArray<FString> labels = { TEXT("끔"), TEXT("아군만"), TEXT("적군만"), TEXT("모두") };
+		return labels;
+	}
+
 	//창 모드 후보, 순서는 EWindowMode 값과 무관하게 ConvertIntToWindowMode로 변환한다
 	const TArray<FString>& WindowModeLabels()
 	{
@@ -140,6 +147,16 @@ void USettingsWidget::RefreshFromSettings(const UPWGameUserSettings* source)
 	if (EnemyTurnCameraCheck)
 	{
 		EnemyTurnCameraCheck->SetIsChecked(source->IsEnemyTurnCameraFollowEnabled());
+	}
+
+	if (SkillCameraCombo)
+	{
+		SkillCameraCombo->ClearOptions();
+		for (const FString& label : SkillCameraLabels())
+		{
+			SkillCameraCombo->AddOption(label);
+		}
+		SkillCameraCombo->SetSelectedIndex(static_cast<int32>(source->GetSkillCameraMode()));
 	}
 }
 
@@ -274,6 +291,12 @@ void USettingsWidget::HandleApplyClicked()
 	if (EnemyTurnCameraCheck)
 	{
 		settings->SetEnemyTurnCameraFollowEnabled(EnemyTurnCameraCheck->IsChecked());
+	}
+
+	const int32 skillCameraIndex = SkillCameraCombo ? SkillCameraCombo->GetSelectedIndex() : INDEX_NONE;
+	if (SkillCameraLabels().IsValidIndex(skillCameraIndex))
+	{
+		settings->SetSkillCameraMode(static_cast<ESkillCameraMode>(skillCameraIndex));
 	}
 
 	//확인 대기 없이 확정한다, ApplySettings가 저장까지 하므로 그 전에 확정값을 맞춘다

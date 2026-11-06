@@ -6,7 +6,7 @@
 URifleAimedShot::URifleAimedShot()
 {
 	skillName = NSLOCTEXT("Skill", "RifleAimedShot_Name", "조준 사격");
-	skillDescription = NSLOCTEXT("Skill", "RifleAimedShot_Description", "조준해 사격한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleAimedShot_Description", "24m 내의 적 1명에게 공격력 × 1.0 + 3의 원거리 피해를 준다.\n명중 +70");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;

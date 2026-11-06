@@ -444,12 +444,18 @@ UAnimSequence* ACharacterBase::PickByAttacker(const FDirectionalAnims& Anims) co
 	return picked ? picked : Anims.front.Get();
 }
 
-float ACharacterBase::PlayReactionAnim(UAnimSequence* Anim, float BlendOut)
+float ACharacterBase::PlayReactionAnim(UAnimSequence* Anim, float BlendOut, float StartTime)
 {
 	UAnimInstance* animInstance = GetMesh()->GetAnimInstance();
 	if (!Anim || !animInstance) return 0.f;
 
-	return animInstance->PlaySlotAnimationAsDynamicMontage(Anim, TEXT("DefaultSlot"), 0.1f, BlendOut) ? Anim->GetPlayLength() : 0.f;
+	//짧은 애니에서 동작까지 건너뛰지 않도록 절반까지만
+	const float length = Anim->GetPlayLength();
+	const float start = FMath::Clamp(StartTime, 0.f, length * 0.5f);
+
+	//반응은 즉시 보여야 하므로 블렌드 인을 짧게
+	return animInstance->PlaySlotAnimationAsDynamicMontage(Anim, TEXT("DefaultSlot"), 0.05f, BlendOut, 1.f, 1, -1.f, start)
+		? length - start : 0.f;
 }
 
 void ACharacterBase::MoveAlongArc(const TArray<FVector>& ArcPoints, bool bForced)
@@ -866,7 +872,7 @@ bool ACharacterBase::ReflectDamage()
 	{
 		UE_LOG(LogTemp, Log, TEXT("[CharacterBase] %s 공격 회피"), *GetName());
 		const TArray<TObjectPtr<UAnimSequence>>& evades = bIsProne ? crouchEvadeAnims : standEvadeAnims;
-		if (evades.Num() > 0) PlayReactionAnim(evades[FMath::RandRange(0, evades.Num() - 1)], 0.2f);
+		if (evades.Num() > 0) PlayReactionAnim(evades[FMath::RandRange(0, evades.Num() - 1)], 0.2f, evadeAnimStartTime);
 		if (evadeSound) UGameplayStatics::SpawnSoundAttached(evadeSound, GetRootComponent());
 		//회피자는 스트레스 3~5 감소
 		RelieveStress(FMath::RandRange(3, 5));
@@ -902,7 +908,7 @@ bool ACharacterBase::ReflectDamage()
 	ReceiveDamage(finalDamage, true);
 
 	//사망 시엔 HandleDeath의 사망 애니가 우선
-	if (!IsDead()) PlayReactionAnim(PickByAttacker(bIsProne ? crouchHitAnims : standHitAnims), 0.2f);
+	if (!IsDead()) PlayReactionAnim(PickByAttacker(bIsProne ? crouchHitAnims : standHitAnims), 0.2f, hitAnimStartTime);
 	if (hitSound) UGameplayStatics::SpawnSoundAttached(hitSound, GetRootComponent());
 
 	return true;
@@ -1382,23 +1388,29 @@ void ACharacterBase::RequestEndTurn()
 	TWeakObjectPtr<ACharacterBase> weakThis(this);
 	GetWorldTimerManager().SetTimerForNextTick([weakThis]()
 	{
-		if (!weakThis.IsValid()) return;
-
-		UWorld* world = weakThis->GetWorld();
-		ABattleGameMode* gameMode = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
-		if (!gameMode) return;
-
-		//예약 후 사망 등으로 턴이 이미 넘어갔으면 중복 종료 방지
-		const TArray<ACharacterBase*>& order = gameMode->GetTurnOrder();
-		const int32 idx = gameMode->GetCurrentTurnIndex();
-		if (!order.IsValidIndex(idx) || order[idx] != weakThis.Get()) return;
-
-		if (ABattleController* controller = Cast<ABattleController>(world->GetFirstPlayerController()))
-		{
-			controller->EndTurn();
-		}
-		gameMode->OnTurnEnd();
+		if (weakThis.IsValid()) weakThis->ExecuteRequestedEndTurn();
 	});
+}
+
+void ACharacterBase::ExecuteRequestedEndTurn()
+{
+	UWorld* world = GetWorld();
+	ABattleGameMode* gameMode = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	if (!gameMode) return;
+
+	//행동 결과가 확정되기 전이면 래치만 남긴다, 확정 시 GameMode가 다시 부른다
+	if (gameMode->IsActionInProgress()) return;
+
+	//예약 후 사망 등으로 턴이 이미 넘어갔으면 중복 종료 방지
+	const TArray<ACharacterBase*>& order = gameMode->GetTurnOrder();
+	const int32 idx = gameMode->GetCurrentTurnIndex();
+	if (!order.IsValidIndex(idx) || order[idx] != this) return;
+
+	if (ABattleController* controller = Cast<ABattleController>(world->GetFirstPlayerController()))
+	{
+		controller->EndTurn();
+	}
+	gameMode->OnTurnEnd();
 }
 
 void ACharacterBase::ApplyHpThresholdStress(int32 hpBefore)

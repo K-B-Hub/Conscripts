@@ -62,6 +62,9 @@ DECLARE_MULTICAST_DELEGATE(FOnDeployPhaseStarted);
 DECLARE_MULTICAST_DELEGATE(FOnBattlePhaseStarted);
 //전투 종료 시 통지, 컨트롤러가 결과 위젯을 띄운다
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnBattleFinished, EBattleResult);
+//행동 결과 확정 통지 (행동 주체), 효과·연출·카메라 복귀·승패 판정이 모두 끝난 뒤
+//턴 종료 래치나 턴 주인 사망으로 턴이 넘어가면 통지하지 않는다
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnActionResolved, ACharacterBase*);
 
 UCLASS()
 class PW_API ABattleGameMode : public AGameModeBase
@@ -86,6 +89,20 @@ public:
 
 	//전투 종료 통지
 	FOnBattleFinished OnBattleFinished;
+
+	//행동 결과 확정 통지, AI는 이걸 받고 다음 행동을 고른다
+	FOnActionResolved OnActionResolved;
+
+	//스킬 행동 시작, SkillComponent::StartPendingExecution이 호출
+	//framePoints는 연출 카메라가 담을 지점, 반환값은 시전 연출을 늦출 시간(카메라 도착 대기)
+	float BeginAction(ACharacterBase* actor, const UActiveSkillBase* skill, const TArray<FVector>& framePoints);
+
+	//스킬 효과 적용 완료, SkillComponent::CommitPendingExecution이 호출
+	//카메라 복귀·착지 대기 후 결과를 확정한다
+	void NotifyActionCommitted();
+
+	//행동 시작부터 결과 확정까지 true, 이 동안 턴 종료·승패 판정·신규 입력을 미룬다
+	bool IsActionInProgress() const { return bActionInProgress; }
 
 	EBattlePhase GetPhase() const { return phase; }
 
@@ -185,7 +202,7 @@ private:
 	//로스터 스폰 이후의 전투 개시, 기존 BeginPlay 초기화가 통째로 여기로 옮겨졌다
 	void StartBattlePhase();
 
-	//승패 판정, 사망 처리와 턴 종료 양쪽에서 호출된다
+	//승패 판정, 사망 처리(행동 밖)·행동 결과 확정·턴 종료에서 호출된다
 	//사망 처리 도중 레벨 전환이 시작되지 않도록 판정만 하고 종료는 다음 틱으로 미룬다
 	void EvaluateMission();
 
@@ -272,6 +289,19 @@ private:
 
 	//알람 스킬 사용 여부
 	bool bAlarmUsed = false;
+
+	//행동 진행 중 여부
+	bool bActionInProgress = false;
+
+	//진행 중인 행동의 주체
+	UPROPERTY()
+	TObjectPtr<ACharacterBase> actionActor = nullptr;
+
+	//행동 도중 턴 주인이 죽었는지, 결과 확정 시 턴을 넘긴다
+	bool bTurnOwnerDiedInAction = false;
+
+	//결과 확정 시도, 공중에 뜬 캐릭터가 있으면 착지까지 다음 틱으로 미룬다
+	void TryResolveAction();
 
 	//캐릭터 사망 시 turnOrder/아군/적군 배열 정리
 	UFUNCTION()

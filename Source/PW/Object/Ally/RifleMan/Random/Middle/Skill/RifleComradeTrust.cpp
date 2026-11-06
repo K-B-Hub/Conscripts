@@ -8,7 +8,7 @@
 URifleComradeTrust::URifleComradeTrust()
 {
 	skillName = NSLOCTEXT("Skill", "RifleComradeTrust_Name", "전우의 신뢰");
-	skillDescription = NSLOCTEXT("Skill", "RifleComradeTrust_Description", "주변 5m 내의 아군 1명당 공격력이 1 증가한다(최대 10)");
+	skillDescription = NSLOCTEXT("Skill", "RifleComradeTrust_Description", "주변 5m 내의 다른 아군 1명당 공격력 +1(최대 10명)");
 	skillGrade = EUpgradeGrade::Mid;
 
 	//누가 이동을 마칠 때마다 주변 인원이 바뀌므로 MoveComplete로 재평가

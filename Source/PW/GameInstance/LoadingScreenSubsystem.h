@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Tickable.h"
+#include "Engine/EngineBaseTypes.h"
 #include "LoadingScreenSubsystem.generated.h"
 
 class UUserWidget;
@@ -37,6 +38,9 @@ public:
 
 private:
 	void HandlePostLoadMap(UWorld* loadedWorld);
+
+	//이전 월드를 남긴 채 이동이 실패하면 PostLoadMap이 오지 않으므로 여기서 대기를 푼다
+	void HandleTravelFailure(UWorld* world, ETravelFailure::Type failureType, const FString& error);
 
 	//맵 로드 이후에도 로딩창을 유지해야 하는지
 	bool ShouldKeepShowing();
@@ -74,4 +78,7 @@ private:
 
 	//유지 조건이 모두 풀린 시각, 0이면 아직 안 풀림
 	double readySince = 0.0;
+
+	//새 맵 로드 완료 시각, 최대 대기 상한의 기준, 0이면 아직 로드 전
+	double mapLoadedAt = 0.0;
 };

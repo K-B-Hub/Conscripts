@@ -6,7 +6,7 @@
 URifleToxicCoating::URifleToxicCoating()
 {
 	skillName = NSLOCTEXT("Skill", "RifleToxicCoating_Name", "독성 코팅");
-	skillDescription = NSLOCTEXT("Skill", "RifleToxicCoating_Description", "공격한 대상에게 현재 체력의 20%에 해당하는 지속 피해를 추가로 준다");
+	skillDescription = NSLOCTEXT("Skill", "RifleToxicCoating_Description", "공격으로 피해를 준 대상에게 현재 체력의 20%만큼 추가 피해를 준다(체력을 1 아래로 깎지 않음).");
 
 	passiveType = EPassiveType::Reactive;
 	reactiveType = EReactiveType::AfterDamage;

@@ -17,7 +17,10 @@ AAllyCharacterBase::AAllyCharacterBase()
 	campDialogueComponent->SetupAttachment(RootComponent);
 	campDialogueComponent->SetRelativeLocation(FVector(0.f, 0.f, 160.f)); //체력 바보다 위
 	campDialogueComponent->SetWidgetSpace(EWidgetSpace::Screen);
-	campDialogueComponent->SetDrawSize(FVector2D(260.f, 60.f));
+	//말풍선은 WBP 안에서 아래 가운데에 붙어 내용만큼 자란다, 영역은 최대 크기로 잡는다
+	campDialogueComponent->SetDrawSize(FVector2D(340.f, 130.f));
+	//앵커가 아래 변 가운데라 말풍선이 머리 위로 자란다
+	campDialogueComponent->SetPivot(FVector2D(0.5f, 1.f));
 	//navObstacle이 이 위젯 위치를 형상으로 잡으면 통행 불가 영역이 머리 위로 뜬다
 	campDialogueComponent->SetCanEverAffectNavigation(false);
 
@@ -38,7 +41,7 @@ void AAllyCharacterBase::ShowCampLine(const FText& line)
 
 	if (UCampDialogueWidget* bubble = Cast<UCampDialogueWidget>(campDialogueComponent->GetWidget()))
 	{
-		bubble->SetLine(line);
+		bubble->SetLine(GetCharacterNameText(), line);
 	}
 	campDialogueComponent->SetVisibility(true);
 }
@@ -46,6 +49,11 @@ void AAllyCharacterBase::ShowCampLine(const FText& line)
 void AAllyCharacterBase::HideCampLine()
 {
 	if (campDialogueComponent) campDialogueComponent->SetVisibility(false);
+}
+
+void AAllyCharacterBase::HideHealthBar()
+{
+	if (healthWidgetComponent) healthWidgetComponent->SetVisibility(false);
 }
 
 void AAllyCharacterBase::RestAtCamp(int32 healAmount, int32 stressRelief)

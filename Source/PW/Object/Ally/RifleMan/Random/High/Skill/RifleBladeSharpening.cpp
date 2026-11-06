@@ -5,7 +5,7 @@
 URifleBladeSharpening::URifleBladeSharpening()
 {
 	skillName = NSLOCTEXT("Skill", "RifleBladeSharpening_Name", "칼날 갈기");
-	skillDescription = NSLOCTEXT("Skill", "RifleBladeSharpening_Description", "근접 공격을 할 때 치명이 20 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleBladeSharpening_Description", "근접 공격 시 치명 +20");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Reactive;

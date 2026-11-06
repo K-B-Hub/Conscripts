@@ -5,7 +5,7 @@
 URifleCQB::URifleCQB()
 {
 	skillName = NSLOCTEXT("Skill", "RifleCQB_Name", "CQB");
-	skillDescription = NSLOCTEXT("Skill", "RifleCQB_Description", "근접 공격을 할 때 명중이 10 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleCQB_Description", "근접 공격 시 명중 +10");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;

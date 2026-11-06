@@ -72,6 +72,7 @@ void ACampGameMode::SpawnRoster()
 		if (!ally) continue;
 
 		ally->RestoreRunState(state);
+		ally->HideHealthBar();
 		ally->PlayRandomCampIdle();
 
 		point->SetOccupant(ally);
@@ -123,6 +124,7 @@ AAllyCharacterBase* ACampGameMode::AddRecruit(TSubclassOf<AAllyCharacterBase> ch
 	//ForceLevelUpTo가 확률 성장을 굴리고 레벨당 강화를 대기 큐에 쌓는다
 	//큐 소비(강화 선택)는 전투 첫 턴의 InitTurn이 맡는다
 	ally->ForceLevelUpTo(level);
+	ally->HideHealthBar();
 	ally->PlayRandomCampIdle();
 
 	point->SetOccupant(ally);
