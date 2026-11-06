@@ -8,7 +8,7 @@
 URifleBrotherhood::URifleBrotherhood()
 {
 	skillName = NSLOCTEXT("Skill", "RifleBrotherhood_Name", "전우애");
-	skillDescription = NSLOCTEXT("Skill", "RifleBrotherhood_Description", "주변 3m 내의 아군 1명당 명중과 회피가 5 증가한다(최대 20)");
+	skillDescription = NSLOCTEXT("Skill", "RifleBrotherhood_Description", "주변 3m 내의 다른 아군 1명당 명중 +5 · 회피 +5(최대 4명)");
 	skillGrade = EUpgradeGrade::High;
 
 	//누가 이동을 마칠 때마다 주변 인원이 바뀌므로 MoveComplete로 재평가

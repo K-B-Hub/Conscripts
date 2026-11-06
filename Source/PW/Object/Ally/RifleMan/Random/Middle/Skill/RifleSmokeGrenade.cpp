@@ -7,7 +7,7 @@
 URifleSmokeGrenade::URifleSmokeGrenade()
 {
 	skillName = NSLOCTEXT("Skill", "RifleSmokeGrenade_Name", "연막탄 투척");
-	skillDescription = NSLOCTEXT("Skill", "RifleSmokeGrenade_Description", "연막탄을 던져 착지 지점 1m를 3라운드간 연막으로 만든다");
+	skillDescription = NSLOCTEXT("Skill", "RifleSmokeGrenade_Description", "9m 내의 지점에 던져 반경 1m를 3라운드간 연막 지형으로 만든다. 연막 안에 있는 캐릭터는 회피 +30");
 	skillGrade = EUpgradeGrade::Mid;
 
 	skillType = ESkillType::Throw;

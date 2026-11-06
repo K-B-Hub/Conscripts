@@ -958,6 +958,13 @@ void UUtilityAIComponent::ExecuteTurn()
 	lastWasMove = false;
 	bHasPendingAfterMove = false;
 
+	//스킬 결과 통지 구독, FinishTurn에서 해제
+	if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		gm->OnActionResolved.RemoveAll(this);
+		gm->OnActionResolved.AddUObject(this, &UUtilityAIComponent::OnActionResolved);
+	}
+
 	StepNext();
 }
 
@@ -1015,7 +1022,23 @@ void UUtilityAIComponent::StepNext()
 
 	//제자리 공격 후 다음 행동 예약
 	lastWasMove = false;
-	ExecuteAttackImmediate(*best);
+	ContinueAfterAttack(ExecuteAttackImmediate(*best));
+}
+
+void UUtilityAIComponent::ContinueAfterAttack(bool bStarted)
+{
+	//시전했으면 결과 통지에서 이어간다
+	if (bStarted) return;
+
+	if (ShouldStopAfterStep()) { FinishTurn(); return; }
+	ScheduleStepNext();
+}
+
+void UUtilityAIComponent::OnActionResolved(ACharacterBase* actor)
+{
+	if (actor != ownerCharacter) return;
+
+	//결과를 본 뒤 행동 간 딜레이를 두고 다음 행동
 	if (ShouldStopAfterStep()) { FinishTurn(); return; }
 	ScheduleStepNext();
 }
@@ -1032,10 +1055,10 @@ void UUtilityAIComponent::SchedulePendingAfterMove()
 		actionDelay / turnSpeedScale, false);
 }
 
-void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
+bool UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
 {
 	ACharacterBase* primary = Action.GetPrimaryTarget();
-	if (!Action.Skill || !primary || !ownerCharacter) return;
+	if (!Action.Skill || !primary || !ownerCharacter) return false;
 
 	//대표 대상 방향으로 회전
 	if (Action.Skill->selectMode != ESelectMode::Self)
@@ -1072,8 +1095,9 @@ void UUtilityAIComponent::ExecuteAttackImmediate(const FAIAction& Action)
 				*GetNameSafe(primary), targets.Num(), Action.EnemyExpectedDamage);
 		}
 
-		sc->DirectExecute(Action.Skill, targets, Action.AimPoint);
+		return sc->DirectExecute(Action.Skill, targets, Action.AimPoint);
 	}
+	return false;
 }
 
 void UUtilityAIComponent::StartMoveTo(const FVector& Dest, float MoveCostCm)
@@ -1149,9 +1173,7 @@ void UUtilityAIComponent::OnAIMoveCompleted(FAIRequestID RequestID, EPathFollowi
 
 void UUtilityAIComponent::ExecutePendingAfterMove()
 {
-	ExecuteAttackImmediate(pendingActionAfterMove);
-	if (ShouldStopAfterStep()) { FinishTurn(); return; }
-	ScheduleStepNext();
+	ContinueAfterAttack(ExecuteAttackImmediate(pendingActionAfterMove));
 }
 
 bool UUtilityAIComponent::ShouldStopAfterStep() const
@@ -1181,6 +1203,12 @@ void UUtilityAIComponent::FinishTurn()
 		{
 			aic->ReceiveMoveCompleted.RemoveDynamic(this, &UUtilityAIComponent::OnAIMoveCompleted);
 		}
+	}
+
+	//결과 통지 구독 해제
+	if (ABattleGameMode* gm = GetWorld() ? GetWorld()->GetAuthGameMode<ABattleGameMode>() : nullptr)
+	{
+		gm->OnActionResolved.RemoveAll(this);
 	}
 	OnTurnComplete.Broadcast();
 }

@@ -23,8 +23,8 @@ void UTurnEndWidget::OnTurnEndClicked()
 {
 	if (cachedGameMode && cachedController)
 	{
-		cachedController->EndTurn();
-		cachedGameMode->OnTurnEnd();
+		//행동 중이면 결과 확정까지 래치로 보류된다
+		cachedController->RequestEndTurn();
 	}
 	else
 	{

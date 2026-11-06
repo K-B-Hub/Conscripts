@@ -7,7 +7,7 @@
 URifleFirebomb::URifleFirebomb()
 {
 	skillName = NSLOCTEXT("Skill", "RifleFirebomb_Name", "화염병 투척");
-	skillDescription = NSLOCTEXT("Skill", "RifleFirebomb_Description", "화염병을 던져 착지 지점 1m를 3라운드간 화염으로 만든다");
+	skillDescription = NSLOCTEXT("Skill", "RifleFirebomb_Description", "9m 내의 지점에 던져 반경 1m를 3라운드간 화염 지형으로 만든다. 화염 안에서 턴을 시작하거나 끝낼 때마다 2의 피해를 입는다(체력을 1 아래로 깎지 않음).");
 	skillGrade = EUpgradeGrade::High;
 
 	skillType = ESkillType::Throw;

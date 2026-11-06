@@ -5,6 +5,7 @@
 #include "GameMode/BattleGameMode.h"
 #include "GameMode/CampGameMode.h"
 #include "Blueprint/UserWidget.h"
+#include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/StreamableManager.h"
 #include "GameFramework/PlayerController.h"
@@ -22,11 +23,13 @@ void ULoadingScreenSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &ULoadingScreenSubsystem::HandlePostLoadMap);
+	if (GEngine) GEngine->OnTravelFailure().AddUObject(this, &ULoadingScreenSubsystem::HandleTravelFailure);
 }
 
 void ULoadingScreenSubsystem::Deinitialize()
 {
 	FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);
+	if (GEngine) GEngine->OnTravelFailure().RemoveAll(this);
 	Hide();
 
 	Super::Deinitialize();
@@ -70,18 +73,29 @@ void ULoadingScreenSubsystem::Tick(float DeltaTime)
 		return;
 	}
 
+	//월드 시간은 일시정지·전환에 영향받으므로 실제 시간으로 잰다
+	const double now = FPlatformTime::Seconds();
+	const UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
+
 	if (ShouldKeepShowing())
 	{
+		//유지 조건이 끝내 안 풀려도 갇히지 않도록 맵 로드 후 상한이 지나면 걷는다
+		//블로킹 로드 시간을 빼기 위해 요청 시각이 아니라 로드 완료 시각부터 잰다
+		const float maxWaitSeconds = gameInstance ? gameInstance->GetLoadingMaxWaitSeconds() : 30.f;
+		if (!bWaitingForMap && mapLoadedAt > 0.0 && now - mapLoadedAt >= maxWaitSeconds)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[LoadingScreen] 맵 로드 후 %.0f초가 지나도 준비 조건이 남아 로딩창을 걷습니다"), maxWaitSeconds);
+			bFadingOut = true;
+			return;
+		}
+
 		readySince = 0.0;
 		return;
 	}
 
-	//월드 시간은 일시정지·전환에 영향받으므로 실제 시간으로 잰다
-	const double now = FPlatformTime::Seconds();
 	if (readySince == 0.0) readySince = now;
 
 	//텍스처 스트리밍 등 완료 시점을 알 수 없는 로딩을 가린다
-	const UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
 	const float holdSeconds = gameInstance ? gameInstance->GetLoadingHoldSeconds() : 0.f;
 	if (now - readySince >= holdSeconds) bFadingOut = true;
 }
@@ -115,6 +129,19 @@ void ULoadingScreenSubsystem::HandlePostLoadMap(UWorld* loadedWorld)
 	//PIE 다중 인스턴스면 다른 인스턴스의 로드도 통지된다
 	if (loadedWorld != GetGameInstance()->GetWorld()) return;
 
+	bWaitingForMap = false;
+	readySince = 0.0;
+	mapLoadedAt = FPlatformTime::Seconds();
+}
+
+void ULoadingScreenSubsystem::HandleTravelFailure(UWorld* world, ETravelFailure::Type failureType, const FString& error)
+{
+	//PIE 다중 인스턴스면 다른 인스턴스의 실패도 통지된다
+	if (world && world != GetGameInstance()->GetWorld()) return;
+	if (!bWaitingForMap) return;
+
+	//남은 월드가 이전 맵이든 기본 맵이든 그 월드 기준으로 해제 조건을 다시 본다
+	UE_LOG(LogTemp, Warning, TEXT("[LoadingScreen] 맵 이동 실패(%s): %s"), ETravelFailure::ToString(failureType), *error);
 	bWaitingForMap = false;
 	readySince = 0.0;
 }
@@ -161,6 +188,8 @@ void ULoadingScreenSubsystem::Show()
 {
 	shownFrame = GFrameCounter;
 	readySince = 0.0;
+	//이전 전환의 로드 시각으로 상한이 바로 걸리지 않게
+	mapLoadedAt = 0.0;
 
 	//페이드 아웃 중이면 새로 만들지 않고 현재 알파에서 되돌린다
 	bFadingOut = false;
@@ -198,6 +227,7 @@ void ULoadingScreenSubsystem::Hide()
 	loadingSlate.Reset();
 	loadingWidget = nullptr;
 	readySince = 0.0;
+	mapLoadedAt = 0.0;
 	fadeAlpha = 0.f;
 	bFadingOut = false;
 

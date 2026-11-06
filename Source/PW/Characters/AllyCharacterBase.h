@@ -27,6 +27,9 @@ public:
 	void ShowCampLine(const FText& line);
 	void HideCampLine();
 
+	//야영지에서는 체력 바를 띄우지 않는다
+	void HideHealthBar();
+
 	//야영지 정비 회복
 	//ReceiveDamage(음수)는 추가 스트레스 감소와 Damaged 패시브를 함께 일으켜
 	//정비 선택지의 설계 수치를 넘기므로 부수효과 없는 전용 경로를 쓴다

@@ -222,10 +222,10 @@ void USkillComponent::RecalculatePending(UActiveSkillBase* Skill, ACharacterBase
 	);
 }
 
-void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, const FVector& SkillPoint)
+bool USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, const FVector& SkillPoint)
 {
-	if (!Skill || Targets.Num() == 0 || !ownerCharacter) return;
-	if (!Skill->CanExecute()) return;
+	if (!Skill || Targets.Num() == 0 || !ownerCharacter) return false;
+	if (!Skill->CanExecute()) return false;
 
 	//AI가 조준한 실제 지점을 밀치기 기준점으로 기록, Caster 기준 스킬은 Execute가 시전자 위치를 직접 사용
 	Skill->skillPointLocation = SkillPoint;
@@ -250,35 +250,55 @@ void USkillComponent::DirectExecute(UActiveSkillBase* Skill, const TArray<AChara
 		gm->RecordSkillUse(ownerCharacter, Skill);
 	}
 
-	//커밋 시점까지 대상 생존 불확실, 약참조 스냅샷
-	TArray<TWeakObjectPtr<ACharacterBase>> pendingTargets;
-	for (ACharacterBase* Target : Targets)
-	{
-		pendingTargets.Add(Target);
-	}
-
 	//대상별 예측 계산·명중 판정·효과 적용은 커밋 시점에 실행
-	StartPendingExecution(Skill, [this, Skill, pendingTargets]()
-	{
-		for (const TWeakObjectPtr<ACharacterBase>& Weak : pendingTargets)
-		{
-			ACharacterBase* Target = Weak.Get();
-			if (!IsValid(Target)) continue;
-			RecalculatePending(Skill, Target);
-			Target->SetLastAttacker(ownerCharacter);
-			//판정에서 사망하면 위치를 잃으므로 미리 기록
-			const FVector hitLocation = Target->GetActorLocation();
-			if (!Target->ReflectDamage()) continue;
-			Skill->SpawnHitEffect(hitLocation);
-			if (IsValid(Target))
-			{
-				Skill->Execute(Target);
-			}
-		}
-	});
+	StartPendingOnTargets(Skill, Targets);
+	return true;
 }
 
-void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, TFunction<void()>&& Action)
+void USkillComponent::StartPendingOnTargets(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets)
+{
+	//이전 pending 대상이 섞이지 않도록 먼저 커밋한 뒤 등록
+	CommitPendingExecution();
+
+	//커밋 시점까지 대상 생존 불확실, 약참조 스냅샷
+	pendingTargets.Reset();
+	for (ACharacterBase* Target : Targets)
+	{
+		if (IsValid(Target)) pendingTargets.Add(Target);
+	}
+
+	//대상별 투사체가 먼저 적용한 대상은 이미 빠져 있다
+	StartPendingExecution(Skill, Targets, [this, Skill]() { ApplyPendingTargets(Skill); });
+}
+
+void USkillComponent::ApplyToTarget(UActiveSkillBase* Skill, ACharacterBase* Target)
+{
+	if (!Skill || !IsValid(Target)) return;
+
+	RecalculatePending(Skill, Target);
+	Target->SetLastAttacker(ownerCharacter);
+	//판정에서 사망하면 위치를 잃으므로 미리 기록
+	const FVector hitLocation = Target->GetActorLocation();
+	if (!Target->ReflectDamage()) return;
+	Skill->SpawnHitEffect(hitLocation);
+	if (IsValid(Target))
+	{
+		Skill->Execute(Target);
+	}
+}
+
+void USkillComponent::ApplyPendingTargets(UActiveSkillBase* Skill)
+{
+	//적용 중 새 pending이 등록될 수 있어 먼저 비운다
+	const TArray<TWeakObjectPtr<ACharacterBase>> targets = MoveTemp(pendingTargets);
+	pendingTargets.Reset();
+	for (const TWeakObjectPtr<ACharacterBase>& Weak : targets)
+	{
+		ApplyToTarget(Skill, Weak.Get());
+	}
+}
+
+void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, TFunction<void()>&& Action)
 {
 	//이전 pending이 남아있으면 먼저 커밋해 유실 방지
 	CommitPendingExecution();
@@ -294,6 +314,42 @@ void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, TFunction<v
 		pendingAimPoint = aimPoint;
 		bHasPendingAim = true;
 	}
+
+	//연출 카메라가 담을 지점, 시전자가 맨 앞이어야 프레이밍에서 빠지지 않는다
+	//조준 지점은 점프 착지점·지면 사격점을 담기 위함, 조준이 없으면 기록된 시전 지점
+	TArray<FVector> framePoints;
+	if (ownerCharacter)
+	{
+		framePoints.Add(ownerCharacter->GetActorLocation());
+		for (const ACharacterBase* target : Targets)
+		{
+			if (IsValid(target) && target != ownerCharacter) framePoints.Add(target->GetActorLocation());
+		}
+		if (bHasPendingAim) framePoints.Add(pendingAimPoint);
+		else if (Skill) framePoints.Add(Skill->skillPointLocation);
+	}
+
+	//행동 시작 통지, 연출 카메라가 자리 잡을 시간만큼 시전을 늦춘다
+	float startDelay = 0.f;
+	if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		startDelay = gm->BeginAction(ownerCharacter, Skill, framePoints);
+	}
+
+	if (startDelay > 0.f)
+	{
+		GetWorld()->GetTimerManager().SetTimer(presentationTimer, this, &USkillComponent::PlayPendingPresentation, startDelay, false);
+		return;
+	}
+	PlayPendingPresentation();
+}
+
+void USkillComponent::PlayPendingPresentation()
+{
+	//대기 중 강제 커밋됐으면 연출 생략
+	if (!pendingAction) return;
+
+	UActiveSkillBase* Skill = pendingSkill;
 
 	//시전자에 붙여 이동·도약을 따라가게 함
 	if (Skill && ownerCharacter)
@@ -345,6 +401,37 @@ void USkillComponent::OnSkillImpact()
 	//커밋 대기 중이 아니면 할 일 없음
 	if (!pendingAction) return;
 
+	//이미 발사했으면 추가 임팩트 노티파이 무시, 연발 간격은 shotTimer가 잡는다
+	if (activeProjectiles.Num() > 0 || shotQueue.Num() > 0) return;
+
+	//투사체 멀티픽은 대상마다 한 발씩, 같은 대상을 거듭 골랐으면 그만큼 쏜다
+	if (pendingSkill && pendingSkill->projectileClass && pendingSkill->selectMode == ESelectMode::SinglePick
+		&& pendingSkill->pickCount > 1 && pendingTargets.Num() > 0)
+	{
+		shotQueue = pendingTargets;
+		FireNextShot();
+		return;
+	}
+
+	PlayMuzzleEffects();
+
+	//투사체가 있으면 발사만 하고 커밋은 도착 시점으로 미룸
+	if (pendingSkill && pendingSkill->projectileClass && ownerCharacter)
+	{
+		//지면 지점은 반높이만큼 올리고, 대상 지점은 이미 캡슐 중심
+		FVector to = pendingSkill->skillPointLocation;
+		if (pendingSkill->selectMode != ESelectMode::SinglePick)
+		{
+			to.Z += ownerCharacter->GetSimpleCollisionHalfHeight();
+		}
+		if (LaunchProjectile(pendingSkill, to, TWeakObjectPtr<ACharacterBase>())) return;
+	}
+
+	CommitPendingExecution();
+}
+
+void USkillComponent::PlayMuzzleEffects()
+{
 	//발사 소켓이 있으면 총구에 붙이고, 없으면 시전자 루트
 	if (pendingSkill && ownerCharacter)
 	{
@@ -368,35 +455,55 @@ void USkillComponent::OnSkillImpact()
 				FVector::ZeroVector, EAttachLocation::SnapToTarget);
 		}
 	}
-
-	//투사체가 있으면 발사만 하고 커밋은 도착 시점으로 미룸
-	if (LaunchProjectile(pendingSkill)) return;
-
-	CommitPendingExecution();
 }
 
-bool USkillComponent::LaunchProjectile(UActiveSkillBase* Skill)
+void USkillComponent::FireNextShot()
+{
+	if (!pendingAction || !pendingSkill || shotQueue.Num() == 0) return;
+
+	const TWeakObjectPtr<ACharacterBase> target = shotQueue[0];
+	shotQueue.RemoveAt(0);
+
+	//남은 발은 간격을 두고, 마지막 발의 도착이 커밋한다
+	//속도 0 투사체는 발사 즉시 도착해 큐를 보고 커밋하므로 예약을 먼저
+	if (shotQueue.Num() > 0)
+	{
+		GetWorld()->GetTimerManager().SetTimer(shotTimer, this, &USkillComponent::FireNextShot,
+			FMath::Max(pendingSkill->multiProjectileInterval, 0.01f), false);
+	}
+
+	PlayMuzzleEffects();
+
+	//쏠 수 없는 대상(사망 등)은 그 몫을 바로 처리
+	if (!target.IsValid() || !LaunchProjectile(pendingSkill, target->GetActorLocation(), target))
+	{
+		OnProjectileArrived(nullptr, target);
+	}
+}
+
+bool USkillComponent::LaunchProjectile(UActiveSkillBase* Skill, const FVector& To, TWeakObjectPtr<ACharacterBase> Target)
 {
 	if (!Skill || !Skill->projectileClass || !ownerCharacter) return false;
 
 	UWorld* world = GetWorld();
 	if (!world) return false;
 
-	const TArray<FVector> path = BuildProjectilePath(Skill);
+	const TArray<FVector> path = BuildProjectilePath(Skill, To);
 	if (path.Num() < 2) return false;
 
 	AProjectileBase* projectile = world->SpawnActor<AProjectileBase>(
 		Skill->projectileClass, FTransform(path[0]));
 	if (!projectile) return false;
 
-	//속도가 0이면 Launch가 즉시 도착 통지하므로 바인딩을 먼저
-	activeProjectile = projectile;
-	projectile->onArrived.BindUObject(this, &USkillComponent::OnProjectileArrived);
+	//속도가 0이면 Launch가 즉시 도착 통지하므로 등록·바인딩을 먼저
+	activeProjectiles.Add(projectile);
+	projectile->onArrived.BindUObject(this, &USkillComponent::OnProjectileArrived,
+		TWeakObjectPtr<AProjectileBase>(projectile), Target);
 	projectile->Launch(path, Skill->projectileSpeed);
 	return true;
 }
 
-TArray<FVector> USkillComponent::BuildProjectilePath(const UActiveSkillBase* Skill) const
+TArray<FVector> USkillComponent::BuildProjectilePath(const UActiveSkillBase* Skill, const FVector& To) const
 {
 	//발사 지점은 무기 메시의 소켓, 미지정·부재 시 캡슐 중심(미리보기 아치의 시작점과 같은 높이)
 	FVector from = ownerCharacter->GetActorLocation();
@@ -414,45 +521,54 @@ TArray<FVector> USkillComponent::BuildProjectilePath(const UActiveSkillBase* Ski
 		}
 	}
 
-	//끝점은 지면 지점이므로 캡슐 half-height만큼 올림, 미리보기 궤적과 같은 규칙
-	FVector to = Skill->skillPointLocation;
-	to.Z += ownerCharacter->GetSimpleCollisionHalfHeight();
-
 	//궤적 스킬(투척 등)은 미리보기와 같은 공식의 포물선으로
 	if (Skill->arcApexRatio > 0.f)
 	{
-		const float horizDist = FVector2D(to.X - from.X, to.Y - from.Y).Size();
+		const float horizDist = FVector2D(To.X - from.X, To.Y - from.Y).Size();
 		return AAttackRangeIndicator::BuildArcPath(
-			from, to, horizDist * Skill->arcApexRatio, projectileArcSamples);
+			from, To, horizDist * Skill->arcApexRatio, projectileArcSamples);
 	}
 
 	//궤적이 없으면 일자 경로
-	return { from, to };
+	return { from, To };
 }
 
-void USkillComponent::OnProjectileArrived()
+void USkillComponent::OnProjectileArrived(TWeakObjectPtr<AProjectileBase> Projectile, TWeakObjectPtr<ACharacterBase> Target)
 {
-	activeProjectile = nullptr;
-	CommitPendingExecution();
-}
+	activeProjectiles.Remove(Projectile.Get());
 
-void USkillComponent::DiscardActiveProjectile()
-{
-	if (!IsValid(activeProjectile))
+	//대상별 발사면 그 대상 몫만 지금 적용, 단발은 대상 없이 쏴서 커밋이 전부 적용
+	//사망한 대상은 약참조가 끊겨도 명시적 null은 아니므로 대상별로 처리된다
+	if (!Target.IsExplicitlyNull())
 	{
-		activeProjectile = nullptr;
-		return;
+		pendingTargets.RemoveSingle(Target);
+		ApplyToTarget(pendingSkill, Target.Get());
 	}
 
-	//효과는 이미 커밋됐으므로 도착 통지를 끊고 제거
-	activeProjectile->onArrived.Unbind();
-	activeProjectile->Destroy();
-	activeProjectile = nullptr;
+	if (activeProjectiles.Num() == 0 && shotQueue.Num() == 0)
+	{
+		CommitPendingExecution();
+	}
+}
+
+void USkillComponent::DiscardActiveProjectiles()
+{
+	//효과는 커밋이 적용하므로 도착 통지를 끊고 제거
+	for (const TObjectPtr<AProjectileBase>& projectile : activeProjectiles)
+	{
+		if (!IsValid(projectile)) continue;
+		projectile->onArrived.Unbind();
+		projectile->Destroy();
+	}
+	activeProjectiles.Reset();
 }
 
 void USkillComponent::CommitPendingExecution()
 {
 	if (!pendingAction) return;
+
+	//카메라 도착 전 강제 커밋이면 늦춰 둔 연출을 취소
+	GetWorld()->GetTimerManager().ClearTimer(presentationTimer);
 
 	//커밋 액션이 새 pending을 등록할 수 있어 실행 전에 해제
 	TFunction<void()> action = MoveTemp(pendingAction);
@@ -462,8 +578,11 @@ void USkillComponent::CommitPendingExecution()
 	pendingSkill = nullptr;
 	pendingMontage = nullptr;
 
-	//턴 종료 등 외부 강제 커밋으로 투사체 도착을 앞질렀다면 비행 중 투사체 폐기
-	DiscardActiveProjectile();
+	//턴 종료 등 외부 강제 커밋으로 투사체 도착을 앞질렀다면 남은 발 취소·비행 중 투사체 폐기
+	//그 대상들은 pendingTargets에 남아 있어 action이 적용한다
+	GetWorld()->GetTimerManager().ClearTimer(shotTimer);
+	shotQueue.Reset();
+	DiscardActiveProjectiles();
 
 	//스킬 자체 효과(포복 토글 등) 먼저, 이후 대상별 효과
 	if (skill)
@@ -483,6 +602,12 @@ void USkillComponent::CommitPendingExecution()
 		}
 	}
 	action();
+
+	//효과 적용 완료 통지, 결과 확정은 카메라 복귀·착지 후 비동기로
+	if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		gm->NotifyActionCommitted();
+	}
 }
 
 bool USkillComponent::GetAimPoint(FVector& OutPoint) const
@@ -525,8 +650,8 @@ void USkillComponent::OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupt
 	//같은 몽타주 재시작으로 인한 이전 인스턴스 중단이면 새 인스턴스의 종료를 기다림
 	if (bInterrupted && ownerCharacter && ownerCharacter->GetCurrentMontage() == Montage) return;
 
-	//투사체 비행 중이면 도착 시점 커밋을 기다림, 몽타주가 먼저 끝나도 효과는 착탄에 맞춤
-	if (IsValid(activeProjectile)) return;
+	//투사체 비행·연발 대기 중이면 마지막 도착 커밋을 기다림, 몽타주가 먼저 끝나도 효과는 착탄에 맞춤
+	if (activeProjectiles.Num() > 0 || shotQueue.Num() > 0) return;
 
 	//노티파이가 이미 커밋했으면 no-op
 	CommitPendingExecution();

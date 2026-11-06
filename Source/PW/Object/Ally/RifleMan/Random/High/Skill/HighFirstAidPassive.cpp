@@ -7,7 +7,7 @@
 UHighFirstAidPassive::UHighFirstAidPassive()
 {
 	skillName = NSLOCTEXT("Skill", "HighFirstAid_Name", "숨 고르기");
-	skillDescription = NSLOCTEXT("Skill", "HighFirstAid_Description", "턴이 시작할 때 체력을 10% 회복한다");
+	skillDescription = NSLOCTEXT("Skill", "HighFirstAid_Description", "턴 시작마다 최대 체력의 10%를 회복한다.");
 
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;

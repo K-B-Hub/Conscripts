@@ -6,7 +6,7 @@
 URifleBayonet::URifleBayonet()
 {
 	skillName = NSLOCTEXT("Skill", "RifleBayonet_Name", "총검술");
-	skillDescription = NSLOCTEXT("Skill", "RifleBayonet_Description", "근접한 대상에게 공격을 가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleBayonet_Description", "1m 내의 적 1명에게 공격력 × 1.0의 근접 피해를 준다.\n명중 +90");
 
 	skillType = ESkillType::Melee;
 	damageType = EDamageType::Normal;

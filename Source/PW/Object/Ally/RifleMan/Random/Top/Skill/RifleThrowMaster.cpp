@@ -5,7 +5,7 @@
 URifleThrowMaster::URifleThrowMaster()
 {
 	skillName = NSLOCTEXT("Skill", "RifleThrowMaster_Name", "투척술의 대가");
-	skillDescription = NSLOCTEXT("Skill", "RifleThrowMaster_Description", "투척 공격에 치명타가 적용될 수 있다");
+	skillDescription = NSLOCTEXT("Skill", "RifleThrowMaster_Description", "투척 공격에도 치명타가 발생한다.");
 	skillGrade = EUpgradeGrade::Top;
 
 	//스탯 변화 없이 봉쇄만 푼다, 조건 검사도 필요 없다

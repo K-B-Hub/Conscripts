@@ -92,6 +92,9 @@ public:
 	//투사체 비행 속도(cm/s)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")
 	float projectileSpeed = 20.f * CmPerMeter;
+	//멀티픽 대상별 투사체 발사 간격(초)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile", meta = (ClampMin = "0.0"))
+	float multiProjectileInterval = 0.12f;
 	//발사 지점으로 쓸 무기 메시의 소켓 이름, 모든 무기가 FirePoint로 통일
 	//비우거나 소켓이 없으면 시전자 캡슐 중심에서 발사
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")

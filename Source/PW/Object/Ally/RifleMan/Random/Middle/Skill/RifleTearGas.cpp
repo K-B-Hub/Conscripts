@@ -6,7 +6,7 @@
 URifleTearGas::URifleTearGas()
 {
 	skillName = NSLOCTEXT("Skill", "RifleTearGas_Name", "최루탄 투척");
-	skillDescription = NSLOCTEXT("Skill", "RifleTearGas_Description", "최루탄을 던져 착지 지점 1m 내 캐릭터에게 2턴간 최대 체력 10%의 피해를 준다");
+	skillDescription = NSLOCTEXT("Skill", "RifleTearGas_Description", "9m 내의 지점에 던져 반경 1m 안의 모든 캐릭터(아군 포함)에게 2턴간 턴 시작마다 최대 체력 10%의 피해를 준다(체력을 1 아래로 깎지 않음).");
 	skillGrade = EUpgradeGrade::Mid;
 
 	skillType = ESkillType::Throw;

@@ -681,6 +681,13 @@ void ABattleGameMode::OnCharacterDeath(ACharacterBase* DeadCharacter)
 	//AllyDeath/EnemyDeath Conditional 패시브, 캐시 정리 후 생존자에게만 통지
 	BroadcastUnitDeath(DeadCharacter);
 
+	//행동 중이면 승패 판정·턴 진행을 결과 확정으로 미룬다, 연출 도중 결과 화면이 뜨지 않게
+	if (bActionInProgress)
+	{
+		if (bActiveUnitDied) bTurnOwnerDiedInAction = true;
+		return;
+	}
+
 	//사망 처리 콜 스택 안에서 레벨 전환이 시작되지 않도록 판정을 다음 틱으로 미룬다
 	GetWorldTimerManager().SetTimerForNextTick([this]()
 	{
@@ -830,6 +837,76 @@ void ABattleGameMode::OnTurnEnd()
 	}
 
 	StartCurrentTurn();
+}
+
+float ABattleGameMode::BeginAction(ACharacterBase* actor, const UActiveSkillBase* skill, const TArray<FVector>& framePoints)
+{
+	bActionInProgress = true;
+	actionActor = actor;
+	bTurnOwnerDiedInAction = false;
+
+	ABattleController* BC = Cast<ABattleController>(GetWorld()->GetFirstPlayerController());
+	return BC ? BC->BeginSkillCamera(actor, skill, framePoints) : 0.f;
+}
+
+void ABattleGameMode::NotifyActionCommitted()
+{
+	if (!bActionInProgress) return;
+
+	//연출 카메라가 결과를 보여주고 돌아온 뒤 확정, 카메라가 없으면 다음 틱
+	if (ABattleController* BC = Cast<ABattleController>(GetWorld()->GetFirstPlayerController()))
+	{
+		TWeakObjectPtr<ABattleGameMode> weakThis(this);
+		BC->FinishSkillCamera([weakThis]()
+		{
+			if (weakThis.IsValid()) weakThis->TryResolveAction();
+		});
+		return;
+	}
+	GetWorldTimerManager().SetTimerForNextTick(this, &ABattleGameMode::TryResolveAction);
+}
+
+void ABattleGameMode::TryResolveAction()
+{
+	if (!bActionInProgress) return;
+
+	//넉백·점프가 착지해야 결과가 확정된다
+	const auto isAirborne = [](const auto& character) { return IsValid(character) && character->IsAirborne(); };
+	if (allies.ContainsByPredicate(isAirborne) || enemies.ContainsByPredicate(isAirborne))
+	{
+		GetWorldTimerManager().SetTimerForNextTick(this, &ABattleGameMode::TryResolveAction);
+		return;
+	}
+
+	bActionInProgress = false;
+	ACharacterBase* actor = actionActor;
+	actionActor = nullptr;
+
+	//사망으로 미뤄 둔 승패 판정
+	EvaluateMission();
+	if (phase == EBattlePhase::Result) return;
+
+	//행동 중 턴 주인이 죽었으면 턴을 넘긴다
+	if (bTurnOwnerDiedInAction)
+	{
+		bTurnOwnerDiedInAction = false;
+		if (ABattleController* BC = Cast<ABattleController>(GetWorld()->GetFirstPlayerController()))
+		{
+			BC->EndTurn();
+		}
+		OnTurnEnd();
+		return;
+	}
+
+	//행동 중 들어온 턴 종료 요청 소비
+	if (turnOrder.IsValidIndex(currentTurnIndex) && IsValid(turnOrder[currentTurnIndex])
+		&& turnOrder[currentTurnIndex]->IsTurnEndRequested())
+	{
+		turnOrder[currentTurnIndex]->ExecuteRequestedEndTurn();
+		return;
+	}
+
+	OnActionResolved.Broadcast(actor);
 }
 
 void ABattleGameMode::RegisterTerrain(ATerrainBase* Terrain)

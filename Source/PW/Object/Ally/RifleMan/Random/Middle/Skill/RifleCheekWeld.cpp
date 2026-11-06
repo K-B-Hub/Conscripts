@@ -6,7 +6,7 @@
 URifleCheekWeld::URifleCheekWeld()
 {
 	skillName = NSLOCTEXT("Skill", "RifleCheekWeld_Name", "접용점 유지");
-	skillDescription = NSLOCTEXT("Skill", "RifleCheekWeld_Description", "이동하지 않고 공격할 때 명중이 15 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleCheekWeld_Description", "이번 턴에 이동하지 않고 공격 시 명중 +15");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "TimerManager.h"
 #include "SkillComponent.generated.h"
 
 class USkillBase;
@@ -73,13 +74,18 @@ public:
 
 	//인디케이터 없이 대상들에게 시전, 비용은 1회만 차감, 효과는 pending 커밋 시점에 적용
 	//SkillPoint는 AI가 조준한 실제 지점, SkillPoint 기준 밀치기의 기준점으로 기록
-	void DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, const FVector& SkillPoint);
+	//시전을 시작했으면 true, 결과는 GameMode의 OnActionResolved로 통지된다
+	bool DirectExecute(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, const FVector& SkillPoint);
 
 	//커밋 대기 중인 스킬 효과 존재 여부, 대기 중엔 컨트롤러가 신규 입력 차단
 	bool HasPendingExecution() const { return pendingAction != nullptr; }
 
 	//효과를 pending으로 등록 후 커밋 몽타주 재생, 몽타주 없거나 재생 실패 시 즉시 커밋
-	void StartPendingExecution(UActiveSkillBase* Skill, TFunction<void()>&& Action);
+	//Targets는 연출 카메라가 담을 대상, 행동 시작을 GameMode에 알린다
+	void StartPendingExecution(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets, TFunction<void()>&& Action);
+
+	//대상별 판정·효과를 pending으로 등록, 투사체 멀티픽은 대상마다 한 발씩 쏴 도착한 대상부터 적용
+	void StartPendingOnTargets(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets);
 
 	//SkillImpact 노티파이 처리, 스킬에 투사체가 있으면 발사해 커밋을 도착 시점으로 미루고 없으면 즉시 커밋
 	void OnSkillImpact();
@@ -136,9 +142,16 @@ private:
 	FVector pendingAimPoint = FVector::ZeroVector;
 	bool bHasPendingAim = false;
 
-	//비행 중인 투사체, 도착할 때까지 커밋을 보류한다
+	//비행 중인 투사체, 모두 도착할 때까지 커밋을 보류한다
 	UPROPERTY()
-	TObjectPtr<AProjectileBase> activeProjectile = nullptr;
+	TArray<TObjectPtr<AProjectileBase>> activeProjectiles;
+
+	//효과를 기다리는 대상, 같은 대상을 거듭 고르면 중복 항목
+	TArray<TWeakObjectPtr<ACharacterBase>> pendingTargets;
+
+	//아직 쏘지 않은 대상별 투사체와 발사 간격 타이머
+	TArray<TWeakObjectPtr<ACharacterBase>> shotQueue;
+	FTimerHandle shotTimer;
 
 	//투사체 포물선 샘플 개수, 조준 중 미리보기 궤적과 같은 밀도
 	static constexpr int32 projectileArcSamples = 24;
@@ -146,17 +159,36 @@ private:
 	//노티파이 누락·몽타주 중단 시에도 커밋 보장하는 폴백
 	void OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
-	//스킬의 투사체 발사, 발사했으면 true (커밋은 도착 시점으로 미뤄짐)
-	bool LaunchProjectile(UActiveSkillBase* Skill);
+	//시전 이펙트·사운드·몽타주 재생, 연출 카메라 도착을 기다린 뒤 호출
+	void PlayPendingPresentation();
+
+	//카메라 도착 대기 타이머
+	FTimerHandle presentationTimer;
+
+	//한 대상에 명중 판정과 효과 적용
+	void ApplyToTarget(UActiveSkillBase* Skill, ACharacterBase* Target);
+
+	//남은 pendingTargets 전부 적용, StartPendingOnTargets의 커밋 본문
+	void ApplyPendingTargets(UActiveSkillBase* Skill);
+
+	//총구 이펙트·사운드, 발마다 재생
+	void PlayMuzzleEffects();
+
+	//shotQueue 맨 앞 대상에 한 발, 남았으면 간격 뒤 다음 발 예약
+	void FireNextShot();
+
+	//To로 투사체 발사, 발사했으면 true (커밋은 도착 시점으로 미뤄짐)
+	//Target을 주면 도착 시 그 대상만 적용, 비우면 도착이 전체 커밋
+	bool LaunchProjectile(UActiveSkillBase* Skill, const FVector& To, TWeakObjectPtr<ACharacterBase> Target);
 
 	//투사체 비행 경로 생성, arcApexRatio > 0이면 포물선·그 외는 일자 경로
-	TArray<FVector> BuildProjectilePath(const UActiveSkillBase* Skill) const;
+	TArray<FVector> BuildProjectilePath(const UActiveSkillBase* Skill, const FVector& To) const;
 
-	//투사체 도착 콜백, 보류했던 커밋 실행
-	void OnProjectileArrived();
+	//투사체 도착 콜백, 대상별이면 그 대상 적용, 마지막 도착이면 커밋
+	void OnProjectileArrived(TWeakObjectPtr<AProjectileBase> Projectile, TWeakObjectPtr<ACharacterBase> Target);
 
 	//비행 중 투사체 폐기, 외부 강제 커밋으로 효과가 이미 적용된 경우
-	void DiscardActiveProjectile();
+	void DiscardActiveProjectiles();
 
 	//인디케이터 생성
 	void SpawnIndicators(UActiveSkillBase* Skill);

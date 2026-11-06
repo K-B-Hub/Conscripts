@@ -8,7 +8,7 @@
 UMiddleAdversityPassive::UMiddleAdversityPassive()
 {
 	skillName = NSLOCTEXT("Skill", "MiddleAdversity_Name", "역경 돌파");
-	skillDescription = NSLOCTEXT("Skill", "MiddleAdversity_Description", "지형에 있을 때 공격력이 3, 명중이 15, 치명타가 10 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "MiddleAdversity_Description", "지형 위에 있을 때 공격력 +3 · 명중 +15 · 치명 +10");
 
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;

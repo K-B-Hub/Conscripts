@@ -7,7 +7,7 @@
 UMiddleCloseQuartersPassive::UMiddleCloseQuartersPassive()
 {
 	skillName = NSLOCTEXT("Skill", "MiddleCloseQuarters_Name", "백병전");
-	skillDescription = NSLOCTEXT("Skill", "MiddleCloseQuarters_Description", "2m 이내의 적을 공격할 때 공격력이 3, 치명타가 10 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "MiddleCloseQuarters_Description", "2m 이내의 적 공격 시 공격력 +3 · 치명 +10");
 
 	passiveType = EPassiveType::Reactive;
 	reactiveType = EReactiveType::BeforeDamageCalc;

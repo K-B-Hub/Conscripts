@@ -6,7 +6,7 @@
 URiflePreciseShot::URiflePreciseShot()
 {
 	skillName = NSLOCTEXT("Skill", "RiflePreciseShot_Name", "정밀 사격");
-	skillDescription = NSLOCTEXT("Skill", "RiflePreciseShot_Description", "정밀하게 조준해 치명적인 일격을 노린다");
+	skillDescription = NSLOCTEXT("Skill", "RiflePreciseShot_Description", "28m 내의 적 1명에게 공격력 × 1.2의 원거리 피해를 준다.\n명중 +80 · 치명 +20");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;

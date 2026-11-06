@@ -8,7 +8,7 @@
 URifleSquadLeader::URifleSquadLeader()
 {
 	skillName = NSLOCTEXT("Skill", "RifleSquadLeader_Name", "분대장");
-	skillDescription = NSLOCTEXT("Skill", "RifleSquadLeader_Description", "주변 8m 내의 모든 아군에게 명중과 회피를 5 부여한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleSquadLeader_Description", "주변 8m 내의 다른 아군 전원에게 명중 +5 · 회피 +5를 부여한다.");
 
 	//누가 이동을 마칠 때마다 주변 인원이 바뀌므로 MoveComplete로 재평가
 	passiveType = EPassiveType::Conditional;

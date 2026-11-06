@@ -83,6 +83,9 @@ protected:
 	TObjectPtr<UComboBoxString> EnemyTurnSpeedCombo;
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UCheckBox> EnemyTurnCameraCheck;
+	//선택지 순서가 ESkillCameraMode와 같다
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UComboBoxString> SkillCameraCombo;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> ApplyButton;

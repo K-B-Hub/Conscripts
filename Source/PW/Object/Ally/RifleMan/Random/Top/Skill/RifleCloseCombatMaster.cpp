@@ -5,7 +5,7 @@
 URifleCloseCombatMaster::URifleCloseCombatMaster()
 {
 	skillName = NSLOCTEXT("Skill", "RifleCloseCombatMaster_Name", "근접전의 달인");
-	skillDescription = NSLOCTEXT("Skill", "RifleCloseCombatMaster_Description", "근접 공격을 할 때 치명이 20, 주는 피해가 20% 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleCloseCombatMaster_Description", "근접 공격 시 치명 +20 · 주는 피해 +20%");
 	skillGrade = EUpgradeGrade::Top;
 
 	passiveType = EPassiveType::Reactive;

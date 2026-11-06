@@ -7,7 +7,7 @@
 UHighEndurancePassive::UHighEndurancePassive()
 {
 	skillName = NSLOCTEXT("Skill", "HighEndurance_Name", "위기모면");
-	skillDescription = NSLOCTEXT("Skill", "HighEndurance_Description", "체력이 30% 이상일 때 치명적인 공격을 받아도 체력 1로 생존한다");
+	skillDescription = NSLOCTEXT("Skill", "HighEndurance_Description", "체력이 30% 이상일 때 사망할 피해를 받으면 체력 1로 버틴다.");
 
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;

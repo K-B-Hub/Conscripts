@@ -6,7 +6,7 @@
 URifleMorale::URifleMorale()
 {
 	skillName = NSLOCTEXT("Skill", "RifleMorale_Name", "사기 진작");
-	skillDescription = NSLOCTEXT("Skill", "RifleMorale_Description", "주변 5m 내의 아군과 자신의 명중을 2턴간 10 올린다");
+	skillDescription = NSLOCTEXT("Skill", "RifleMorale_Description", "자신과 주변 5m 내의 아군 전원에게 2턴간 명중 +10을 부여한다.");
 	skillGrade = EUpgradeGrade::Mid;
 
 	//피해가 없는 범위 버프, 시전자 자신도 대상에 포함된다

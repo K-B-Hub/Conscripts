@@ -119,6 +119,16 @@ public:
 	void ActivateSkill(UActiveSkillBase* Skill);
 	void DeactivateSkill();
 
+	//턴 종료 버튼에서 호출, 행동 중이면 결과 확정까지 보류된다
+	void RequestEndTurn();
+
+	//스킬 연출 카메라 시작, GameMode::BeginAction이 호출
+	//시전자 진영과 설정으로 연출 여부를 정한다, 반환값은 카메라가 자리 잡기까지의 시간이고 연출하지 않으면 0
+	float BeginSkillCamera(const ACharacterBase* caster, const UActiveSkillBase* skill, const TArray<FVector>& framePoints);
+
+	//결과를 보여준 뒤 원래 카메라로 복귀하고 onReturned 호출, 연출 중이 아니면 다음 틱에 호출
+	void FinishSkillCamera(TFunction<void()> onReturned);
+
 	//디버그: 현재 턴 캐릭터 스트레스 +100
 	void DebugAddStress();
 	//디버그: 현재 턴 캐릭터 레벨 +1
@@ -172,19 +182,19 @@ protected:
 
 	//줌을 끝까지 당겼을 때 암 길이·피치
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
-	float zoomNearArmLength = 1700.f;
+	float zoomNearArmLength = 3025.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
-	float zoomNearPitch = -40.f;
+	float zoomNearPitch = -45.f;
 
 	//줌을 끝까지 뺐을 때 암 길이·피치
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
-	float zoomFarArmLength = 7000.f;
+	float zoomFarArmLength = 5675.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom")
-	float zoomFarPitch = -60.f;
+	float zoomFarPitch = -55.f;
 
-	//휠 한 칸당 줌 비율 변화, 0.25면 5단
+	//휠 한 칸당 줌 비율 변화, 0.5면 3단
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom", meta = (ClampMin = "0.01", ClampMax = "1.0"))
-	float zoomStep = 0.25f;
+	float zoomStep = 0.5f;
 
 	//시작 줌 비율, 0=가까운 끝 1=먼 끝
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Zoom", meta = (ClampMin = "0.0", ClampMax = "1.0"))
@@ -201,6 +211,46 @@ protected:
 	//카메라 이동 보간 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraMoveSmoothing = 8.f;
+
+	//추적 대상으로 따라가는 보간 속도, 턴 전환·초기화도 이 보간으로 옮겨간다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+	float cameraFollowInterpSpeed = 8.f;
+
+	//지금 카메라 피치에 더할 값, 음수면 더 내려다본다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill")
+	float skillCameraPitchOffset = -8.f;
+
+	//모두 담는 최소 거리에 곱할 배율, 화면 끝에 붙지 않게 더 넓게 보여준다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill", meta = (ClampMin = "1.0"))
+	float skillCameraWidenRatio = 1.2f;
+
+	//이미 다 담길 때 지금 거리에 곱할 배율, 살짝 당겨 강조한다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill", meta = (ClampMin = "0.1", ClampMax = "1.0"))
+	float skillCameraZoomInRatio = 0.85f;
+
+	//담을 지점마다 화면 끝까지 둘 여유, 캐릭터 몸체와 이펙트가 잘리지 않게
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill")
+	float skillCameraFramePadding = 250.f;
+
+	//화면 아래 HUD가 덮는 높이 비율, 이 아래로는 담지 않는다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill", meta = (ClampMin = "0.0", ClampMax = "0.8"))
+	float skillCameraHudBottomRatio = 0.3f;
+
+	//연출 카메라 거리 상한, 넘으면 먼 대상부터 프레임에서 뺀다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill")
+	float skillCameraMaxDistance = 9000.f;
+
+	//연출 카메라로 넘어가는 시간, 시전 몽타주는 이만큼 늦게 시작한다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill", meta = (ClampMin = "0.0"))
+	float skillCameraBlendInTime = 0.4f;
+
+	//효과 적용 후 결과를 보여주는 시간
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill", meta = (ClampMin = "0.0"))
+	float skillCameraHoldTime = 1.f;
+
+	//원래 카메라로 돌아가는 시간
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill", meta = (ClampMin = "0.0"))
+	float skillCameraBlendOutTime = 0.5f;
 
 private:
 	void OnCameraMove(const FInputActionValue& Value);
@@ -239,6 +289,22 @@ private:
 
 	//스프링암 피벗을 지면에 스냅, 경사면 관통 방지
 	void SnapSpringArmToGround(USpringArmComponent* SpringArm);
+
+	//스킬 연출 카메라, 첫 연출에서 생성해 재사용
+	UPROPERTY()
+	TObjectPtr<class ACameraActor> skillCameraActor = nullptr;
+
+	//연출 카메라로 보는 중이면 true, 복귀 블렌드가 끝날 때까지 카메라 조작·호버·월드 클릭 잠금
+	bool bSkillCameraActive = false;
+
+	//유지·복귀 대기 타이머
+	FTimerHandle skillCameraTimer;
+
+	//framePoints[0](시전자)를 반드시 담는 연출 카메라 위치·회전, 다 못 담으면 중심에서 먼 지점부터 뺀다
+	bool ComputeSkillCameraView(const TArray<FVector>& framePoints, FVector& outLocation, FRotator& outRotation) const;
+
+	//행동 시작부터 결과 확정까지 true
+	bool IsActionInProgress() const;
 
 	void EnterMoveMode();
 	void ExitMoveMode();
@@ -392,9 +458,6 @@ private:
 
 	//스킬 실행 확정, 타겟 검증·비용 차감 후 효과를 pending 등록 (적용은 SkillImpact 노티파이 커밋 시점)
 	void ExecuteSkill();
-
-	//대상 루프(ReflectDamage + Execute)를 약참조 스냅샷으로 pending 등록
-	void StartPendingSkillOnTargets(USkillComponent* SkillComp, UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets);
 
 	//스킬 버튼 활성/비활성 상태 갱신
 	void RefreshSkillButtons();

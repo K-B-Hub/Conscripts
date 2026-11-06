@@ -6,6 +6,16 @@
 #include "GameFramework/GameUserSettings.h"
 #include "PWGameUserSettings.generated.h"
 
+//스킬 연출 카메라를 쓸 시전자 진영, 설정 화면 선택지 순서와 같다
+UENUM()
+enum class ESkillCameraMode : uint8
+{
+	Off,
+	AllyOnly,
+	EnemyOnly,
+	All
+};
+
 //기기 지역 설정, 런 진행도(UPWSaveGame)와 분리된다 — 세이브 초기화가 해상도를 날리면 안 되므로
 //해상도·창모드·VSync·프레임제한·품질은 UGameUserSettings가 이미 전부 들고 있어 여기서 다시 선언하지 않는다
 //따라서 이 클래스는 게임 고유 값만 든다
@@ -30,6 +40,11 @@ public:
 	bool IsEnemyTurnCameraFollowEnabled() const { return bEnemyTurnCameraFollow; }
 	void SetEnemyTurnCameraFollowEnabled(bool bEnabled) { bEnemyTurnCameraFollow = bEnabled; }
 
+	//스킬 사용 시 시전자와 대상을 함께 비추는 연출 카메라를 어느 진영 시전에 쓸지
+	//ini는 수동 편집이 가능하므로 읽는 쪽에서 범위를 보장한다
+	ESkillCameraMode GetSkillCameraMode() const;
+	void SetSkillCameraMode(ESkillCameraMode newMode) { skillCameraMode = newMode; }
+
 	//설정 화면이 제시할 배속 선택지, 오름차순 전제
 	//저장값이 인덱스가 아니라 배율 자체라 목록이 바뀌어도 기존 ini의 의미가 유지된다
 	static const TArray<float>& GetEnemyTurnSpeedOptions();
@@ -50,6 +65,9 @@ private:
 
 	UPROPERTY(config)
 	bool bEnemyTurnCameraFollow = true;
+
+	UPROPERTY(config)
+	ESkillCameraMode skillCameraMode = ESkillCameraMode::All;
 
 	UPROPERTY(config)
 	float masterVolume = 1.f;

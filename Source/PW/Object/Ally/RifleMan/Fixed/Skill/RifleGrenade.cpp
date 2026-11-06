@@ -6,7 +6,7 @@
 URifleGrenade::URifleGrenade()
 {
 	skillName = NSLOCTEXT("Skill", "RifleGrenade_Name", "수류탄 투척");
-	skillDescription = NSLOCTEXT("Skill", "RifleGrenade_Description", "수류탄을 던져 착지 지점 범위에 피해를 준다");
+	skillDescription = NSLOCTEXT("Skill", "RifleGrenade_Description", "9m 내의 지점에 던져 반경 2m 안의 모든 캐릭터(아군 포함)에게 공격력 × 0.7~1.2의 투척 피해를 준다.\n명중 +70");
 
 	skillType = ESkillType::Throw;
 	damageType = EDamageType::Area;

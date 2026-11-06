@@ -6,7 +6,7 @@
 URifleVeteranInstinct::URifleVeteranInstinct()
 {
 	skillName = NSLOCTEXT("Skill", "RifleVeteranInstinct_Name", "노련함");
-	skillDescription = NSLOCTEXT("Skill", "RifleVeteranInstinct_Description", "턴 시작마다 탄창을 1개 회복하고 명중과 치명이 10 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "RifleVeteranInstinct_Description", "명중 +10 · 치명 +10, 턴 시작마다 탄창을 1개 회복한다.");
 
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;
