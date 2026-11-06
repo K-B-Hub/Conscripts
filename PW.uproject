@@ -43,6 +43,10 @@
 		{
 			"Name": "Terminal",
 			"Enabled": true
+		},
+		{
+			"Name": "WaveformEditor",
+			"Enabled": true
 		}
 	]
 }
