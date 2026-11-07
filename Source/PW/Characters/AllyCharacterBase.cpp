@@ -17,8 +17,8 @@ AAllyCharacterBase::AAllyCharacterBase()
 	campDialogueComponent->SetupAttachment(RootComponent);
 	campDialogueComponent->SetRelativeLocation(FVector(0.f, 0.f, 160.f)); //체력 바보다 위
 	campDialogueComponent->SetWidgetSpace(EWidgetSpace::Screen);
-	//말풍선은 WBP 안에서 아래 가운데에 붙어 내용만큼 자란다, 영역은 최대 크기로 잡는다
-	campDialogueComponent->SetDrawSize(FVector2D(340.f, 130.f));
+	//말풍선은 WBP의 고정 크기(360×149, 텍스처 비율) 상자, 영역은 그보다 넉넉히 잡는다
+	campDialogueComponent->SetDrawSize(FVector2D(380.f, 170.f));
 	//앵커가 아래 변 가운데라 말풍선이 머리 위로 자란다
 	campDialogueComponent->SetPivot(FVector2D(0.5f, 1.f));
 	//navObstacle이 이 위젯 위치를 형상으로 잡으면 통행 불가 영역이 머리 위로 뜬다

@@ -12,6 +12,7 @@ class UImage;
 class UPanelWidget;
 class USkillBase;
 class USkillListEntry;
+class USkillTooltipWidget;
 class UTextBlock;
 class UStatusEffectIcon;
 
@@ -41,6 +42,10 @@ protected:
 	//버프·상태이상 아이콘 항목, 툴팁 클래스가 지정된 WBP를 쓴다
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UStatusEffectIcon> statusIconClass;
+
+	//스탯 칸 호버 툴팁, 스킬 툴팁 WBP를 재사용한다. 비우면 툴팁 없음
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<USkillTooltipWidget> statTooltipClass;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> CloseButton;
@@ -133,6 +138,9 @@ private:
 
 	//컨테이너를 비우고, 같은 클래스 스킬을 묶어 등급순으로 항목을 생성해 채운다
 	void FillSkillList(UPanelWidget* list, const TArray<TObjectPtr<USkillBase>>& skills, bool bDescending);
+
+	//값 칸과 짝 라벨(Label_ + 값 이름)에 같은 설명 툴팁을 건다, 제목은 라벨 글자
+	void AttachStatTooltip(UTextBlock* valueText, const FText& description);
 
 	//정렬 버튼이 원본을 다시 읽지 않고 돌려 쓰도록 보관한다, 창은 열린 동안 값이 변하지 않는다(C7)
 	UPROPERTY()

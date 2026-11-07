@@ -4,6 +4,7 @@
 #include "Widget/StatTextHelpers.h"
 #include "Widget/SkillListEntry.h"
 #include "Widget/StatusEffectIcon.h"
+#include "Widget/SkillTooltipWidget.h"
 #include "Characters/CharacterBase.h"
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
@@ -40,6 +41,65 @@ void UCharacterDetailWidget::NativeConstruct()
 	if (CloseButton) CloseButton->OnClicked.AddDynamic(this, &UCharacterDetailWidget::HandleCloseClicked);
 	if (ActiveSortButton) ActiveSortButton->OnClicked.AddDynamic(this, &UCharacterDetailWidget::HandleActiveSortClicked);
 	if (PassiveSortButton) PassiveSortButton->OnClicked.AddDynamic(this, &UCharacterDetailWidget::HandlePassiveSortClicked);
+
+	//스탯 설명은 대상과 무관해 생성 시 한 번만 건다, 계산식 변경 시 함께 수정
+	AttachStatTooltip(HpText, NSLOCTEXT("StatTooltip", "Hp",
+		"0이 되면 사망합니다.\n비치명피해로는 1 아래로 내려가지 않습니다."));
+	AttachStatTooltip(BattleResourceText, NSLOCTEXT("StatTooltip", "BattleResource",
+		"일부 스킬을 사용할 때 소모하는 고유 자원입니다."));
+	AttachStatTooltip(AtkText, NSLOCTEXT("StatTooltip", "Atk",
+		"스킬 피해의 기반이 됩니다.\n스킬 피해 = 공격력 × 스킬 계수 + 스킬 고정 피해"));
+	AttachStatTooltip(SpeedText, NSLOCTEXT("StatTooltip", "Speed",
+		"턴 순서와 회피에 영향을 줍니다."));
+	AttachStatTooltip(SkillText, NSLOCTEXT("StatTooltip", "Skill",
+		"명중과 치명에 영향을 줍니다."));
+	AttachStatTooltip(DefText, NSLOCTEXT("StatTooltip", "Def",
+		"받는 피해에서 고정 수치를 뺍니다."));
+	AttachStatTooltip(MentalityText, NSLOCTEXT("StatTooltip", "Mentality",
+		"받는 스트레스를 줄입니다."));
+	AttachStatTooltip(ActionPointText, NSLOCTEXT("StatTooltip", "ActionPoint",
+		"한 턴에 쓸 수 있는 행동력의 최대치입니다.\n스킬마다 정해진 만큼 소모하고 턴 시작 시 최대치로 회복합니다."));
+	AttachStatTooltip(MovingPointText, NSLOCTEXT("StatTooltip", "MovingPoint",
+		"한 턴에 이동할 수 있는 거리(m)입니다.\n지형과 포복 자세에 따라 1m당 소모량이 늘어나며 턴 시작 시 회복합니다."));
+	AttachStatTooltip(SightText, NSLOCTEXT("StatTooltip", "Sight",
+		"시야 패널티가 시작되는 거리(m)입니다.\n시야를 넘는 1m마다 명중이 10씩 떨어집니다."));
+	AttachStatTooltip(AccuracyText, NSLOCTEXT("StatTooltip", "Accuracy",
+		"공격과 상태이상이 맞을 확률을 정합니다.\n명중률 = 명중 - 대상 회피 - 시야 패널티 (0 ~ 100%)"));
+	AttachStatTooltip(EvasionText, NSLOCTEXT("StatTooltip", "Evasion",
+		"상대의 명중률을 그대로 깎습니다.\n기본값 = 속도 × 1.2"));
+	AttachStatTooltip(CriticalText, NSLOCTEXT("StatTooltip", "Critical",
+		"공격이 치명타로 들어갈 확률(%)입니다.\n기본값 = 기술 × 0.5, 광역 공격은 치명타가 터지지 않습니다."));
+	AttachStatTooltip(PenetrationText, NSLOCTEXT("StatTooltip", "Penetration",
+		"대상의 방어를 비율로 무시합니다."));
+	AttachStatTooltip(DamageAmplificationText, NSLOCTEXT("StatTooltip", "DamageAmplification",
+		"주는 피해와 회복량을 비율로 늘립니다."));
+	AttachStatTooltip(DamageReductionText, NSLOCTEXT("StatTooltip", "DamageReduction",
+		"받는 피해를 비율로 줄입니다."));
+}
+
+void UCharacterDetailWidget::AttachStatTooltip(UTextBlock* valueText, const FText& description)
+{
+	if (!valueText || !statTooltipClass) return;
+
+	UTextBlock* label = Cast<UTextBlock>(GetWidgetFromName(*(TEXT("Label_") + valueText->GetName())));
+
+	FStatusEffectView view;
+	view.name = label ? label->GetText() : FText::GetEmpty();
+	view.description = description;
+
+	for (UTextBlock* cell : { label, valueText })
+	{
+		if (!cell) continue;
+
+		//한 툴팁 위젯을 두 칸이 공유하면 Slate 부모가 겹치므로 칸마다 만든다
+		USkillTooltipWidget* tooltip = CreateWidget<USkillTooltipWidget>(GetOwningPlayer(), statTooltipClass);
+		if (!tooltip) continue;
+
+		tooltip->InitStatusTooltip(view);
+		cell->SetToolTip(tooltip);
+		//TextBlock 기본값 SelfHitTestInvisible은 호버가 닿지 않는다
+		cell->SetVisibility(ESlateVisibility::Visible);
+	}
 }
 
 void UCharacterDetailWidget::InitDetail(ACharacterBase* target)
