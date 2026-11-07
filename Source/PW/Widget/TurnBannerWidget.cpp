@@ -42,6 +42,11 @@ void UTurnBannerWidget::HandleTurnAnnounced(ACharacterBase* turnUnit, float dura
 	{
 		TurnText->SetText(FText::FromString(ally ? TEXT("아군 턴") : TEXT("적 턴")));
 	}
+	if (RoundText && cachedGameMode)
+	{
+		//라운드 증가가 알림보다 먼저라 새 라운드 첫 턴도 갱신된 값을 읽는다
+		RoundText->SetText(FText::FromString(FString::Printf(TEXT("라운드 %d"), cachedGameMode->GetCurrentRound())));
+	}
 	if (UnitNameText)
 	{
 		//아군은 고유 이름, 적은 고유 이름을 지정하지 않으므로 직업명

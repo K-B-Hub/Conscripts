@@ -252,6 +252,18 @@ protected:
 	TObjectPtr<USoundBase> evadeSound;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
 	TObjectPtr<USoundBase> hitSound;
+	//치명타 피격 시 hitSound 대신 재생, 미지정 시 hitSound
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<USoundBase> criticalHitSound;
+	//피격 선혈, 공격자 반대쪽으로 뿜는다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<UNiagaraSystem> hitBloodEffect;
+	//치명타 선혈, 미지정 시 hitBloodEffect
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<UNiagaraSystem> criticalBloodEffect;
+	//걷기 애니의 Footstep 노티파이가 재생
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<USoundBase> footstepSound;
 	//반응 애니 앞쪽 정지 구간을 건너뛸 시간, 착탄 순간에 이미 움직이고 있도록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction", meta = (ClampMin = "0.0"))
 	float hitAnimStartTime = 0.1f;
@@ -467,6 +479,7 @@ public:
 	float GetAccuracy() const { return accuracy; }
 	float GetCritical() const { return critical; }
 	float GetCriticalDamage() const { return criticalDamage; }
+	USoundBase* GetFootstepSound() const { return footstepSound; }
 	int32 GetDamageAmplification() const { return damageAmplification; }
 	int32 GetPenetration() const { return penetration; }
 	int32 GetDef() const { return def; }

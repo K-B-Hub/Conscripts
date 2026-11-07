@@ -26,6 +26,10 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> TurnText;
 
+	//현재 라운드, "라운드 N"
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> RoundText;
+
 	//턴 주인 이름, 아군은 고유 이름·적은 직업명
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> UnitNameText;
