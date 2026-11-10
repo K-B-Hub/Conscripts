@@ -910,7 +910,7 @@ bool ACharacterBase::ReflectDamage()
 	//사망 시엔 HandleDeath의 사망 애니가 우선
 	if (!IsDead()) PlayReactionAnim(PickByAttacker(bIsProne ? crouchHitAnims : standHitAnims), 0.2f, hitAnimStartTime);
 	USoundBase* sound = (bCrit && criticalHitSound) ? criticalHitSound.Get() : hitSound.Get();
-	if (sound) UGameplayStatics::SpawnSoundAttached(sound, GetRootComponent());
+	if (sound && !IsDead()) UGameplayStatics::SpawnSoundAttached(sound, GetRootComponent());
 	//사망 시 액터가 사라져도 남도록 위치에 스폰
 	UNiagaraSystem* blood = (bCrit && criticalBloodEffect) ? criticalBloodEffect.Get() : hitBloodEffect.Get();
 	if (blood)
@@ -1449,6 +1449,9 @@ void ACharacterBase::HandleDeath()
 	}
 
 	OnCharacterDeath.Broadcast(this);
+
+	//즉시 Destroy될 수 있어 위치에 재생
+	if (deathSound) UGameplayStatics::PlaySoundAtLocation(this, deathSound, GetActorLocation());
 
 	//NavMesh 장애물 해제
 	SetNavObstacleEnabled(false);

@@ -6,6 +6,7 @@
 #include "Characters/AllyCharacterBase.h"
 #include "GameMode/BattleGameMode.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
 
 void UTurnBannerWidget::NativeConstruct()
 {
@@ -62,6 +63,7 @@ void UTurnBannerWidget::HandleTurnAnnounced(ACharacterBase* turnUnit, float dura
 	//클릭을 막지 않는다, 지연 중 조작 차단은 activeUnit이 비어 있는 것으로 충분하다
 	SetVisibility(ESlateVisibility::HitTestInvisible);
 	if (ShowAnim) PlayAnimation(ShowAnim);
+	if (turnStartSound) UGameplayStatics::PlaySound2D(this, turnStartSound);
 
 	GetWorld()->GetTimerManager().SetTimer(hideTimer, this, &UTurnBannerWidget::HideBanner, duration, false);
 }

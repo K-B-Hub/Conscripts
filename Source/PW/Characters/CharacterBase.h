@@ -255,6 +255,9 @@ protected:
 	//치명타 피격 시 hitSound 대신 재생, 미지정 시 hitSound
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
 	TObjectPtr<USoundBase> criticalHitSound;
+	//사망 시 피격음 대신 재생
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
+	TObjectPtr<USoundBase> deathSound;
 	//피격 선혈, 공격자 반대쪽으로 뿜는다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Reaction")
 	TObjectPtr<UNiagaraSystem> hitBloodEffect;
@@ -315,7 +318,6 @@ protected:
 	bool bIsArcMoving = false;
 	//외력에 의한 아치 이동 여부, true면 이동 패시브 훅·완료 통지 생략
 	bool bIsArcForced = false;
-
 	//아치 궤적 추종 속도(cm/s)
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
 	float jumpSpeed = 8.f * CmPerMeter;
