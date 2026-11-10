@@ -8,6 +8,7 @@
 
 class UTextBlock;
 class UWidgetAnimation;
+class USoundBase;
 class ACharacterBase;
 class ABattleGameMode;
 
@@ -41,6 +42,10 @@ protected:
 	//등장 연출, 없으면 즉시 표시
 	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
 	TObjectPtr<UWidgetAnimation> ShowAnim;
+
+	//턴 시작 효과음, 배너 등장과 함께 재생
+	UPROPERTY(EditDefaultsOnly, Category = "Sound")
+	TObjectPtr<USoundBase> turnStartSound;
 
 private:
 	void HandleTurnAnnounced(ACharacterBase* turnUnit, float duration);
