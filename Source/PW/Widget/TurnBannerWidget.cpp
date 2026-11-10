@@ -33,9 +33,9 @@ void UTurnBannerWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
-void UTurnBannerWidget::HandleTurnAnnounced(ACharacterBase* turnUnit, float duration)
+void UTurnBannerWidget::HandleTurnAnnounced(ACharacterBase* turnUnit)
 {
-	if (!turnUnit || duration <= 0.f) return;
+	if (!turnUnit || displayDuration <= 0.f) return;
 
 	const AAllyCharacterBase* ally = Cast<AAllyCharacterBase>(turnUnit);
 
@@ -60,12 +60,12 @@ void UTurnBannerWidget::HandleTurnAnnounced(ACharacterBase* turnUnit, float dura
 		JobNameText->SetVisibility(ally ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
 
-	//클릭을 막지 않는다, 지연 중 조작 차단은 activeUnit이 비어 있는 것으로 충분하다
+	//턴은 이미 시작됐으므로 클릭을 막지 않는다
 	SetVisibility(ESlateVisibility::HitTestInvisible);
 	if (ShowAnim) PlayAnimation(ShowAnim);
 	if (turnStartSound) UGameplayStatics::PlaySound2D(this, turnStartSound);
 
-	GetWorld()->GetTimerManager().SetTimer(hideTimer, this, &UTurnBannerWidget::HideBanner, duration, false);
+	GetWorld()->GetTimerManager().SetTimer(hideTimer, this, &UTurnBannerWidget::HideBanner, displayDuration, false);
 }
 
 void UTurnBannerWidget::HideBanner()

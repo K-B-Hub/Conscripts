@@ -9,6 +9,7 @@
 #include "Components/Button.h"
 #include "Components/SizeBox.h"
 #include "Components/UniformGridPanel.h"
+#include "Components/UniformGridSlot.h"
 
 void USkillWidget::NativeConstruct()
 {
@@ -141,7 +142,12 @@ void USkillWidget::RebuildGrid()
 		button->SetEditMode(bEditMode);
 		button->SetSelected(i == selectedSlotIndex);
 
-		SkillGridPanel->AddChildToUniformGrid(button, i / columns, i % columns);
+		//칸이 버튼보다 커서 기본 정렬(왼쪽 위)이면 한쪽으로 쏠린다
+		if (UUniformGridSlot* gridSlot = SkillGridPanel->AddChildToUniformGrid(button, i / columns, i % columns))
+		{
+			gridSlot->SetHorizontalAlignment(HAlign_Center);
+			gridSlot->SetVerticalAlignment(VAlign_Center);
+		}
 		skillButtons.Add(button);
 	}
 }
