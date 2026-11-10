@@ -53,8 +53,8 @@ struct FThreatProfile
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTurnOrderRebuilt, const TArray<ACharacterBase*>&, int32);
 //턴 전환 시 통지 (현재 턴 인덱스)
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnChanged, int32);
-//턴 전환 알림 (턴 주인, 실제 시작까지 남은 지연 초), 배너가 구독
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTurnAnnounced, ACharacterBase*, float);
+//턴 전환 알림 (턴 주인), 배너가 구독
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnAnnounced, ACharacterBase*);
 //Deploy 페이즈 진입 시 통지, 컨트롤러가 배치 위젯을 띄운다
 DECLARE_MULTICAST_DELEGATE(FOnDeployPhaseStarted);
 //전투 페이즈 진입 시 통지, 컨트롤러가 지속 HUD를 띄운다
@@ -261,17 +261,17 @@ private:
 	//적 초기 레벨 스케일링, 아군 평균 레벨 +2까지 레벨업하며 랜덤 강화 자동 습득
 	void ApplyEnemyLevelScaling();
 
-	//turnOrder[currentTurnIndex] 유닛의 턴을 알리고 지연 뒤 BeginCurrentTurn 예약
+	//turnOrder[currentTurnIndex] 유닛의 턴을 알리고 BeginCurrentTurn, 적 턴만 지연
 	void StartCurrentTurn();
 
-	//알림 지연이 끝난 뒤 실제 턴 시작
+	//실제 턴 시작
 	void BeginCurrentTurn();
 
-	//턴 전환 알림 후 실제 턴 시작까지의 지연(초), 0이면 즉시 시작
+	//적 턴 알림 후 행동 시작까지의 지연(초), 아군 턴은 즉시 시작
 	UPROPERTY(EditDefaultsOnly, Category = "Turn", meta = (ClampMin = "0.0"))
-	float turnTransitionDelay = 1.f;
+	float enemyTurnStartDelay = 0.5f;
 
-	FTimerHandle turnTransitionTimer;
+	FTimerHandle enemyTurnStartTimer;
 
 	//아군/적군 캐시 배열
 	UPROPERTY()

@@ -47,8 +47,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Sound")
 	TObjectPtr<USoundBase> turnStartSound;
 
+	//배너 표시 시간(초), 턴 진행은 기다리지 않는다
+	UPROPERTY(EditDefaultsOnly, Category = "TurnBanner", meta = (ClampMin = "0.0"))
+	float displayDuration = 1.f;
+
 private:
-	void HandleTurnAnnounced(ACharacterBase* turnUnit, float duration);
+	void HandleTurnAnnounced(ACharacterBase* turnUnit);
 	void HideBanner();
 
 	UPROPERTY()

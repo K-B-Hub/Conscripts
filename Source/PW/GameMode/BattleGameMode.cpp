@@ -581,27 +581,27 @@ void ABattleGameMode::StartCurrentTurn()
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 라운드 %d - %s 턴 알림"), currentRound, *TurnUnit->GetName());
 
-	//턴 순서 UI 상태 갱신 통지, 배너와 함께 지연 전에 바뀌어야 누구 차례인지 보인다
+	//턴 순서 UI 상태 갱신 통지
 	OnTurnChanged.Broadcast(currentTurnIndex);
-	OnTurnAnnounced.Broadcast(TurnUnit, turnTransitionDelay);
+	OnTurnAnnounced.Broadcast(TurnUnit);
 
-	//적 턴은 항상 카메라 추적, 지연 동안 카메라가 먼저 옮겨가도록 알림 시점에 건다
+	//적 턴은 항상 카메라 추적
 	if (AEnemyBase* Enemy = Cast<AEnemyBase>(TurnUnit))
 	{
 		if (ABattleController* BattleController = Cast<ABattleController>(GetWorld()->GetFirstPlayerController()))
 		{
 			BattleController->BeginAITurnFollow(Enemy);
 		}
+
+		//카메라가 먼저 옮겨가도록 적 행동만 늦춘다
+		if (enemyTurnStartDelay > 0.f)
+		{
+			GetWorldTimerManager().SetTimer(enemyTurnStartTimer, this, &ABattleGameMode::BeginCurrentTurn, enemyTurnStartDelay, false);
+			return;
+		}
 	}
 
-	if (turnTransitionDelay <= 0.f)
-	{
-		BeginCurrentTurn();
-		return;
-	}
-
-	//지연 중에는 직전 턴의 EndTurn이 activeUnit을 비워 둬서 조작이 막혀 있다
-	GetWorldTimerManager().SetTimer(turnTransitionTimer, this, &ABattleGameMode::BeginCurrentTurn, turnTransitionDelay, false);
+	BeginCurrentTurn();
 }
 
 void ABattleGameMode::BeginCurrentTurn()
