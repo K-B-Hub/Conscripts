@@ -25,12 +25,14 @@ namespace
 		int32 count = 0;
 	};
 
-	//정렬 버튼 라벨을 현재 방향으로 맞춘다, ▼는 최상급이 위 ▲는 일반이 위
+	//화살표만 현재 방향으로 바꾼다, 위치용 띄어쓰기는 WBP 텍스트 그대로, ▼는 최상급이 위 ▲는 일반이 위
 	void ApplySortText(UTextBlock* text, bool bDescending)
 	{
 		if (!text) return;
 
-		text->SetText(FText::FromString(bDescending ? TEXT("등급 ▼") : TEXT("등급 ▲")));
+		FString label = text->GetText().ToString();
+		label.ReplaceInline(bDescending ? TEXT("▲") : TEXT("▼"), bDescending ? TEXT("▼") : TEXT("▲"));
+		text->SetText(FText::FromString(label));
 	}
 }
 
