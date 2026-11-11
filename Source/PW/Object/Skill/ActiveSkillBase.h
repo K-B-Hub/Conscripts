@@ -86,6 +86,12 @@ public:
 	//몽타주 재생 속도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
 	float montagePlayRate = 1.0f;
+	//몽타주가 없을 때 상체를 잠깐 숙였다 복귀, 숙임 정점에서 커밋 (자가 버프용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation")
+	bool bBowOnCast = false;
+	//숙였다 돌아오는 전체 시간(초)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Animation", meta = (ClampMin = "0.1", EditCondition = "bBowOnCast"))
+	float bowDuration = 0.6f;
 	//스킬 효과 적용 타이밍을 잡을 투사체, 미지정이면 임팩트 노티파이 시점에 즉시 적용
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")
 	TSubclassOf<AProjectileBase> projectileClass;

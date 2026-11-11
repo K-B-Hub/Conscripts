@@ -12,6 +12,7 @@ URifleStimulant::URifleStimulant()
 	skillType = ESkillType::Buff;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::Self;
+	bBowOnCast = true;
 	pickTeam = EPickTeam::AllyOnly;
 	areaTarget = EAreaTarget::None;
 

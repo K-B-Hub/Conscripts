@@ -1553,3 +1553,24 @@ UStaticMeshComponent* ACharacterBase::GetWeaponMeshComponent() const
 {
 	return WeaponMeshComp;
 }
+
+void ACharacterBase::SetWeaponFollowBone(FName boneName)
+{
+	if (!WeaponMeshComp) return;
+
+	const bool bFollowing = !weaponHandSocket.IsNone();
+	if (!boneName.IsNone())
+	{
+		if (bFollowing) return;
+		weaponHandSocket = WeaponMeshComp->GetAttachSocketName();
+		weaponHandRelative = WeaponMeshComp->GetRelativeTransform();
+		//쥔 위치 그대로 옮겨 붙여 튀지 않게
+		WeaponMeshComp->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepWorldTransform, boneName);
+		return;
+	}
+
+	if (!bFollowing) return;
+	WeaponMeshComp->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, weaponHandSocket);
+	WeaponMeshComp->SetRelativeTransform(weaponHandRelative);
+	weaponHandSocket = NAME_None;
+}

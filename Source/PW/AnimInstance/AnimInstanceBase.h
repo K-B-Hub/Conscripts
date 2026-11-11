@@ -20,6 +20,8 @@ class PW_API UAnimInstanceBase : public UAnimInstance
 public:
 	UAnimInstanceBase();
 
+	//상체를 잠깐 숙였다 복귀, duration은 전체 왕복 시간
+	void PlayBow(float duration);
 protected:
 	//애니메이션 초기화, 소유 캐릭터와 무기 메시 캐싱
 	virtual void NativeInitializeAnimation() override;
@@ -54,6 +56,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation|Aim")
 	float aimInterpSpeed = 10.f;
 
+	//척추 본 하나에 더할 회전, 애님BP ModifyBone(Component·Additive) Rotation 핀에 연결
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation|Bow")
+	FRotator bowRotation = FRotator::ZeroRotator;
+
+	//숙이는 총 각도, 부호로 앞뒤 방향을 맞춘다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation|Bow")
+	float bowAngle = 20.f;
+
+	//숙임을 나눠 받는 척추 본 수, 애님BP의 ModifyBone 노드 수와 맞출 것
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation|Bow", meta = (ClampMin = "1"))
+	int32 bowBoneCount = 3;
+
 	//TwoBoneIK Effector Location 핀에 직접 연결
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Animation|IK")
 	FVector leftHandIKLocation;
@@ -72,6 +86,12 @@ private:
 
 	USkeletalMeshComponent* charMesh = nullptr;
 
+	//0이면 숙이기 없음
+	float bowTotalTime = 0.f;
+	float bowElapsed = 0.f;
+
+	//숙이기 진행도로 bowRotation 갱신
+	void UpdateBow(float DeltaTime);
 	//왼손 IK 타깃 위치 계산
 	void UpdateLeftHandIK();
 };

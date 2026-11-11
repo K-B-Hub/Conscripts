@@ -165,6 +165,9 @@ private:
 	//카메라 도착 대기 타이머
 	FTimerHandle presentationTimer;
 
+	//상체 숙이기 정점 커밋 타이머
+	FTimerHandle bowImpactTimer;
+
 	//한 대상에 명중 판정과 효과 적용
 	void ApplyToTarget(UActiveSkillBase* Skill, ACharacterBase* Target);
 

@@ -13,6 +13,7 @@ URifleMorale::URifleMorale()
 	skillType = ESkillType::Buff;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::Self;
+	bBowOnCast = true;
 	pickTeam = EPickTeam::AllyOnly;
 	areaTarget = EAreaTarget::AllyOnly;
 	areaForm = EAreaForm::Circle;

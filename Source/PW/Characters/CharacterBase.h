@@ -142,6 +142,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UStaticMeshComponent> WeaponMeshComp;
 
+	//SetWeaponFollowBone 복귀용, None이면 손 소켓에 붙어 있는 상태
+	FName weaponHandSocket;
+	FTransform weaponHandRelative;
+
 	//캐릭터가 차지한 자리를 통행 불가로 칠하는 컴포넌트
 	//캡슐 지오메트리 대신 이 modifier를 쓰면 NavMesh 재생성이 voxelize를 건너뛴다
 	UPROPERTY(VisibleAnywhere, Category = "Navigation")
@@ -623,6 +627,8 @@ public:
 	float GetPendingDamageMax() const { return pendingDMGMax; }
 
 	UStaticMeshComponent* GetWeaponMeshComponent() const;
+	//오른손이 총을 놓는 동안 총을 애니의 총 본에 맡긴다, NAME_None이면 손 소켓으로 복귀
+	void SetWeaponFollowBone(FName boneName);
 	USkillComponent* GetSkillComponent() const { return skillComponent; }
 	UBuffComponent* GetBuffComponent() const { return buffComponent; }
 	UAilmentComponent* GetAilmentComponent() const { return ailmentComponent; }

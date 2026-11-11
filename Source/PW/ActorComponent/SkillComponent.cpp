@@ -17,6 +17,7 @@
 #include "Components/CapsuleComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "AnimInstance/AnimInstanceBase.h"
 
 USkillComponent::USkillComponent()
 {
@@ -389,6 +390,18 @@ void USkillComponent::PlayPendingPresentation()
 		}
 	}
 
+	//몽타주 없는 자가 버프는 상체 숙이기로 대신하고 정점에서 커밋
+	if (duration <= 0.f && Skill && Skill->bBowOnCast && ownerCharacter)
+	{
+		UAnimInstanceBase* anim = ownerCharacter->GetMesh() ? Cast<UAnimInstanceBase>(ownerCharacter->GetMesh()->GetAnimInstance()) : nullptr;
+		if (anim)
+		{
+			anim->PlayBow(Skill->bowDuration);
+			GetWorld()->GetTimerManager().SetTimer(bowImpactTimer, this, &USkillComponent::OnSkillImpact, Skill->bowDuration * 0.5f, false);
+			return;
+		}
+	}
+
 	//몽타주가 없거나 재생 실패 시 즉시 커밋해 효과 증발 방지
 	if (duration <= 0.f)
 	{
@@ -569,6 +582,7 @@ void USkillComponent::CommitPendingExecution()
 
 	//카메라 도착 전 강제 커밋이면 늦춰 둔 연출을 취소
 	GetWorld()->GetTimerManager().ClearTimer(presentationTimer);
+	GetWorld()->GetTimerManager().ClearTimer(bowImpactTimer);
 
 	//커밋 액션이 새 pending을 등록할 수 있어 실행 전에 해제
 	TFunction<void()> action = MoveTemp(pendingAction);
