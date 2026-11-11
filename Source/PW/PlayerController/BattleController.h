@@ -277,6 +277,9 @@ private:
 	//true면 Tick에서 스프링암 위치를 캐릭터 위치로 고정, false면 자유 이동 모드
 	bool bIsFollowingCharacter = true;
 
+	//레벨 시작 시 스프링암 위치, 배치 단계 카메라 리셋 목적지
+	FVector cameraHomeLocation = FVector::ZeroVector;
+
 	//현재 피치, 줌 비율이 정하며 회전·리셋이 이 값을 쓴다
 	float cachedSpringArmPitch = -55.f;
 

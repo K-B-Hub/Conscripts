@@ -76,6 +76,11 @@ void ABattleController::BeginPlay()
 		//시작 줌을 보간 없이 바로 적용, 피치도 여기서 정해진다
 		currentZoomAlpha = targetZoomAlpha = zoomStartAlpha;
 		ApplyZoom(SpringArm);
+
+		cameraHomeLocation = SpringArm->GetComponentLocation();
+
+		//소리는 카메라가 아닌 지면 쪽 피벗에서 듣는다, 회전은 스프링암을 따라 화면 좌우와 맞는다
+		SetAudioListenerOverride(SpringArm, FVector::ZeroVector, FRotator::ZeroRotator);
 	}
 
 	//디버그 조작 위젯 상시 표시
@@ -936,6 +941,20 @@ void ABattleController::OnCancelMove(const FInputActionValue& Value)
 void ABattleController::OnCameraReset(const FInputActionValue& Value)
 {
 	if (bSkillCameraActive) return;
+
+	//배치 단계는 따라갈 유닛이 없어 레벨 시작 위치로 돌려보낸다
+	const ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>();
+	if (gameMode && gameMode->GetPhase() == EBattlePhase::Deploy)
+	{
+		if (USpringArmComponent* SpringArm = ResolveSpringArm())
+		{
+			cameraVelocity = FVector::ZeroVector;
+			bIsFollowingCharacter = false;
+			SpringArm->SetWorldLocation(cameraHomeLocation);
+			SnapSpringArmToGround(SpringArm);
+		}
+		return;
+	}
 
 	AActor* followUnit = IsValid(activeUnit) ? static_cast<AActor*>(activeUnit) : nullptr;
 	if (!followUnit) followUnit = IsValid(aiFollowTarget) ? static_cast<AActor*>(aiFollowTarget) : nullptr;

@@ -59,6 +59,34 @@ void UAnimInstanceBase::NativeUpdateAnimation(float DeltaTime)
 			UpdateLeftHandIK();
 		}
 	}
+
+	UpdateBow(DeltaTime);
+}
+
+void UAnimInstanceBase::PlayBow(float duration)
+{
+	bowTotalTime = FMath::Max(duration, 0.1f);
+	bowElapsed = 0.f;
+}
+
+void UAnimInstanceBase::UpdateBow(float DeltaTime)
+{
+	if (bowTotalTime <= 0.f) return;
+
+	bowElapsed += DeltaTime;
+	const float t = bowElapsed / bowTotalTime;
+	if (t >= 1.f)
+	{
+		bowTotalTime = 0.f;
+		bowRotation = FRotator::ZeroRotator;
+		return;
+	}
+
+	//0→1→0 코사인 곡선, 시작·정점·끝 모두 속도 0이라 튀지 않는다
+	const float alpha = 0.5f - 0.5f * FMath::Cos(2.f * PI * t);
+
+	//메시 +X가 캐릭터 왼쪽이라 X축(Roll) 회전이 앞뒤 숙임
+	bowRotation = FRotator(0.f, 0.f, bowAngle * alpha / bowBoneCount);
 }
 
 void UAnimInstanceBase::UpdateLeftHandIK()

@@ -13,6 +13,7 @@ URifleFirstAid::URifleFirstAid()
 	skillType = ESkillType::Heal;
 	damageType = EDamageType::Normal;
 	selectMode = ESelectMode::Self;
+	bBowOnCast = true;
 	pickTeam = EPickTeam::AllyOnly;
 	areaTarget = EAreaTarget::None;
 
