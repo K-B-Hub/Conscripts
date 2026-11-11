@@ -86,6 +86,8 @@ void ABattleGameMode::StartBattlePhase()
 {
 	phase = EBattlePhase::Battle;
 
+	GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(battleBgm);
+
 	//배치가 끝났으므로 구획 표시를 거둔다
 	for (ADeploymentZone* zone : deploymentZones)
 	{
@@ -269,13 +271,6 @@ void ABattleGameMode::BuildTurnOrder()
 	for (int32 i = 0; i < turnOrder.Num(); ++i)
 	{
 		UE_LOG(LogTemp, Log, TEXT("  %d. %s"), i + 1, *turnOrder[i]->GetName());
-	}
-
-	//라운드 시작마다 불리므로 교전 곡 판정도 여기서 한다, 같은 곡이면 Play가 무시한다
-	if (!bCombatBgmStarted)
-	{
-		bCombatBgmStarted = turnOrder.ContainsByPredicate([](const ACharacterBase* c) { return c->IsA<AEnemyBase>(); });
-		GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(bCombatBgmStarted ? combatBgm : stageBgm);
 	}
 
 	//턴 순서 UI 재생성 통지

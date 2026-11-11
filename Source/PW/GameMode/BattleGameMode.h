@@ -134,7 +134,6 @@ public:
 	int32 GetCurrentTurnIndex() const { return currentTurnIndex; }
 	//경과 라운드를 조건으로 쓰는 패시브가 조회한다
 	int32 GetCurrentRound() const { return currentRound; }
-
 	//현재 턴의 유닛이 행동을 마쳤을 때 BattleController에서 호출
 	void OnTurnEnd();
 
@@ -195,13 +194,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Audio")
 	TObjectPtr<USoundBase> deployBgm;
 
-	//전투 개시 후 교전 전 배경음
+	//전투 개시부터 결과 전까지 한 곡
 	UPROPERTY(EditDefaultsOnly, Category = "Audio")
-	TObjectPtr<USoundBase> stageBgm;
-
-	//라운드 시작 시 턴 순서에 적이 처음 들어온 뒤의 배경음
-	UPROPERTY(EditDefaultsOnly, Category = "Audio")
-	TObjectPtr<USoundBase> combatBgm;
+	TObjectPtr<USoundBase> battleBgm;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Audio")
 	TObjectPtr<USoundBase> victoryBgm;
@@ -214,9 +209,6 @@ private:
 	EBattlePhase phase = EBattlePhase::Deploy;
 
 	bool bEnemiesSpawned = false;
-
-	//교전 곡으로 넘어갔는지, 한번 켜지면 다시 판정하지 않는다
-	bool bCombatBgmStarted = false;
 
 	//배치 구획 수집 및 배치 위젯 표시
 	void StartDeployPhase();

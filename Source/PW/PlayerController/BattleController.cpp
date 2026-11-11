@@ -526,6 +526,7 @@ void ABattleController::RefreshGauges()
 
 	turnHudWidgetInstance->RefreshGauges(activeUnit);
 	turnHudWidgetInstance->RefreshStatusEffects(activeUnit);
+	turnHudWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
 }
 
 void ABattleController::SetupInputComponent()

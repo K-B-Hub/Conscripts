@@ -92,7 +92,7 @@ void ULoadingScreenSubsystem::Tick(float DeltaTime)
 		if (!bWaitingForMap && mapLoadedAt > 0.0 && now - mapLoadedAt >= maxWaitSeconds)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("[LoadingScreen] 맵 로드 후 %.0f초가 지나도 준비 조건이 남아 로딩창을 걷습니다"), maxWaitSeconds);
-			bFadingOut = true;
+			BeginFadeOut();
 			return;
 		}
 
@@ -104,7 +104,18 @@ void ULoadingScreenSubsystem::Tick(float DeltaTime)
 
 	//텍스처 스트리밍 등 완료 시점을 알 수 없는 로딩을 가린다
 	const float holdSeconds = gameInstance ? gameInstance->GetLoadingHoldSeconds() : 0.f;
-	if (now - readySince >= holdSeconds) bFadingOut = true;
+	if (now - readySince >= holdSeconds) BeginFadeOut();
+}
+
+void ULoadingScreenSubsystem::BeginFadeOut()
+{
+	bFadingOut = true;
+
+	//화면이 드러나기 시작할 때 곡도 페이드 인
+	if (UBgmSubsystem* bgm = UWorld::GetSubsystem<UBgmSubsystem>(GetGameInstance()->GetWorld()))
+	{
+		bgm->PlayPending();
+	}
 }
 
 void ULoadingScreenSubsystem::UpdateFade(float deltaTime)

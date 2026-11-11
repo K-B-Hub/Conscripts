@@ -760,7 +760,11 @@ void ACharacterBase::ConsumeMovingPoint(float meters)
 void ACharacterBase::GainMovingPoint(float meters)
 {
 	//달리기 등으로 얻는 추가 이동력, 기본 최대치 초과 허용이라 상한 클램프 없음
+	if (meters <= 0.f) return;
 	currentMovingPoint += meters;
+
+	//행동으로 생긴 변화라 통지, Move 버튼 재활성화용
+	OnVitalsChanged.Broadcast();
 }
 
 float ACharacterBase::GetTerrainMoveCostMultiplier() const
