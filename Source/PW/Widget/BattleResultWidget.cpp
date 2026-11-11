@@ -9,7 +9,6 @@
 #include "Components/Button.h"
 #include "Components/PanelWidget.h"
 #include "Components/TextBlock.h"
-#include "Kismet/GameplayStatics.h"
 
 void UBattleResultWidget::NativeConstruct()
 {
@@ -44,8 +43,6 @@ void UBattleResultWidget::SetResult(EBattleResult result)
 
 	//패배하면 로스터가 비어 있어 보여줄 생존자가 없다
 	if (bVictory) BuildSurvivorList();
-
-	if (bVictory && victorySound) UGameplayStatics::PlaySound2D(this, victorySound);
 }
 
 void UBattleResultWidget::BuildSurvivorList()

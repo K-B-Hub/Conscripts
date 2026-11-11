@@ -18,6 +18,8 @@
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
 #include "Engine/OverlapResult.h"
+#include "Components/AudioComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 AAttackRangeIndicator::AAttackRangeIndicator()
 {
@@ -58,7 +60,15 @@ void AAttackRangeIndicator::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		caster->ClearPendingDamage();
 	}
 	DestroyMovePathIndicator();
+	StopAimSound();
 	Super::EndPlay(EndPlayReason);
+}
+
+void AAttackRangeIndicator::StopAimSound()
+{
+	//뚝 끊기는 소리를 피하려 짧게 페이드, 끝나면 자동 파괴된다
+	if (IsValid(aimAudio)) aimAudio->FadeOut(0.15f, 0.f);
+	aimAudio = nullptr;
 }
 
 void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkillBase* Skill)
@@ -92,6 +102,15 @@ void AAttackRangeIndicator::InitIndicator(ACharacterBase* InCaster, UActiveSkill
 			SkillComp->AddTarget(caster.Get());
 		}
 		RecalculatePendingForTarget(caster.Get());
+	}
+
+	//저음 지속음은 무음에서 바로 시작하면 딸깍거려 끄기와 같은 길이로 페이드 인
+	aimAudio = aimSound ? UGameplayStatics::CreateSound2D(this, aimSound) : nullptr;
+	if (aimAudio)
+	{
+		//CreateSound2D는 재생 전 생성이라 자동 파괴가 꺼져 있다
+		aimAudio->bAutoDestroy = true;
+		aimAudio->FadeIn(0.15f);
 	}
 }
 
@@ -466,6 +485,10 @@ const TArray<FVector>& AAttackRangeIndicator::GetMovePath() const
 void AAttackRangeIndicator::LockAtCurrentPosition()
 {
 	bIsLocked = true;
+
+	//대상을 확정하고 이동하는 중이라 조준 단계가 끝났다
+	StopAimSound();
+
 	if (movePathIndicator)
 	{
 		movePathIndicator->LockAtCurrentPosition();

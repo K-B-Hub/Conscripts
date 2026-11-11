@@ -17,6 +17,7 @@ class ADeploymentZone;
 class UMissionData;
 class ASquadSpawnPoint;
 class USquadData;
+class USoundBase;
 
 //전투 맵의 진행 단계, Deploy 동안에는 턴이 시작되지 않는다
 UENUM()
@@ -133,7 +134,6 @@ public:
 	int32 GetCurrentTurnIndex() const { return currentTurnIndex; }
 	//경과 라운드를 조건으로 쓰는 패시브가 조회한다
 	int32 GetCurrentRound() const { return currentRound; }
-
 	//현재 턴의 유닛이 행동을 마쳤을 때 BattleController에서 호출
 	void OnTurnEnd();
 
@@ -189,6 +189,20 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	//배치 단계 배경음
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> deployBgm;
+
+	//전투 개시부터 결과 전까지 한 곡
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> battleBgm;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> victoryBgm;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> defeatBgm;
 
 private:
 	//현재 진행 단계

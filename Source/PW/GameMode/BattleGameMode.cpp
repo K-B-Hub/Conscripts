@@ -18,6 +18,7 @@
 #include "Object/Buff/BuffBase.h"
 #include "Object/Ailment/AilmentBase.h"
 #include "GameInstance/PWGameInstance.h"
+#include "GameInstance/BgmSubsystem.h"
 #include "DataAsset/StressPoolData.h"
 #include "Actors/DeploymentZone.h"
 #include "Actors/SquadSpawnPoint.h"
@@ -75,12 +76,17 @@ void ABattleGameMode::StartDeployPhase()
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 배치 시작, 인원 %d명 / 구획 %d개"),
 		runProgress->GetRoster().Num(), deploymentZones.Num());
 
+	//배치 생략 경로가 배치 곡을 틀었다 바로 끄지 않도록 분기 뒤에서 튼다
+	GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(deployBgm);
+
 	OnDeployPhaseStarted.Broadcast();
 }
 
 void ABattleGameMode::StartBattlePhase()
 {
 	phase = EBattlePhase::Battle;
+
+	GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(battleBgm);
 
 	//배치가 끝났으므로 구획 표시를 거둔다
 	for (ADeploymentZone* zone : deploymentZones)
@@ -803,6 +809,8 @@ void ABattleGameMode::FinishBattle(EBattleResult result)
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 전투 종료: %s (생존 아군 %d)"),
 		result == EBattleResult::Victory ? TEXT("승리") : TEXT("패배"), allies.Num());
+
+	GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(result == EBattleResult::Victory ? victoryBgm : defeatBgm);
 
 	OnBattleFinished.Broadcast(result);
 }

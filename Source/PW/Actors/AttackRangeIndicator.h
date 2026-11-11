@@ -16,6 +16,8 @@ class USplineMeshComponent;
 class UStaticMesh;
 class UMaterialInterface;
 class UWidgetComponent;
+class USoundBase;
+class UAudioComponent;
 
 //마우스를 따라다니며 스킬 영향 범위를 표시하는 액터
 UCLASS()
@@ -215,4 +217,14 @@ private:
 	void SpawnMovePathIndicator();
 	//CursorIndicator 제거
 	void DestroyMovePathIndicator();
+
+	//조준 중 재생할 소리, 인디케이터가 사라지거나 자동이동으로 고정되면 멈춘다
+	UPROPERTY(EditDefaultsOnly, Category = "Sound")
+	TObjectPtr<USoundBase> aimSound;
+
+	//소유자 없는 오디오 컴포넌트는 GC되면 루핑이 끊기므로 붙잡아 둔다
+	UPROPERTY()
+	TObjectPtr<UAudioComponent> aimAudio;
+
+	void StopAimSound();
 };

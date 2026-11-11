@@ -31,6 +31,9 @@ public:
 	//추적만 하므로 에셋 수명은 요청자가 핸들을 쥐어 유지해야 한다
 	void TrackLoadHandle(const TSharedPtr<FStreamableHandle>& handle);
 
+	//로딩창이 떠 있고 아직 걷히기 시작하지 않았는지, 배경음 보류 판정용
+	bool IsCovering() const { return loadingSlate.IsValid() && !bFadingOut; }
+
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
 	virtual ETickableTickType GetTickableTickType() const override;
@@ -52,6 +55,9 @@ private:
 	void UpdateFade(float deltaTime);
 
 	void Show();
+
+	//페이드 아웃 시작, 보류된 배경음도 이때 튼다
+	void BeginFadeOut();
 
 	//페이드 없이 즉시 제거
 	void Hide();
