@@ -6,6 +6,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "HubGameMode.generated.h"
 
+class USoundBase;
+
 //메인메뉴·모드선택·설정·줄기선택·편성을 담는 허브 레벨의 게임모드
 //UI 전용이라 캐릭터도 조작 대상 폰도 없고, 화면 전환은 HubController가 담당
 UCLASS()
@@ -15,4 +17,11 @@ class PW_API AHubGameMode : public AGameModeBase
 
 public:
 	AHubGameMode();
+
+protected:
+	virtual void BeginPlay() override;
+
+	//허브 전 화면 공통 배경음
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> menuBgm;
 };

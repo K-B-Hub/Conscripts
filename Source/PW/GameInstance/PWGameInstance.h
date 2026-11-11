@@ -130,6 +130,9 @@ public:
 	//설정의 음량을 오디오에 반영, 설정 화면 적용·게임 시작·맵 로드 때 호출
 	void ApplyAudioSettings();
 
+	USoundClass* GetMusicSoundClass() const { return musicSoundClass; }
+	float GetBgmFadeSeconds() const { return bgmFadeSeconds; }
+
 	TSubclassOf<UUserWidget> GetLoadingScreenClass() const { return loadingScreenClass; }
 	float GetLoadingHoldSeconds() const { return loadingHoldSeconds; }
 	float GetLoadingFadeSeconds() const { return loadingFadeSeconds; }
@@ -147,6 +150,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Audio")
 	TObjectPtr<USoundClass> sfxSoundClass;
+
+	//배경음 전환 시 페이드 인/아웃 각각의 시간
+	UPROPERTY(EditDefaultsOnly, Category = "Audio", meta = (ClampMin = "0"))
+	float bgmFadeSeconds = 1.f;
 
 	//현재 런의 난이도
 	//메인메뉴를 거치지 않고 전투 맵에 직접 들어가 테스트할 때의 기본값 역할도 한다

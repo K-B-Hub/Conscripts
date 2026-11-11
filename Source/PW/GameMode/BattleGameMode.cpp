@@ -18,6 +18,7 @@
 #include "Object/Buff/BuffBase.h"
 #include "Object/Ailment/AilmentBase.h"
 #include "GameInstance/PWGameInstance.h"
+#include "GameInstance/BgmSubsystem.h"
 #include "DataAsset/StressPoolData.h"
 #include "Actors/DeploymentZone.h"
 #include "Actors/SquadSpawnPoint.h"
@@ -74,6 +75,9 @@ void ABattleGameMode::StartDeployPhase()
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 배치 시작, 인원 %d명 / 구획 %d개"),
 		runProgress->GetRoster().Num(), deploymentZones.Num());
+
+	//배치 생략 경로가 배치 곡을 틀었다 바로 끄지 않도록 분기 뒤에서 튼다
+	GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(deployBgm);
 
 	OnDeployPhaseStarted.Broadcast();
 }
@@ -265,6 +269,13 @@ void ABattleGameMode::BuildTurnOrder()
 	for (int32 i = 0; i < turnOrder.Num(); ++i)
 	{
 		UE_LOG(LogTemp, Log, TEXT("  %d. %s"), i + 1, *turnOrder[i]->GetName());
+	}
+
+	//라운드 시작마다 불리므로 교전 곡 판정도 여기서 한다, 같은 곡이면 Play가 무시한다
+	if (!bCombatBgmStarted)
+	{
+		bCombatBgmStarted = turnOrder.ContainsByPredicate([](const ACharacterBase* c) { return c->IsA<AEnemyBase>(); });
+		GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(bCombatBgmStarted ? combatBgm : stageBgm);
 	}
 
 	//턴 순서 UI 재생성 통지
@@ -803,6 +814,8 @@ void ABattleGameMode::FinishBattle(EBattleResult result)
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 전투 종료: %s (생존 아군 %d)"),
 		result == EBattleResult::Victory ? TEXT("승리") : TEXT("패배"), allies.Num());
+
+	GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(result == EBattleResult::Victory ? victoryBgm : defeatBgm);
 
 	OnBattleFinished.Broadcast(result);
 }

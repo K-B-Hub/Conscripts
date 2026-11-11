@@ -9,6 +9,7 @@
 class AAllyCharacterBase;
 class ACampSpawnPoint;
 class UCampOptionData;
+class USoundBase;
 
 //야영지 레벨의 게임모드
 //로스터 전원을 자리에 세워두고 정비 선택 하나를 받은 뒤 다음 스테이지로 보낸다
@@ -46,6 +47,9 @@ protected:
 	//회복·휴식·증원·보급, BP에서 지정
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camp")
 	TArray<TObjectPtr<UCampOptionData>> campOptions;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> campBgm;
 
 private:
 	//자리 수집 후 로스터 전원을 세운다

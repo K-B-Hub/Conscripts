@@ -17,6 +17,7 @@ class ADeploymentZone;
 class UMissionData;
 class ASquadSpawnPoint;
 class USquadData;
+class USoundBase;
 
 //전투 맵의 진행 단계, Deploy 동안에는 턴이 시작되지 않는다
 UENUM()
@@ -190,11 +191,32 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	//배치 단계 배경음
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> deployBgm;
+
+	//전투 개시 후 교전 전 배경음
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> stageBgm;
+
+	//라운드 시작 시 턴 순서에 적이 처음 들어온 뒤의 배경음
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> combatBgm;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> victoryBgm;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<USoundBase> defeatBgm;
+
 private:
 	//현재 진행 단계
 	EBattlePhase phase = EBattlePhase::Deploy;
 
 	bool bEnemiesSpawned = false;
+
+	//교전 곡으로 넘어갔는지, 한번 켜지면 다시 판정하지 않는다
+	bool bCombatBgmStarted = false;
 
 	//배치 구획 수집 및 배치 위젯 표시
 	void StartDeployPhase();

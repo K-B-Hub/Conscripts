@@ -5,6 +5,7 @@
 #include "Actors/CampSpawnPoint.h"
 #include "Characters/AllyCharacterBase.h"
 #include "GameInstance/PWGameInstance.h"
+#include "GameInstance/BgmSubsystem.h"
 #include "Run/RunProgress.h"
 #include "Camera/CameraActor.h"
 #include "EngineUtils.h"
@@ -20,6 +21,8 @@ ACampGameMode::ACampGameMode()
 void ACampGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+
+	GetWorld()->GetSubsystem<UBgmSubsystem>()->Play(campBgm);
 
 	//모든 액터의 BeginPlay 완료를 보장하기 위해 다음 틱으로 지연
 	GetWorldTimerManager().SetTimerForNextTick([this]()

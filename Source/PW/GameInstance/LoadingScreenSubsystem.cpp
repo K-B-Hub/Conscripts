@@ -2,6 +2,7 @@
 
 #include "GameInstance/LoadingScreenSubsystem.h"
 #include "GameInstance/PWGameInstance.h"
+#include "GameInstance/BgmSubsystem.h"
 #include "GameMode/BattleGameMode.h"
 #include "GameMode/CampGameMode.h"
 #include "Blueprint/UserWidget.h"
@@ -39,6 +40,12 @@ void ULoadingScreenSubsystem::TravelTo(const TSoftObjectPtr<UWorld>& map)
 {
 	pendingMap = map;
 	Show();
+
+	//로딩창 페이드와 함께 곡을 내린다, 월드가 내려가면 끊기므로 남은 페이드는 생략된다
+	if (UBgmSubsystem* bgm = UWorld::GetSubsystem<UBgmSubsystem>(GetGameInstance()->GetWorld()))
+	{
+		bgm->Play(nullptr);
+	}
 }
 
 void ULoadingScreenSubsystem::TrackLoadHandle(const TSharedPtr<FStreamableHandle>& handle)

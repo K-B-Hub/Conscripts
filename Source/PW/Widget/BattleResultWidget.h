@@ -13,7 +13,6 @@ class UTextBlock;
 class UWidget;
 class UResultMemberEntry;
 class AAllyCharacterBase;
-class USoundBase;
 
 //전투 결과 화면, 승리면 다음 스테이지로 패배면 메인메뉴로 보낸다
 //승리와 패배는 레이아웃이 달라 패널 두 벌을 두고 한쪽만 켠다, 배경도 각 패널이 들고 있다
@@ -59,10 +58,6 @@ protected:
 	//결과 화면 전용이라 편성·증원 목록과 아트를 따로 입힐 수 있다
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UResultMemberEntry> survivorEntryClass;
-
-	//승리 효과음, 결과 화면 표시와 함께 재생
-	UPROPERTY(EditDefaultsOnly, Category = "Sound")
-	TObjectPtr<USoundBase> victorySound;
 
 private:
 	void BuildSurvivorList();
