@@ -20,6 +20,9 @@ void UResourceRest::Execute(ACharacterBase* instigator)
 	//회복량은 각자의 최대 전투 자원 기준, 초과분은 GainBattleResource가 클램프
 	for (ACharacterBase* character : team)
 	{
+		const int32 before = character->GetBattleResource();
 		character->GainBattleResource(CalcRatioAmount(character->GetMaxBattleResource(), resourceRatio));
+		//가득 차 회복이 없으면 연출 생략
+		if (character->GetBattleResource() != before) PlayRestEffect(character);
 	}
 }

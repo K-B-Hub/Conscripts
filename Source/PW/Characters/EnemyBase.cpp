@@ -5,6 +5,8 @@
 #include "AI/AIController/EnemyAIController.h"
 #include "AI/UtilityAIComponent.h"
 #include "DrawDebugHelpers.h"
+#include "Components/SplineComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "DataAsset/UpgradeLibrary.h"
 #include "DataAsset/FixedUpgradeTableData.h"
 #include "GameInstance/PWGameInstance.h"
@@ -17,6 +19,42 @@ AEnemyBase::AEnemyBase()
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
 	utilityAI = CreateDefaultSubobject<UUtilityAIComponent>(TEXT("UtilityAI"));
+
+#if WITH_EDITORONLY_DATA
+	//루트에 붙여 로컬 좌표를 위젯과 같은 공간으로 맞춘다
+	patrolPathSpline = CreateEditorOnlyDefaultSubobject<USplineComponent>(TEXT("PatrolPath"));
+	if (patrolPathSpline)
+	{
+		patrolPathSpline->SetupAttachment(RootComponent);
+		patrolPathSpline->SetHiddenInGame(true);
+	}
+#endif
+}
+
+void AEnemyBase::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+#if WITH_EDITORONLY_DATA
+	if (!patrolPathSpline) return;
+
+	//발밑으로 내려 위젯 마름모와 스플라인 핸들이 겹치지 않게 함
+	patrolPathSpline->SetRelativeLocation(FVector(0.f, 0.f, -GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()));
+	//스플라인 직접 편집분은 버림, patrolPoints가 단일 출처
+	patrolPathSpline->bSplineHasBeenEdited = false;
+
+	//런타임 순회 순서와 동일하게 원위치를 끝에 추가
+	TArray<FVector> route = patrolPoints;
+	route.AddUnique(FVector::ZeroVector);
+
+	patrolPathSpline->ClearSplinePoints(false);
+	for (int32 i = 0; i < route.Num(); ++i)
+	{
+		patrolPathSpline->AddSplinePoint(route[i], ESplineCoordinateSpace::Local, false);
+		patrolPathSpline->SetSplinePointType(i, ESplinePointType::Linear, false);
+	}
+	patrolPathSpline->UpdateSpline();
+#endif
 }
 
 void AEnemyBase::GrantLevelUpUpgrade()
@@ -51,7 +89,7 @@ void AEnemyBase::BeginPlay()
 {
 	Super::BeginPlay();
 	//상대좌표의 기준점 — 배치 위치 캡처
-	spawnLocation = GetActorLocation();
+	spawnTransform = FTransform(FRotator(0.f, GetActorRotation().Yaw, 0.f), GetActorLocation(), GetActorScale3D());
 	//원위치(상대좌표 0)를 순찰 지점에 추가 — 1개만 입력해도 원위치와 왕복
 	patrolPoints.AddUnique(FVector::ZeroVector);
 }
@@ -59,8 +97,9 @@ void AEnemyBase::BeginPlay()
 FVector AEnemyBase::GetCurrentPatrolWorldLocation() const
 {
 	//호출 측에서 CanPatrol로 가드하는 전제 — 방어적으로 한 번 더 체크
-	if (!patrolPoints.IsValidIndex(patrolIndex)) return spawnLocation;
-	return spawnLocation + patrolPoints[patrolIndex];
+	if (!patrolPoints.IsValidIndex(patrolIndex)) return spawnTransform.GetLocation();
+	//위젯 표시와 같은 변환 — 액터 스케일 포함
+	return spawnTransform.TransformPosition(patrolPoints[patrolIndex]);
 }
 
 void AEnemyBase::AdvancePatrolIndex()

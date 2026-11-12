@@ -974,6 +974,14 @@ void ABattleGameMode::BroadcastUnitDeath(ACharacterBase* DeadCharacter)
 {
 	if (!DeadCharacter) return;
 
+	//죽은 자의 오라 회수, BroadcastMoveComplete는 사망자를 건너뛰므로 직접 통지
+	if (UPassiveSkillComponent* deadPSC = DeadCharacter->GetPassiveSkillComponent())
+	{
+		deadPSC->DispatchConditional(EConditionalType::MoveComplete);
+	}
+	//생존자의 주변 인원 기반 패시브 재평가, Death 패시브가 갱신된 스탯을 보도록 먼저 처리
+	BroadcastMoveComplete();
+
 	//각 수신자 기준으로 죽은 대상이 아군/적군인지 판단, 같은 팀은 AllyDeath, 반대 팀은 EnemyDeath
 	const bool bDeadIsAlly = Cast<AAllyCharacterBase>(DeadCharacter) != nullptr;
 

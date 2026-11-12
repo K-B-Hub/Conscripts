@@ -22,5 +22,8 @@ void URifleLoot::Execute_AfterSlay(FVector slainLocation)
 	if (!o) return;
 
 	//최대치 초과분은 GainBattleResource가 클램프
+	const int32 before = o->GetBattleResource();
 	o->GainBattleResource(resourceGain);
+	//실제로 회복됐을 때만 연출
+	if (o->GetBattleResource() != before) PlayPassiveEffect();
 }

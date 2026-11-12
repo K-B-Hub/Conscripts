@@ -24,6 +24,9 @@ void UHealRest::Execute(ACharacterBase* instigator)
 		if (amount <= 0) continue;
 
 		//음수 전달이 회복, 회복 스킬과 동일하게 bIsLethal=true
+		const int32 before = character->GetHp();
 		character->ReceiveDamage(-amount, true);
+		//만피라 회복이 없으면 연출 생략
+		if (character->GetHp() != before) PlayRestEffect(character);
 	}
 }

@@ -12,6 +12,7 @@ class AEnemyAIController;
 class UUtilityAIComponent;
 class UUpgradeTableData;
 class UFixedUpgradeTableData;
+class USplineComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEnemyDeath, AEnemyBase*, DeadEnemy, AAllyCharacterBase*, Killer);
 
@@ -72,12 +73,21 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
 	bool bIsBoss = false;
 
-	//비전투 순찰 지점 — 스폰 위치 기준 상대좌표. 배치한 각 적마다 개별 설정.
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Patrol")
+	//비전투 순찰 지점 — 액터 로컬 좌표(X=전방, 액터 스케일 적용). 뷰포트 위젯으로 개별 배치
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Patrol", meta = (MakeEditWidget = true))
 	TArray<FVector> patrolPoints;
 
-	//BeginPlay 시점의 배치 위치 — 상대좌표의 기준점
-	FVector spawnLocation;
+	//BeginPlay 시점의 위치·Yaw·스케일 — 상대좌표 변환 기준
+	FTransform spawnTransform;
+
+#if WITH_EDITORONLY_DATA
+	//에디터 전용 순찰 경로선
+	UPROPERTY()
+	TObjectPtr<USplineComponent> patrolPathSpline;
+#endif
+
+	//순찰 경로선 갱신
+	virtual void OnConstruction(const FTransform& Transform) override;
 
 	//현재 향하는 순찰 지점 인덱스 — 턴을 넘어 보존
 	int32 patrolIndex = 0;

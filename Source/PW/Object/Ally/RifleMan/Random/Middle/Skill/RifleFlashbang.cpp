@@ -6,7 +6,7 @@
 URifleFlashbang::URifleFlashbang()
 {
 	skillName = NSLOCTEXT("Skill", "RifleFlashbang_Name", "섬광탄 투척");
-	skillDescription = NSLOCTEXT("Skill", "RifleFlashbang_Description", "9m 내의 지점에 던져 반경 1m 안의 모든 캐릭터(아군 포함)에게 2턴간 명중 -15 · 회피 -15를 부여한다.");
+	skillDescription = NSLOCTEXT("Skill", "RifleFlashbang_Description", "9m 내의 지점에 던져 반경 1m 안의 모든 캐릭터(아군 포함)에게 2턴간 명중 -15, 회피 -15를 부여한다.");
 	skillGrade = EUpgradeGrade::Mid;
 
 	skillType = ESkillType::Throw;

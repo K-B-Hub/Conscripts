@@ -8,7 +8,7 @@
 URifleSquadLeader::URifleSquadLeader()
 {
 	skillName = NSLOCTEXT("Skill", "RifleSquadLeader_Name", "분대장");
-	skillDescription = NSLOCTEXT("Skill", "RifleSquadLeader_Description", "주변 8m 내의 다른 아군 전원에게 명중 +5 · 회피 +5를 부여한다.");
+	skillDescription = NSLOCTEXT("Skill", "RifleSquadLeader_Description", "주변 8m 내의 다른 아군 전원에게 명중 +5, 회피 +5를 부여한다.");
 
 	//누가 이동을 마칠 때마다 주변 인원이 바뀌므로 MoveComplete로 재평가
 	passiveType = EPassiveType::Conditional;
@@ -31,11 +31,11 @@ void URifleSquadLeader::Execute_Conditional()
 	ABattleGameMode* gameMode = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	if (!gameMode) return;
 
-	//사거리 안의 살아있는 아군 수집, 시전자 자신은 제외
+	//사거리 안의 살아있는 아군 수집, 시전자 자신은 제외 — 시전자 사망 시 비워서 전원 회수
 	TArray<ACharacterBase*> inRange;
 	for (AAllyCharacterBase* ally : gameMode->GetAllies())
 	{
-		if (!IsValid(ally) || ally == o || ally->IsDead()) continue;
+		if (!IsValid(ally) || ally == o || ally->IsDead() || o->IsDead()) continue;
 		if (FVector::Dist2D(o->GetActorLocation(), ally->GetActorLocation()) <= auraRange)
 		{
 			inRange.Add(ally);
@@ -62,4 +62,6 @@ void URifleSquadLeader::Execute_Conditional()
 		ally->ApplyPassiveStatDelta(this, +1);
 		buffedAllies.Add(ally);
 	}
+	//보너스를 받는 아군이 있을 때만 오라 연출
+	SetPassiveEffectActive(!buffedAllies.IsEmpty());
 }

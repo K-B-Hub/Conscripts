@@ -5,10 +5,19 @@
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "GameMode/BattleGameMode.h"
+#include "NiagaraFunctionLibrary.h"
 
 void URestBase::Execute(ACharacterBase* instigator)
 {
 	//파생 클래스에서 구현
+}
+
+void URestBase::PlayRestEffect(ACharacterBase* target) const
+{
+	if (!restEffect || !target) return;
+
+	UNiagaraFunctionLibrary::SpawnSystemAttached(restEffect, target->GetRootComponent(), NAME_None,
+		FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true);
 }
 
 void URestBase::CollectTeam(const ACharacterBase* instigator, TArray<ACharacterBase*>& outTeam)
