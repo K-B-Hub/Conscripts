@@ -87,6 +87,11 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UComboBoxString> SkillCameraCombo;
 
+	//튜토리얼 본 기록 초기화, 설정값이 아니라 세이브를 고치므로 적용 버튼을 거치지 않고 즉시 반영한다
+	//WBP에 버튼을 놓기 전에도 컴파일되도록 옵션
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> ResetTutorialButton;
+
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> ApplyButton;
 	UPROPERTY(meta = (BindWidget))
@@ -121,6 +126,8 @@ private:
 	void HandleApplyClicked();
 	UFUNCTION()
 	void HandleDefaultsClicked();
+	UFUNCTION()
+	void HandleResetTutorialClicked();
 	UFUNCTION()
 	void HandleBackClicked();
 };

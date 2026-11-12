@@ -69,6 +69,10 @@ public:
 	UPROPERTY()
 	TArray<FName> clearedStoryRoutes;
 
+	//이미 본 튜토리얼, 화면에 처음 닿았을 때만 카드를 띄우는 근거
+	UPROPERTY()
+	TArray<FName> seenTutorials;
+
 	//진행 중인 런, 메인메뉴로 나가면 기록되고 런이 닫히거나 새 런이 열리면 비워진다
 	UPROPERTY()
 	FRunSaveState run;

@@ -35,11 +35,13 @@
 #include "Widget/CharacterDetailButtonWidget.h"
 #include "Widget/CharacterDetailWidget.h"
 #include "Widget/SquadInfoWidget.h"
+#include "Widget/HelpWidget.h"
 #include "GameInstance/PWGameInstance.h"
 #include "Settings/PWGameUserSettings.h"
 #include "Run/RunProgress.h"
 #include "Kismet/GameplayStatics.h"
 #include "DataAsset/UpgradeLibrary.h"
+#include "DataAsset/TutorialData.h"
 
 ABattleController::ABattleController()
 {
@@ -217,6 +219,12 @@ void ABattleController::OnDeployPhaseStarted()
 	if (!deployWidgetInstance) return;
 
 	deployWidgetInstance->AddToViewport();
+
+	//로딩창 아래에 미리 떠 있다가 걷히면 보인다
+	if (UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>())
+	{
+		gameInstance->ShowTutorialOnce(this, deployTutorial);
+	}
 }
 
 void ABattleController::HandleDeployClick()
@@ -340,6 +348,12 @@ void ABattleController::InitTurn(AAllyCharacterBase* TurnUnit)
 			turnHudWidgetInstance->SetIsEnabled(false);
 		}
 	}
+
+	//첫 아군 턴에만 뜬다, HUD가 다 갖춰진 뒤라 카드 뒤로 실제 화면이 보인다
+	if (UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>())
+	{
+		gameInstance->ShowTutorialOnce(this, battleTutorial);
+	}
 }
 
 void ABattleController::ShowUpgradeSelect()
@@ -347,7 +361,7 @@ void ABattleController::ShowUpgradeSelect()
 	if (!IsValid(activeUnit) || !upgradeSelectWidgetClass) return;
 
 	//공용 풀은 런 단위로 GameInstance에서, 직업 풀은 캐릭터에서 조회
-	const UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
+	UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
 	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
 
 	//후보 생성은 야영지 충원과 공유하므로 UUpgradeLibrary에 있다
@@ -373,6 +387,8 @@ void ABattleController::ShowUpgradeSelect()
 	{
 		turnHudWidgetInstance->SetIsEnabled(false);
 	}
+
+	if (gameInstance) gameInstance->ShowTutorialOnce(this, upgradeTutorial);
 }
 
 void ABattleController::OnUpgradeChosen(TSubclassOf<USkillBase> Chosen)
@@ -772,6 +788,10 @@ bool ABattleController::IsBlockingWidgetOpen() const
 	//설정과 부대 정보표는 일시정지 메뉴 위에만 뜨고 그동안 메뉴 인스턴스가 남아 있으므로 함께 걸러진다
 	if (detailWidgetInstance || recruitWidgetInstance || pauseMenuInstance) return true;
 
+	//튜토리얼 카드는 GameInstance가 띄우므로 그쪽에 묻는다
+	const UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	if (gameInstance && gameInstance->IsTutorialOpen()) return true;
+
 	//강화 선택은 선택지를 접은 동안은 막지 않는다, 접기 자체가 전장을 살펴보기 위한 기능이다
 	return IsValid(upgradeSelectWidgetInstance) && upgradeSelectWidgetInstance->AreChoicesVisible();
 }
@@ -972,6 +992,14 @@ void ABattleController::TogglePauseMenu()
 	const ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>();
 	if (gameMode && gameMode->GetPhase() == EBattlePhase::Result) return;
 
+	//튜토리얼 카드가 가장 위다, 배치 단계처럼 일시정지 없이 떠 있을 때도 ESC는 카드만 닫는다
+	UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>();
+	if (gameInstance && gameInstance->IsTutorialOpen())
+	{
+		gameInstance->CloseTutorial();
+		return;
+	}
+
 	//상세 정보 창이 떠 있으면 그것만 닫는다, 가장 위에 있는 창부터 한 단계씩 닫는다
 	if (detailWidgetInstance)
 	{
@@ -990,6 +1018,13 @@ void ABattleController::TogglePauseMenu()
 	if (squadInfoInstance)
 	{
 		CloseSquadInfoFromPause();
+		return;
+	}
+
+	//도움말도 같은 층이다
+	if (helpInstance)
+	{
+		CloseHelpFromPause();
 		return;
 	}
 
@@ -1030,6 +1065,12 @@ void ABattleController::ResumeFromPause()
 	{
 		squadInfoInstance->RemoveFromParent();
 		squadInfoInstance = nullptr;
+	}
+
+	if (helpInstance)
+	{
+		helpInstance->RemoveFromParent();
+		helpInstance = nullptr;
 	}
 
 	if (pauseMenuInstance)
@@ -1097,6 +1138,32 @@ void ABattleController::CloseSquadInfoFromPause()
 	{
 		squadInfoInstance->RemoveFromParent();
 		squadInfoInstance = nullptr;
+	}
+
+	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Visible);
+}
+
+void ABattleController::ShowHelpFromPause()
+{
+	if (!helpWidgetClass || helpInstance) return;
+
+	helpInstance = CreateWidget<UHelpWidget>(this, helpWidgetClass);
+	if (!helpInstance) return;
+
+	helpInstance->onClosed.BindUObject(this, &ABattleController::CloseHelpFromPause);
+
+	//설정·부대 정보표와 같은 층, 같은 방식으로 메뉴를 숨기기만 한다
+	helpInstance->AddToViewport(21);
+
+	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Collapsed);
+}
+
+void ABattleController::CloseHelpFromPause()
+{
+	if (helpInstance)
+	{
+		helpInstance->RemoveFromParent();
+		helpInstance = nullptr;
 	}
 
 	if (pauseMenuInstance) pauseMenuInstance->SetVisibility(ESlateVisibility::Visible);

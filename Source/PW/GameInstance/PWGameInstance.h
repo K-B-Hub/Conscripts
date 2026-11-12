@@ -20,6 +20,9 @@ class USquadData;
 class USoundMix;
 class USoundClass;
 class UUserWidget;
+class UTutorialData;
+class UTutorialWidget;
+class APlayerController;
 
 //전투 맵 하나에 나올 적 인원 범위, 분대는 쪼개지 않으므로 Max를 조금 넘을 수 있다
 USTRUCT(BlueprintType)
@@ -138,6 +141,20 @@ public:
 	float GetLoadingFadeSeconds() const { return loadingFadeSeconds; }
 	float GetLoadingMaxWaitSeconds() const { return loadingMaxWaitSeconds; }
 
+	//아직 안 본 튜토리얼이면 카드를 띄운다, 화면에 닿는 지점마다 호출
+	void ShowTutorialOnce(APlayerController* owner, const UTutorialData* tutorial);
+
+	bool IsTutorialOpen() const;
+
+	//떠 있는 카드를 닫는다, ESC용
+	void CloseTutorial();
+
+	//카드가 닫힐 때 위젯이 호출, 본 것으로 기록할지 여기서 정한다
+	void NotifyTutorialClosed(const UTutorialData* tutorial, bool bReachedLastPage);
+
+	//본 기록을 비워 모든 튜토리얼이 다시 뜨게 한다, 설정 화면의 초기화 버튼용
+	void ResetTutorials();
+
 protected:
 	virtual void OnStart() override;
 
@@ -227,7 +244,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Loading", meta = (ClampMin = "1"))
 	float loadingMaxWaitSeconds = 30.f;
 
+	//튜토리얼 카드 위젯, 모든 화면이 하나를 함께 쓴다
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	TSubclassOf<UTutorialWidget> tutorialWidgetClass;
+
 private:
+	//떠 있는 카드, 강참조면 레벨 전환 때 이전 월드가 풀리지 않는다
+	TWeakObjectPtr<UTutorialWidget> activeTutorial;
+
 	//맵 전환이 사운드 믹스를 비울 수 있어 로드마다 다시 건다
 	void HandlePostLoadMap(UWorld* loadedWorld);
 

@@ -98,7 +98,7 @@ public:
 	//투사체 비행 속도(cm/s)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile")
 	float projectileSpeed = 20.f * CmPerMeter;
-	//멀티픽 대상별 투사체 발사 간격(초)
+	//멀티픽 대상별 투사체 발사 간격(초), 몽타주에 SkillImpact가 둘 이상이면 노티파이가 대신하고 남는 발에만 쓴다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Projectile", meta = (ClampMin = "0.0"))
 	float multiProjectileInterval = 0.12f;
 	//발사 지점으로 쓸 무기 메시의 소켓 이름, 모든 무기가 FirePoint로 통일

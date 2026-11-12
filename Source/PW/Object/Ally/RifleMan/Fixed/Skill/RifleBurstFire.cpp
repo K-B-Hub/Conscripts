@@ -28,12 +28,12 @@ URifleBurstFire::URifleBurstFire()
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_ShotAuto"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_BurstFire"));
 	if (MontageAsset.Succeeded())
 	{
 		skillMontage = MontageAsset.Object;
 	}
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> CrouchMontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_ShotAuto_Crouch"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> CrouchMontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_BurstFire_Crouch"));
 	if (CrouchMontageAsset.Succeeded())
 	{
 		crouchSkillMontage = CrouchMontageAsset.Object;

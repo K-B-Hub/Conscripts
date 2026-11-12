@@ -18,6 +18,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "AnimInstance/AnimInstanceBase.h"
+#include "AnimInstance/AnimNotify_SkillImpact.h"
 
 USkillComponent::USkillComponent()
 {
@@ -414,7 +415,14 @@ void USkillComponent::OnSkillImpact()
 	//커밋 대기 중이 아니면 할 일 없음
 	if (!pendingAction) return;
 
-	//이미 발사했으면 추가 임팩트 노티파이 무시, 연발 간격은 shotTimer가 잡는다
+	//노티파이 연발 중이면 노티파이마다 다음 발
+	if (bShotsByNotify && shotQueue.Num() > 0)
+	{
+		FireNextShot();
+		return;
+	}
+
+	//이미 발사했으면 추가 임팩트 노티파이 무시
 	if (activeProjectiles.Num() > 0 || shotQueue.Num() > 0) return;
 
 	//투사체 멀티픽은 대상마다 한 발씩, 같은 대상을 거듭 골랐으면 그만큼 쏜다
@@ -422,6 +430,8 @@ void USkillComponent::OnSkillImpact()
 		&& pendingSkill->pickCount > 1 && pendingTargets.Num() > 0)
 	{
 		shotQueue = pendingTargets;
+		//임팩트 노티파이가 둘 이상이면 노티파이가 발사 시점, 아니면 간격 타이머
+		bShotsByNotify = CountImpactNotifies(pendingMontage) > 1;
 		FireNextShot();
 		return;
 	}
@@ -477,9 +487,9 @@ void USkillComponent::FireNextShot()
 	const TWeakObjectPtr<ACharacterBase> target = shotQueue[0];
 	shotQueue.RemoveAt(0);
 
-	//남은 발은 간격을 두고, 마지막 발의 도착이 커밋한다
+	//남은 발은 노티파이 또는 간격 타이머가 쏘고, 마지막 발의 도착이 커밋한다
 	//속도 0 투사체는 발사 즉시 도착해 큐를 보고 커밋하므로 예약을 먼저
-	if (shotQueue.Num() > 0)
+	if (shotQueue.Num() > 0 && !bShotsByNotify)
 	{
 		GetWorld()->GetTimerManager().SetTimer(shotTimer, this, &USkillComponent::FireNextShot,
 			FMath::Max(pendingSkill->multiProjectileInterval, 0.01f), false);
@@ -492,6 +502,21 @@ void USkillComponent::FireNextShot()
 	{
 		OnProjectileArrived(nullptr, target);
 	}
+}
+
+int32 USkillComponent::CountImpactNotifies(const UAnimMontage* Montage)
+{
+	if (!Montage) return 0;
+
+	int32 count = 0;
+	for (const FAnimNotifyEvent& event : Montage->Notifies)
+	{
+		if (event.Notify && event.Notify->IsA<UAnimNotify_SkillImpact>())
+		{
+			++count;
+		}
+	}
+	return count;
 }
 
 bool USkillComponent::LaunchProjectile(UActiveSkillBase* Skill, const FVector& To, TWeakObjectPtr<ACharacterBase> Target)
@@ -596,6 +621,7 @@ void USkillComponent::CommitPendingExecution()
 	//그 대상들은 pendingTargets에 남아 있어 action이 적용한다
 	GetWorld()->GetTimerManager().ClearTimer(shotTimer);
 	shotQueue.Reset();
+	bShotsByNotify = false;
 	DiscardActiveProjectiles();
 
 	//스킬 자체 효과(포복 토글 등) 먼저, 이후 대상별 효과
@@ -663,6 +689,14 @@ void USkillComponent::OnSkillMontageEnded(UAnimMontage* Montage, bool bInterrupt
 
 	//같은 몽타주 재시작으로 인한 이전 인스턴스 중단이면 새 인스턴스의 종료를 기다림
 	if (bInterrupted && ownerCharacter && ownerCharacter->GetCurrentMontage() == Montage) return;
+
+	//노티파이가 모자라 남은 발은 간격 타이머로 이어 쏜다
+	if (bShotsByNotify && shotQueue.Num() > 0)
+	{
+		bShotsByNotify = false;
+		FireNextShot();
+		return;
+	}
 
 	//투사체 비행·연발 대기 중이면 마지막 도착 커밋을 기다림, 몽타주가 먼저 끝나도 효과는 착탄에 맞춤
 	if (activeProjectiles.Num() > 0 || shotQueue.Num() > 0) return;

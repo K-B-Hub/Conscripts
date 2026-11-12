@@ -12,6 +12,7 @@ void UMainMenuWidget::NativeConstruct()
 	if (StartButton)    StartButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleStartClicked);
 	if (ContinueButton) ContinueButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleContinueClicked);
 	if (SettingsButton) SettingsButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleSettingsClicked);
+	if (HelpButton)     HelpButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleHelpClicked);
 	if (QuitButton)     QuitButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleQuitClicked);
 
 	//이어할 런이 없으면 누를 것이 없다
@@ -44,6 +45,14 @@ void UMainMenuWidget::HandleSettingsClicked()
 	if (AHubController* hub = GetOwningPlayer<AHubController>())
 	{
 		hub->ShowSettings();
+	}
+}
+
+void UMainMenuWidget::HandleHelpClicked()
+{
+	if (AHubController* hub = GetOwningPlayer<AHubController>())
+	{
+		hub->ShowHelp();
 	}
 }
 

@@ -14,6 +14,8 @@ class UModeSelectWidget;
 class UStoryRouteSelectWidget;
 class USettingsWidget;
 class UFormationWidget;
+class UTutorialData;
+class UHelpWidget;
 
 //허브 레벨의 화면 전환을 전담, 화면은 항상 하나만 살아 있다
 //위젯은 GetOwningPlayer로 이 클래스를 직접 호출하고, 다음 화면 결정은 여기서 한다
@@ -27,6 +29,7 @@ public:
 	void ShowModeSelect();
 	void ShowStoryRouteSelect();
 	void ShowSettings();
+	void ShowHelp();
 	void ShowFormation();
 
 	//저장된 런을 이어서 진행, 편성을 거치지 않고 그 스테이지로 바로 들어간다
@@ -59,7 +62,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<USettingsWidget> settingsWidgetClass;
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UHelpWidget> helpWidgetClass;
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UFormationWidget> formationWidgetClass;
+
+	//편성 화면에 처음 닿았을 때 띄울 튜토리얼, 비우면 띄우지 않는다
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	TObjectPtr<UTutorialData> formationTutorial;
 
 private:
 	//기존 화면을 제거하고 새 위젯을 생성해 표시, 생성된 위젯을 돌려준다

@@ -7,6 +7,9 @@
 #include "DataAsset/StoryRouteData.h"
 #include "DataAsset/RunModeData.h"
 #include "Characters/AllyCharacterBase.h"
+#include "DataAsset/TutorialData.h"
+#include "Widget/TutorialWidget.h"
+#include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "Settings/PWGameUserSettings.h"
 #include "AudioDevice.h"
@@ -122,6 +125,50 @@ void UPWGameInstance::SaveProgress()
 	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 진행도 저장 %s / 클리어한 줄기 %d개"),
 		bSaved ? TEXT("성공") : TEXT("실패"),
 		saveGame->clearedStoryRoutes.Num());
+}
+
+void UPWGameInstance::ShowTutorialOnce(APlayerController* owner, const UTutorialData* tutorial)
+{
+	if (!tutorial || tutorial->pages.Num() == 0 || !tutorialWidgetClass || !saveGame) return;
+	if (saveGame->seenTutorials.Contains(tutorial->tutorialId)) return;
+
+	//카드는 한 번에 하나만, 밀린 쪽은 기록되지 않아 다음에 다시 시도된다
+	if (IsTutorialOpen()) return;
+
+	UTutorialWidget* widget = CreateWidget<UTutorialWidget>(owner, tutorialWidgetClass);
+	if (!widget) return;
+
+	//전투의 어떤 창보다 위, 창 띄우기 ZOrder는 BattleController::OpenDetailWidget 참고
+	widget->AddToViewport(30);
+	widget->Open(tutorial);
+	activeTutorial = widget;
+}
+
+bool UPWGameInstance::IsTutorialOpen() const
+{
+	//거둔 위젯도 GC 전까지는 유효하다
+	return activeTutorial.IsValid() && activeTutorial->IsInViewport();
+}
+
+void UPWGameInstance::CloseTutorial()
+{
+	if (IsTutorialOpen()) activeTutorial->Close();
+}
+
+void UPWGameInstance::NotifyTutorialClosed(const UTutorialData* tutorial, bool bReachedLastPage)
+{
+	if (!tutorial || !saveGame) return;
+
+	saveGame->seenTutorials.AddUnique(tutorial->tutorialId);
+	SaveProgress();
+}
+
+void UPWGameInstance::ResetTutorials()
+{
+	if (!saveGame || saveGame->seenTutorials.Num() == 0) return;
+
+	saveGame->seenTutorials.Reset();
+	SaveProgress();
 }
 
 bool UPWGameInstance::TravelToCurrentStage(const UObject* worldContext)

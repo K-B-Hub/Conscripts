@@ -88,6 +88,7 @@ public:
 	void StartPendingOnTargets(UActiveSkillBase* Skill, const TArray<ACharacterBase*>& Targets);
 
 	//SkillImpact 노티파이 처리, 스킬에 투사체가 있으면 발사해 커밋을 도착 시점으로 미루고 없으면 즉시 커밋
+	//멀티픽 몽타주에 노티파이가 둘 이상이면 노티파이마다 한 발
 	void OnSkillImpact();
 
 	//pending 효과 실행 및 해제, 투사체 도착·SkillImpact 노티파이·몽타주 종료 폴백이 호출
@@ -152,6 +153,8 @@ private:
 	//아직 쏘지 않은 대상별 투사체와 발사 간격 타이머
 	TArray<TWeakObjectPtr<ACharacterBase>> shotQueue;
 	FTimerHandle shotTimer;
+	//남은 발을 SkillImpact 노티파이가 쏘는지, false면 간격 타이머
+	bool bShotsByNotify = false;
 
 	//투사체 포물선 샘플 개수, 조준 중 미리보기 궤적과 같은 밀도
 	static constexpr int32 projectileArcSamples = 24;
@@ -177,8 +180,11 @@ private:
 	//총구 이펙트·사운드, 발마다 재생
 	void PlayMuzzleEffects();
 
-	//shotQueue 맨 앞 대상에 한 발, 남았으면 간격 뒤 다음 발 예약
+	//shotQueue 맨 앞 대상에 한 발, 노티파이 연발이 아니면 간격 뒤 다음 발 예약
 	void FireNextShot();
+
+	//몽타주의 SkillImpact 노티파이 개수
+	static int32 CountImpactNotifies(const UAnimMontage* Montage);
 
 	//To로 투사체 발사, 발사했으면 true (커밋은 도착 시점으로 미뤄짐)
 	//Target을 주면 도착 시 그 대상만 적용, 비우면 도착이 전체 커밋
