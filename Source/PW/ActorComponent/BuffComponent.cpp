@@ -4,6 +4,7 @@
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
 #include "Characters/CharacterBase.h"
+#include "GameMode/BattleGameMode.h"
 
 UBuffComponent::UBuffComponent()
 {
@@ -53,6 +54,12 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> buffClass, ACharacterBase* c
 
 	//버프 적용
 	ownerCharacter->ApplyBuffDelta(buffInstance, +1);
+
+	//버프 합계를 쓰는 MoveComplete 패시브(팩 리더) 즉시 재평가, 상태 기반이라 중복 호출 무해
+	if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		gm->BroadcastMoveComplete();
+	}
 }
 
 void UBuffComponent::RemoveBuffAt(int32 Index)
@@ -66,6 +73,12 @@ void UBuffComponent::RemoveBuffAt(int32 Index)
 		buffInstance->StopPresentation();
 	}
 	activeBuffs.RemoveAt(Index);
+
+	//만료도 즉시 재평가, 회수가 다음 이동까지 밀리지 않게
+	if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+	{
+		gm->BroadcastMoveComplete();
+	}
 }
 
 void UBuffComponent::OnTurnStart()

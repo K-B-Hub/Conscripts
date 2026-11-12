@@ -7,6 +7,13 @@
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "NavigationSystem.h"
+
+namespace
+{
+	//순찰 목표 투영 범위 — 수평 1m, 수직 ±4m(참호 깊이 포함)
+	const FVector PatrolQueryExtent(1.f * CmPerMeter, 1.f * CmPerMeter, 4.f * CmPerMeter);
+}
 
 UBTTask_Patrol::UBTTask_Patrol()
 {
@@ -34,12 +41,20 @@ EBTNodeResult::Type UBTTask_Patrol::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 		return EBTNodeResult::InProgress;
 	}
 
-	//비전투 적은 NavMesh 미등록 상태라 순찰 중 장애물 처리 불필요
-	FAIMoveRequest req(enemy->GetCurrentPatrolWorldLocation());
-	req.SetUsePathfinding(true);
-	req.SetAcceptanceRadius(10.f);
+	//목표가 캡슐 중심 높이라 기본 범위(±250)로는 경사·참호에서 투영 실패 — 직접 넓게 투영
+	EPathFollowingRequestResult::Type r = EPathFollowingRequestResult::Failed;
+	FNavLocation projected;
+	UNavigationSystemV1* navSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(OwnerComp.GetWorld());
+	if (navSys && navSys->ProjectPointToNavigation(enemy->GetCurrentPatrolWorldLocation(), projected, PatrolQueryExtent))
+	{
+		//비전투 적은 NavMesh 미등록 상태라 순찰 중 장애물 처리 불필요
+		FAIMoveRequest req(projected.Location);
+		req.SetUsePathfinding(true);
+		req.SetProjectGoalLocation(false);
+		req.SetAcceptanceRadius(10.f);
+		r = aic->MoveTo(req);
+	}
 
-	const EPathFollowingRequestResult::Type r = aic->MoveTo(req);
 	if (r == EPathFollowingRequestResult::RequestSuccessful)
 	{
 		//이동 완료 콜백 대기
@@ -52,8 +67,17 @@ EBTNodeResult::Type UBTTask_Patrol::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 	if (r == EPathFollowingRequestResult::AlreadyAtGoal)
 	{
 		enemy->AdvancePatrolIndex();
+		return EBTNodeResult::Succeeded;
 	}
-	return EBTNodeResult::Succeeded;
+
+	//도달 불가 지점은 건너뛰고 잠시 대기 — 매 틱 재시도로 멈추는 것 방지
+	enemy->AdvancePatrolIndex();
+	UWorld* world = OwnerComp.GetWorld();
+	if (!world) return EBTNodeResult::Succeeded;
+
+	cachedOwnerComp = &OwnerComp;
+	world->GetTimerManager().SetTimer(waitTimerHandle, this, &UBTTask_Patrol::OnWaitFinished, idleWaitTime, false);
+	return EBTNodeResult::InProgress;
 }
 
 EBTNodeResult::Type UBTTask_Patrol::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)

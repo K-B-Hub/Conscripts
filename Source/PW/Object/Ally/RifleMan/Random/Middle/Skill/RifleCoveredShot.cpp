@@ -6,7 +6,7 @@
 URifleCoveredShot::URifleCoveredShot()
 {
 	skillName = NSLOCTEXT("Skill", "RifleCoveredShot_Name", "엄폐 사격");
-	skillDescription = NSLOCTEXT("Skill", "RifleCoveredShot_Description", "포복 중 공격 시 명중 +10 · 치명 +10");
+	skillDescription = NSLOCTEXT("Skill", "RifleCoveredShot_Description", "포복 중 공격 시 명중 +10, 치명 +10");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;

@@ -24,5 +24,8 @@ void UHighFirstAidPassive::Execute_Conditional()
 
 	//반올림 후 최소 1 보장, 음수 전달이 회복이며 만피면 ReceiveDamage가 클램프
 	const int32 amount = FMath::Max(1, FMath::RoundToInt(o->GetMaxHp() * healRatio));
+	const int32 before = o->GetHp();
 	o->ReceiveDamage(-amount, true);
+	//만피라 회복이 없으면 연출 생략
+	if (o->GetHp() != before) PlayPassiveEffect();
 }

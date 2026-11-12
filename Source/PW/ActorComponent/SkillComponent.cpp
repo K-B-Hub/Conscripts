@@ -16,6 +16,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "AnimInstance/AnimInstanceBase.h"
 #include "AnimInstance/AnimNotify_SkillImpact.h"
@@ -469,8 +470,17 @@ void USkillComponent::PlayMuzzleEffects()
 
 		if (pendingSkill->muzzleEffect)
 		{
-			UNiagaraFunctionLibrary::SpawnSystemAttached(pendingSkill->muzzleEffect, attachTo, socket,
+			UNiagaraComponent* muzzleComp = UNiagaraFunctionLibrary::SpawnSystemAttached(pendingSkill->muzzleEffect, attachTo, socket,
 				FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::SnapToTarget, true);
+			//소켓 축 대신 시전자 정면을 +X로, 위치만 총구를 따르고 방향은 고정(총구가 흔들려도 한쪽으로 쏠리지 않게)
+			if (muzzleComp)
+			{
+				muzzleComp->SetUsingAbsoluteRotation(true);
+				muzzleComp->SetWorldRotation(ownerCharacter->GetActorRotation());
+				//목표까지 거리로 흩뿌림 길이를 맞춘다, 이 파라미터가 없는 시스템은 무시
+				muzzleComp->SetVariableFloat(TEXT("User.TargetDistance"),
+					FVector::Dist(muzzleComp->GetComponentLocation(), pendingSkill->skillPointLocation));
+			}
 		}
 		if (pendingSkill->muzzleSound)
 		{

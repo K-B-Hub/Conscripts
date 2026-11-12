@@ -548,6 +548,8 @@ void ABattleController::RefreshGauges()
 	turnHudWidgetInstance->RefreshGauges(activeUnit);
 	turnHudWidgetInstance->RefreshStatusEffects(activeUnit);
 	turnHudWidgetInstance->RefreshMoveButton(activeUnit->GetCurrentMovingPoint());
+	//재장전처럼 커밋 시점에 자원이 변하면 사용 가능 여부도 다시 판정
+	turnHudWidgetInstance->RefreshSkillButtons();
 }
 
 void ABattleController::SetupInputComponent()

@@ -9,6 +9,8 @@
 
 class ACharacterBase;
 class UActiveSkillBase;
+class UNiagaraSystem;
+class UNiagaraComponent;
 UCLASS()
 class PW_API UPassiveSkillBase : public USkillBase
 {
@@ -96,4 +98,18 @@ public:
 	virtual void Execute_Conditional() {}
 	//치사 피해 직전 조건 검사, true를 반환하면 체력 1로 생존
 	virtual bool Execute_BeforeDeath(int32 hpBefore, int32 incomingDamage) { return false; }
+
+	//효과 발동 연출, 언제 쓸지는 파생 클래스가 정한다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType|Presentation")
+	TObjectPtr<UNiagaraSystem> passiveEffect;
+
+protected:
+	//소유자에 붙여 1회 재생
+	void PlayPassiveEffect();
+	//소유자에 붙여 켜 두거나 끈다, 같은 상태로 다시 부르면 무시
+	void SetPassiveEffectActive(bool bActive);
+
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<UNiagaraComponent> passiveEffectComponent;
 };

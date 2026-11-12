@@ -45,6 +45,8 @@ void URifleComradeTrust::Execute_Conditional()
 
 	const int32 targetStack = FMath::Min(nearbyCount, maxStack);
 	const int32 delta = targetStack - appliedStack;
+	//스택이 있을 때만 오라 연출
+	SetPassiveEffectActive(targetStack > 0);
 	if (delta == 0) return;
 
 	//ApplyPassiveStatDelta는 sign ±1만 받으므로 차이만큼 반복 호출

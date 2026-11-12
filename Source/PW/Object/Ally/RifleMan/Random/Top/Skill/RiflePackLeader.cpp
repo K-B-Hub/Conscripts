@@ -44,8 +44,12 @@ void URiflePackLeader::Execute_Conditional()
 	}
 	sharedAllies.Empty();
 
-	//나눠줄 보너스가 없으면 빈 효과만 아군에게 표시되므로 부여 자체를 생략
-	if (!SnapshotBuffTotals(o)) return;
+	//소지자 사망 시 회수만 하고 종료, 나눠줄 보너스가 없어도 빈 효과 표시를 피하려 생략
+	if (o->IsDead() || !SnapshotBuffTotals(o))
+	{
+		SetPassiveEffectActive(false);
+		return;
+	}
 
 	for (AAllyCharacterBase* ally : gameMode->GetAllies())
 	{
@@ -55,6 +59,8 @@ void URiflePackLeader::Execute_Conditional()
 		ally->ApplyPassiveStatDelta(this, +1);
 		sharedAllies.Add(ally);
 	}
+	//나눠주는 아군이 있을 때만 오라 연출
+	SetPassiveEffectActive(!sharedAllies.IsEmpty());
 }
 
 bool URiflePackLeader::SnapshotBuffTotals(const ACharacterBase* holder)

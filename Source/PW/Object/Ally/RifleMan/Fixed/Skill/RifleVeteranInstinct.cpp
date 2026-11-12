@@ -6,7 +6,7 @@
 URifleVeteranInstinct::URifleVeteranInstinct()
 {
 	skillName = NSLOCTEXT("Skill", "RifleVeteranInstinct_Name", "노련함");
-	skillDescription = NSLOCTEXT("Skill", "RifleVeteranInstinct_Description", "명중 +10 · 치명 +10, 턴 시작마다 탄창을 1개 회복한다.");
+	skillDescription = NSLOCTEXT("Skill", "RifleVeteranInstinct_Description", "명중 +10, 치명 +10, 턴 시작마다 탄창을 1개 회복한다.");
 
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;
@@ -32,5 +32,8 @@ void URifleVeteranInstinct::Execute_Conditional()
 	}
 
 	//최대치 초과분은 GainBattleResource가 클램프
+	const int32 before = o->GetBattleResource();
 	o->GainBattleResource(resourceGain);
+	//실제로 회복됐을 때만 연출
+	if (o->GetBattleResource() != before) PlayPassiveEffect();
 }

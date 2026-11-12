@@ -23,5 +23,7 @@ bool UHighEndurancePassive::Execute_BeforeDeath(int32 hpBefore, int32 incomingDa
 	if (!o) return false;
 
 	//피격 직전 체력 기준, 정수 비교로 부동소수 오차 회피
-	return hpBefore * 100 >= o->GetMaxHp() * hpThresholdPercent;
+	if (hpBefore * 100 < o->GetMaxHp() * hpThresholdPercent) return false;
+	PlayPassiveEffect();
+	return true;
 }

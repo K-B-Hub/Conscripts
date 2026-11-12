@@ -6,7 +6,7 @@
 URifleStimulant::URifleStimulant()
 {
 	skillName = NSLOCTEXT("Skill", "RifleStimulant_Name", "각성제 투여");
-	skillDescription = NSLOCTEXT("Skill", "RifleStimulant_Description", "자신에게 1턴간 명중 +10 · 회피 +10 · 치명 +10 · 주는 피해 +10% · 받는 피해 -10%를 부여한다.");
+	skillDescription = NSLOCTEXT("Skill", "RifleStimulant_Description", "자신에게 1턴간 명중 +10, 회피 +10, 치명 +10, 주는 피해 +10%, 받는 피해 -10%를 부여한다.");
 
 	//피해가 없는 자기 버프 스킬
 	skillType = ESkillType::Buff;
