@@ -10,6 +10,7 @@ class UCampDialogueData;
 class UCampOptionWidget;
 class UCampRecruitWidget;
 class AAllyCharacterBase;
+class UTutorialData;
 
 //야영지 컨트롤러
 //카메라가 고정이라 조작 입력이 없고 마우스 오버와 클릭만 다룬다
@@ -44,6 +45,10 @@ protected:
 	//충원 시 직업을 고르는 화면
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UCampRecruitWidget> recruitWidgetClass;
+
+	//야영지에 처음 닿았을 때 띄울 튜토리얼, 비우면 띄우지 않는다
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	TObjectPtr<UTutorialData> campTutorial;
 
 private:
 	//레벨에 배치된 자리와 메인 캠프에 마우스 이벤트를 연결

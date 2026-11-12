@@ -29,6 +29,10 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> SettingsButton;
 
+	//도움말 화면 열기, WBP에 버튼을 놓기 전에도 컴파일되도록 옵션
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> HelpButton;
+
 	//런을 유지한 채 허브로, 포기와 달리 로스터와 진행도가 남는다
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> MainMenuButton;
@@ -66,6 +70,8 @@ private:
 	void HandleSquadInfoClicked();
 	UFUNCTION()
 	void HandleSettingsClicked();
+	UFUNCTION()
+	void HandleHelpClicked();
 	UFUNCTION()
 	void HandleMainMenuClicked();
 	UFUNCTION()

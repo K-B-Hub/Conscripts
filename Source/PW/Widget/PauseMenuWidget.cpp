@@ -11,6 +11,7 @@ void UPauseMenuWidget::NativeConstruct()
 	if (ResumeButton)         ResumeButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleResumeClicked);
 	if (SquadInfoButton)      SquadInfoButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleSquadInfoClicked);
 	if (SettingsButton)       SettingsButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleSettingsClicked);
+	if (HelpButton)           HelpButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleHelpClicked);
 	if (MainMenuButton)        MainMenuButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleMainMenuClicked);
 	if (MainMenuConfirmButton) MainMenuConfirmButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleMainMenuConfirmClicked);
 	if (MainMenuCancelButton)  MainMenuCancelButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleMainMenuCancelClicked);
@@ -48,6 +49,14 @@ void UPauseMenuWidget::HandleSettingsClicked()
 	if (ABattleController* battle = GetOwningPlayer<ABattleController>())
 	{
 		battle->ShowSettingsFromPause();
+	}
+}
+
+void UPauseMenuWidget::HandleHelpClicked()
+{
+	if (ABattleController* battle = GetOwningPlayer<ABattleController>())
+	{
+		battle->ShowHelpFromPause();
 	}
 }
 

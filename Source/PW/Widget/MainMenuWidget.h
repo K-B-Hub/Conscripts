@@ -24,6 +24,9 @@ protected:
 	TObjectPtr<UButton> ContinueButton;
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> SettingsButton;
+	//WBP에 버튼을 놓기 전에도 컴파일되도록 옵션
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> HelpButton;
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> QuitButton;
 
@@ -34,6 +37,8 @@ private:
 	void HandleContinueClicked();
 	UFUNCTION()
 	void HandleSettingsClicked();
+	UFUNCTION()
+	void HandleHelpClicked();
 	UFUNCTION()
 	void HandleQuitClicked();
 };

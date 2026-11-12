@@ -6,6 +6,7 @@
 #include "Characters/AllyCharacterBase.h"
 #include "DataAsset/CampDialogueData.h"
 #include "DataAsset/CampOptionData.h"
+#include "DataAsset/TutorialData.h"
 #include "GameMode/CampGameMode.h"
 #include "Widget/CampOptionWidget.h"
 #include "Widget/CampRecruitWidget.h"
@@ -30,6 +31,12 @@ void ACampController::BeginPlay()
 	SetInputMode(FInputModeGameAndUI());
 
 	BindCampActors();
+
+	//로딩창 아래에 미리 떠 있다가 걷히면 보인다
+	if (UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>())
+	{
+		gameInstance->ShowTutorialOnce(this, campTutorial);
+	}
 }
 
 void ACampController::BindCampActors()

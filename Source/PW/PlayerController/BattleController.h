@@ -30,6 +30,8 @@ class UPauseMenuWidget;
 class USettingsWidget;
 class UCharacterDetailWidget;
 class USquadInfoWidget;
+class UTutorialData;
+class UHelpWidget;
 
 //전투 씬 플레이어 컨트롤러, EnhancedInput 기반 카메라 조작 및 유닛 이동 명령 처리
 UCLASS()
@@ -105,6 +107,12 @@ public:
 
 	//부대 정보표를 닫고 일시정지 메뉴로 되돌아간다
 	void CloseSquadInfoFromPause();
+
+	//일시정지 메뉴 위에 도움말 화면을 띄운다
+	void ShowHelpFromPause();
+
+	//도움말 화면을 닫고 일시정지 메뉴로 되돌아간다
+	void CloseHelpFromPause();
 
 	//런을 유지한 채 허브로 복귀, 로스터와 진행도가 메모리에 남는다
 	void ReturnToMainMenu();
@@ -420,6 +428,24 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<USquadInfoWidget> squadInfoInstance = nullptr;
+
+	//일시정지 메뉴에서 여는 도움말 화면, 허브와 같은 위젯을 쓴다
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UHelpWidget> helpWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UHelpWidget> helpInstance = nullptr;
+
+	//각 화면에 처음 닿았을 때 띄울 튜토리얼, 비우면 띄우지 않는다
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	TObjectPtr<UTutorialData> deployTutorial;
+
+	//첫 아군 턴에 뜬다
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	TObjectPtr<UTutorialData> battleTutorial;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	TObjectPtr<UTutorialData> upgradeTutorial;
 
 	//지금 부를 수 있는 캐릭터, 전장에 선 아군과 이번 런 전사자를 뺀다
 	TArray<TSubclassOf<AAllyCharacterBase>> BuildReinforcementCandidates() const;

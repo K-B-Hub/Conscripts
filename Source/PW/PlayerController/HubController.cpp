@@ -6,6 +6,8 @@
 #include "Widget/StoryRouteSelectWidget.h"
 #include "Widget/SettingsWidget.h"
 #include "Widget/FormationWidget.h"
+#include "Widget/HelpWidget.h"
+#include "DataAsset/TutorialData.h"
 #include "GameInstance/PWGameInstance.h"
 #include "Run/RunProgress.h"
 #include "Blueprint/UserWidget.h"
@@ -65,9 +67,26 @@ void AHubController::ShowSettings()
 	}
 }
 
+void AHubController::ShowHelp()
+{
+	//미지정이면 SwapScreen이 메뉴만 지우고 빈 화면을 남긴다
+	if (!helpWidgetClass) return;
+
+	//설정과 같은 구조, 전투 일시정지에서 열면 그쪽이 다르게 바인딩한다
+	if (UHelpWidget* help = Cast<UHelpWidget>(SwapScreen(helpWidgetClass)))
+	{
+		help->onClosed.BindUObject(this, &AHubController::ShowMainMenu);
+	}
+}
+
 void AHubController::ShowFormation()
 {
 	SwapScreen(formationWidgetClass);
+
+	if (UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>())
+	{
+		gameInstance->ShowTutorialOnce(this, formationTutorial);
+	}
 }
 
 void AHubController::ContinueRun()

@@ -56,6 +56,8 @@ void USettingsWidget::NativeConstruct()
 	if (DefaultsButton) DefaultsButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleDefaultsClicked);
 	if (BackButton)     BackButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleBackClicked);
 
+	if (ResetTutorialButton) ResetTutorialButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleResetTutorialClicked);
+
 	RefreshFromSettings(UPWGameUserSettings::Get());
 }
 
@@ -318,6 +320,17 @@ void USettingsWidget::HandleDefaultsClicked()
 	UPWGameUserSettings* defaults = NewObject<UPWGameUserSettings>();
 	defaults->SetToDefaults();
 	RefreshFromSettings(defaults);
+}
+
+void USettingsWidget::HandleResetTutorialClicked()
+{
+	if (UPWGameInstance* gameInstance = GetGameInstance<UPWGameInstance>())
+	{
+		gameInstance->ResetTutorials();
+	}
+
+	//확인창이 없으므로 눌렸다는 표시로 잠근다, 화면을 다시 열면 풀린다
+	ResetTutorialButton->SetIsEnabled(false);
 }
 
 void USettingsWidget::HandleBackClicked()
