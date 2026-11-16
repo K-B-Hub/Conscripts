@@ -59,8 +59,9 @@ void USkillWidget::NormalizeSlots()
 	TArray<TSubclassOf<USkillBase>> slots = unit->GetSkillSlots();
 
 	//스킬을 다 담을 줄 수, 최소 minRows는 비어 있어도 유지한다
+	//저장된 배치가 다른 열 수로 만들어졌으면 마지막 줄이 잘리므로 열 수 배수로 맞춘다
 	const int32 need = FMath::Max(columns * minRows,
-		FMath::DivideAndRoundUp(owned.Num(), columns) * columns);
+		FMath::DivideAndRoundUp(FMath::Max(owned.Num(), slots.Num()), columns) * columns);
 	if (slots.Num() < need)
 	{
 		slots.SetNum(need);

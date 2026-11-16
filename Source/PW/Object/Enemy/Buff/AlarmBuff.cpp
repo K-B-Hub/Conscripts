@@ -6,6 +6,8 @@
 #include "Characters/EnemyBase.h"
 #include "AI/AIController/EnemyAIController.h"
 #include "GameMode/BattleGameMode.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 UAlarmBuff::UAlarmBuff()
 {
@@ -42,6 +44,14 @@ void UAlarmBuff::Execute(ACharacterBase* affected)
 
 	//맵의 모든 적을 전투에 합류, 알람 발동 위치를 접근 목표로 전달
 	const FVector alarmOrigin = affected->GetActorLocation();
+	if (alarmEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(world, alarmEffect, alarmOrigin);
+	}
+	if (alarmSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(world, alarmSound, alarmOrigin);
+	}
 	for (AEnemyBase* enemy : gm->GetEnemies())
 	{
 		if (!IsValid(enemy) || enemy->IsDead()) continue;

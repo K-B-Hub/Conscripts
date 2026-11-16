@@ -160,6 +160,20 @@ void USettingsWidget::RefreshFromSettings(const UPWGameUserSettings* source)
 		}
 		SkillCameraCombo->SetSelectedIndex(static_cast<int32>(source->GetSkillCameraMode()));
 	}
+
+	if (CameraMoveSpeedCombo)
+	{
+		const TArray<float>& scales = UPWGameUserSettings::GetCameraMoveSpeedOptions();
+		CameraMoveSpeedCombo->ClearOptions();
+		for (const float scale : scales)
+		{
+			CameraMoveSpeedCombo->AddOption(FString::Printf(TEXT("%gx"), scale));
+		}
+
+		//후보에 없는 값이면 1x로 표시한다
+		const int32 index = scales.IndexOfByKey(source->GetCameraMoveSpeedScale());
+		CameraMoveSpeedCombo->SetSelectedIndex(index != INDEX_NONE ? index : scales.IndexOfByKey(1.f));
+	}
 }
 
 void USettingsWidget::FillQualityOptions(UComboBoxString* combo, int32 level)
@@ -299,6 +313,13 @@ void USettingsWidget::HandleApplyClicked()
 	if (SkillCameraLabels().IsValidIndex(skillCameraIndex))
 	{
 		settings->SetSkillCameraMode(static_cast<ESkillCameraMode>(skillCameraIndex));
+	}
+
+	const TArray<float>& cameraScales = UPWGameUserSettings::GetCameraMoveSpeedOptions();
+	const int32 cameraScaleIndex = CameraMoveSpeedCombo ? CameraMoveSpeedCombo->GetSelectedIndex() : INDEX_NONE;
+	if (cameraScales.IsValidIndex(cameraScaleIndex))
+	{
+		settings->SetCameraMoveSpeedScale(cameraScales[cameraScaleIndex]);
 	}
 
 	//확인 대기 없이 확정한다, ApplySettings가 저장까지 하므로 그 전에 확정값을 맞춘다

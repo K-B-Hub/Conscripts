@@ -301,6 +301,15 @@ private:
 	//스프링암 피벗을 지면에 스냅, 경사면 관통 방지
 	void SnapSpringArmToGround(USpringArmComponent* SpringArm);
 
+	//자유 이동 경계, 맵에 놓인 ACameraBoundsVolume을 감싼다, 무효면 제한 없음
+	FBox cameraBounds = FBox(ForceInit);
+
+	//cameraBounds 계산, BeginPlay에서 한 번
+	void BuildCameraBounds();
+
+	//피벗 XY를 경계 안으로 묶고 막힌 축의 관성을 없앤다
+	void ClampSpringArmToBounds(USpringArmComponent* SpringArm);
+
 	//스킬 연출 카메라, 첫 연출에서 생성해 재사용
 	UPROPERTY()
 	TObjectPtr<class ACameraActor> skillCameraActor = nullptr;

@@ -42,6 +42,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "DataAsset/UpgradeLibrary.h"
 #include "DataAsset/TutorialData.h"
+#include "Actors/CameraBoundsVolume.h"
+#include "EngineUtils.h"
 
 ABattleController::ABattleController()
 {
@@ -80,6 +82,7 @@ void ABattleController::BeginPlay()
 		ApplyZoom(SpringArm);
 
 		cameraHomeLocation = SpringArm->GetComponentLocation();
+		BuildCameraBounds();
 
 		//소리는 카메라가 아닌 지면 쪽 피벗에서 듣는다, 회전은 스프링암을 따라 화면 좌우와 맞는다
 		SetAudioListenerOverride(SpringArm, FVector::ZeroVector, FRotator::ZeroRotator);
@@ -645,6 +648,7 @@ void ABattleController::Tick(float DeltaTime)
 				cameraVelocity = FMath::VInterpTo(cameraVelocity, FVector::ZeroVector, DeltaTime, cameraMoveSmoothing);
 				SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
 			}
+			ClampSpringArmToBounds(SpringArm);
 			SnapSpringArmToGround(SpringArm);
 		}
 	}
@@ -674,11 +678,16 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 
 	const float DeltaTime = GetWorld()->GetDeltaSeconds();
 
+	//설정 배율은 매번 읽는다, 일시정지 메뉴에서 바꾸면 바로 반영되도록
+	const UPWGameUserSettings* settings = UPWGameUserSettings::Get();
+	const float speedScale = settings ? settings->GetCameraMoveSpeedScale() : 1.f;
+
 	//목표 속도를 향해 부드럽게 가속
-	const FVector TargetVelocity = (ForwardDir * MoveInput.Y + RightDir * MoveInput.X) * cameraMoveSpeed;
+	const FVector TargetVelocity = (ForwardDir * MoveInput.Y + RightDir * MoveInput.X) * cameraMoveSpeed * speedScale;
 	cameraVelocity = FMath::VInterpTo(cameraVelocity, TargetVelocity, DeltaTime, cameraMoveSmoothing);
 
 	SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
+	ClampSpringArmToBounds(SpringArm);
 	SnapSpringArmToGround(SpringArm);
 
 	bCameraInputActive = true;
@@ -747,6 +756,9 @@ void ABattleController::OnMoveCommand(const FInputActionValue& Value)
 	//적 턴에는 activeUnit이 없으므로 아래 스킬·이동 분기가 모두 지나가고 상세보기로 떨어진다
 	USkillComponent* SkillComp = activeUnit ? activeUnit->GetSkillComponent() : nullptr;
 	if (activeUnit && IsActionInProgress()) return;
+
+	//이동 중 클릭 차단, 이동 명령 중첩·자동이동 중 재실행 방지
+	if (activeUnit && activeUnit->IsMoving()) return;
 
 	//스킬 모드 우선 처리
 	if (SkillComp && SkillComp->IsSkillActive())
@@ -1587,6 +1599,36 @@ void ABattleController::SnapSpringArmToGround(USpringArmComponent* SpringArm)
 			return;
 		}
 	}
+}
+
+void ABattleController::BuildCameraBounds()
+{
+	cameraBounds = FBox(ForceInit);
+
+	//맵에 놓인 볼륨을 전부 감싼다, 없으면 무효로 남아 제한하지 않는다
+	for (TActorIterator<ACameraBoundsVolume> It(GetWorld()); It; ++It)
+	{
+		//박스가 NoCollision이라 비충돌 컴포넌트까지 포함해야 잡힌다
+		cameraBounds += It->GetComponentsBoundingBox(true);
+	}
+}
+
+void ABattleController::ClampSpringArmToBounds(USpringArmComponent* SpringArm)
+{
+	if (!cameraBounds.IsValid) return;
+
+	//FVector 성분은 double이다, float로 받으면 반올림 오차로 경계 안에서도 매 프레임 막힌 것으로 판정된다
+	const FVector pos = SpringArm->GetComponentLocation();
+	const FVector clamped(
+		FMath::Clamp(pos.X, cameraBounds.Min.X, cameraBounds.Max.X),
+		FMath::Clamp(pos.Y, cameraBounds.Min.Y, cameraBounds.Max.Y),
+		pos.Z);
+	if (clamped == pos) return;
+
+	//막힌 축의 관성을 남기면 경계에 붙어 미끄러지고 반대 입력이 늦게 먹는다
+	if (clamped.X != pos.X) cameraVelocity.X = 0.f;
+	if (clamped.Y != pos.Y) cameraVelocity.Y = 0.f;
+	SpringArm->SetWorldLocation(clamped);
 }
 
 bool ABattleController::IsActionInProgress() const

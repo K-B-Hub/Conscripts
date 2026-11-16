@@ -18,4 +18,11 @@ public:
 
 	//전역 알람 사용 여부 추가 검사, 플래그 마킹은 버프 발동 시점(AlarmBuff)이라 무산 시 재사용 가능
 	virtual bool CanExecute() const override;
+
+	//사용 확정 시 재사용 차단 플래그를 켬
+	virtual void BeginUse() override;
+
+private:
+	//시전자당 1회, 재시전으로 버프 기간이 갱신돼 발동이 미뤄지는 것 방지
+	bool bUsed = false;
 };
