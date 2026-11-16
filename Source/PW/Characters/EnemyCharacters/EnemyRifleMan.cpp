@@ -17,7 +17,8 @@ AEnemyRifleMan::AEnemyRifleMan()
 	def = 9;
 	mentality = 3;
 	sight = 15.f;
-	movingPoint = 6.f;
+	//이동력만 아군보다 높음
+	movingPoint = 12.f;
 	currentMovingPoint = movingPoint;
 
 	//고유 자원은 탄창

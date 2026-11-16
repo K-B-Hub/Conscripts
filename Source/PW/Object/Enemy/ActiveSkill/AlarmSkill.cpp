@@ -36,11 +36,17 @@ UAlarmSkill::UAlarmSkill()
 
 bool UAlarmSkill::CanExecute() const
 {
-	if (!Super::CanExecute()) return false;
+	if (bUsed || !Super::CanExecute()) return false;
 
 	//전역 1회 제한, 알람이 실제 발동된 뒤에만 사용 불가 (무산 시 재사용 가능)
 	ACharacterBase* ownerPtr = GetOwner();
 	UWorld* world = ownerPtr ? ownerPtr->GetWorld() : nullptr;
 	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	return gm && !gm->IsAlarmUsed();
+}
+
+void UAlarmSkill::BeginUse()
+{
+	Super::BeginUse();
+	bUsed = true;
 }

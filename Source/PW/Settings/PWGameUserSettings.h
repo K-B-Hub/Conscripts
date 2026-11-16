@@ -49,6 +49,13 @@ public:
 	//저장값이 인덱스가 아니라 배율 자체라 목록이 바뀌어도 기존 ini의 의미가 유지된다
 	static const TArray<float>& GetEnemyTurnSpeedOptions();
 
+	//전투 카메라 이동 속도 배율, cameraMoveSpeed에 곱한다
+	float GetCameraMoveSpeedScale() const;
+	void SetCameraMoveSpeedScale(float newScale) { cameraMoveSpeedScale = newScale; }
+
+	//카메라 속도 선택지, 오름차순 전제, 배속과 같이 배율 자체를 저장한다
+	static const TArray<float>& GetCameraMoveSpeedOptions();
+
 	//음량 0~1, ini 손편집 대비로 읽을 때 묶는다
 	float GetMasterVolume() const { return FMath::Clamp(masterVolume, 0.f, 1.f); }
 	void SetMasterVolume(float newVolume) { masterVolume = newVolume; }
@@ -68,6 +75,9 @@ private:
 
 	UPROPERTY(config)
 	ESkillCameraMode skillCameraMode = ESkillCameraMode::All;
+
+	UPROPERTY(config)
+	float cameraMoveSpeedScale = 1.f;
 
 	UPROPERTY(config)
 	float masterVolume = 1.f;

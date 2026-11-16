@@ -20,6 +20,8 @@
 #include "GameInstance/PWGameInstance.h"
 #include "GameInstance/BgmSubsystem.h"
 #include "DataAsset/StressPoolData.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #include "Actors/DeploymentZone.h"
 #include "Actors/SquadSpawnPoint.h"
 #include "DataAsset/SquadData.h"
@@ -1030,6 +1032,17 @@ void ABattleGameMode::ApplyStressEvent(ACharacterBase* Target)
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] %s 스트레스 이벤트 발동 → %s '%s' 적용"),
 		*Target->GetName(), bPositive ? TEXT("긍정") : TEXT("부정"), *picked->GetName());
+
+	//발동 연출, 패시브 계열은 자체 연출이 없어 이것만 보인다
+	if (UNiagaraSystem* eventEffect = bPositive ? stressPool->positiveEventEffect : stressPool->negativeEventEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAttached(eventEffect, Target->GetRootComponent(), NAME_None,
+			FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true);
+	}
+	if (USoundBase* eventSound = bPositive ? stressPool->positiveEventSound : stressPool->negativeEventSound)
+	{
+		UGameplayStatics::SpawnSoundAttached(eventSound, Target->GetRootComponent());
+	}
 
 	//클래스 계열에 따라 버프/상태이상/패시브로 구분 적용, 시전자는 본인
 	if (picked->IsChildOf(UBuffBase::StaticClass()))

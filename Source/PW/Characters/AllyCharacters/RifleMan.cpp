@@ -21,7 +21,7 @@ ARifleMan::ARifleMan()
 	def = 9;
 	mentality = 3;
 	sight = 15.f;
-	movingPoint = 6.f;
+	movingPoint = 9.f;
 	currentMovingPoint = movingPoint;
 
 	//고유 자원은 탄창
