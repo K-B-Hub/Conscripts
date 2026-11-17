@@ -2,7 +2,6 @@
 
 #include "Object/Ally/RifleMan/Random/Top/Skill/RiflePackLeader.h"
 #include "Characters/CharacterBase.h"
-#include "Characters/AllyCharacterBase.h"
 #include "ActorComponent/BuffComponent.h"
 #include "Object/Buff/BuffBase.h"
 #include "GameMode/BattleGameMode.h"
@@ -51,7 +50,8 @@ void URiflePackLeader::Execute_Conditional()
 		return;
 	}
 
-	for (AAllyCharacterBase* ally : gameMode->GetAllies())
+	//적이 소지하면 적 진영에 나눠야 하므로 소지자 진영으로 고른다
+	for (ACharacterBase* ally : gameMode->GetTeam(o->IsAlly()))
 	{
 		if (!IsValid(ally) || ally == o || ally->IsDead()) continue;
 		if (FVector::Dist2D(o->GetActorLocation(), ally->GetActorLocation()) > auraRange) continue;

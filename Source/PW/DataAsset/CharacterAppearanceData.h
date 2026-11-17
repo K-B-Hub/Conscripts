@@ -9,6 +9,7 @@
 class USkeletalMesh;
 class UStaticMesh;
 class UMaterialInterface;
+class UAnimationAsset;
 
 //리더 포즈를 따라가는 스켈레탈 파츠 하나
 USTRUCT(BlueprintType)
@@ -24,7 +25,7 @@ struct FAppearancePart
 	TArray<TObjectPtr<UMaterialInterface>> Materials;
 };
 
-//본에 붙는 스태틱 부착물(헤드셋·고글·라이트 등)
+//본에 붙는 부착물(헤드셋·고글·라이트·야간투시경 등)
 USTRUCT(BlueprintType)
 struct FAppearanceAttachment
 {
@@ -32,6 +33,14 @@ struct FAppearanceAttachment
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UStaticMesh> Mesh;
+
+	//지정하면 Mesh 대신 스켈레탈로 붙인다(자체 스켈레톤, 리더 포즈 안 씀)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<USkeletalMesh> SkeletalMesh;
+
+	//SkeletalMesh에 반복 재생할 애니메이션
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimationAsset> Animation;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TArray<TObjectPtr<UMaterialInterface>> Materials;

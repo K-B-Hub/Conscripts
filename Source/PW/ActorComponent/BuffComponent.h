@@ -47,6 +47,9 @@ public:
 	float GetCriticalBonus() const { return criticalBonus; }
 
 private:
+	//중첩 상한에 걸렸으면 새 인스턴스 대신 기존 중첩을 처리하고 true, 아니면 false
+	bool HandleStackLimit(TSubclassOf<UBuffBase> buffClass, const UBuffBase* buffCDO);
+
 	UPROPERTY()
 	TObjectPtr<ACharacterBase> ownerCharacter = nullptr;
 

@@ -254,16 +254,32 @@ void ACharacterBase::ApplyAppearance()
 
 	for (const FAppearanceAttachment& attachment : appearance->attachments)
 	{
-		if (!attachment.Mesh) continue;
+		UMeshComponent* comp = nullptr;
+		if (attachment.SkeletalMesh)
+		{
+			USkeletalMeshComponent* skel = NewObject<USkeletalMeshComponent>(this, NAME_None, RF_Transient);
+			skel->SetSkeletalMeshAsset(attachment.SkeletalMesh);
+			comp = skel;
+		}
+		else if (attachment.Mesh)
+		{
+			UStaticMeshComponent* stat = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
+			stat->SetStaticMesh(attachment.Mesh);
+			comp = stat;
+		}
+		if (!comp) continue;
 
-		UStaticMeshComponent* comp = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transient);
 		comp->SetupAttachment(leader, attachment.Socket);
 		comp->SetRelativeTransform(attachment.Offset);
-		comp->SetStaticMesh(attachment.Mesh);
 		ApplyMaterialOverrides(comp, attachment.Materials);
 		comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		comp->SetCanEverAffectNavigation(false);
 		comp->RegisterComponent();
+		//자체 스켈레톤이라 리더 포즈 대신 단일 애니로 자세를 잡는다
+		if (attachment.SkeletalMesh && attachment.Animation)
+		{
+			CastChecked<USkeletalMeshComponent>(comp)->PlayAnimation(attachment.Animation, true);
+		}
 		appearanceComponents.Add(comp);
 	}
 }
@@ -884,6 +900,11 @@ bool ACharacterBase::ReflectDamage()
 		if (ACharacterBase* attacker = lastAttacker.Get())
 		{
 			attacker->ReceiveStress(FMath::RandRange(1, 3));
+			//광역에 휩쓸린 아군 공격은 회피 성공으로 치지 않는다
+			if (attacker->IsAlly() != IsAlly() && passiveSkillComponent)
+			{
+				passiveSkillComponent->DispatchAfterEvade(attacker);
+			}
 		}
 		return false;
 	}
@@ -909,7 +930,19 @@ bool ACharacterBase::ReflectDamage()
 		}
 	}
 
+	const int32 hpBeforeHit = hp;
 	ReceiveDamage(finalDamage, true);
+
+	//피해량이 아니라 실제로 깎인 체력을 넘긴다, 흡혈류가 방어·생존 패시브에 깎인 분을 회복하지 않게
+	if (bCrit && hp < hpBeforeHit)
+	{
+		ACharacterBase* attacker = lastAttacker.Get();
+		UPassiveSkillComponent* attackerPSC = attacker ? attacker->GetPassiveSkillComponent() : nullptr;
+		if (attackerPSC)
+		{
+			attackerPSC->DispatchAfterCritical(this, hpBeforeHit - hp);
+		}
+	}
 
 	//사망 시엔 HandleDeath의 사망 애니가 우선
 	if (!IsDead()) PlayReactionAnim(PickByAttacker(bIsProne ? crouchHitAnims : standHitAnims), 0.2f, hitAnimStartTime);

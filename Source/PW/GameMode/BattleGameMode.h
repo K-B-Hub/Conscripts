@@ -150,6 +150,13 @@ public:
 	//AI가 아군(같은 진영) 대상 스킬 후보를 만들 때 사용, 적군(AI 진영) 목록 조회
 	const TArray<TObjectPtr<AEnemyBase>>& GetEnemies() const { return enemies; }
 
+	//center 반경 안의 살아있는 한 진영 인원 수, 높이차는 무시하고 exclude는 세지 않는다
+	//주변 인원으로 발동하는 패시브가 아군·적 어느 쪽이 소지해도 같은 코드로 쓰도록 진영을 인자로 받는다
+	int32 CountTeamInRange(bool bAllyTeam, const FVector& center, float range, const ACharacterBase* exclude = nullptr) const;
+
+	//한 진영의 캐릭터 목록, 소지자 진영 기준으로 같은 편을 순회할 때 쓴다
+	TArray<ACharacterBase*> GetTeam(bool bAllyTeam) const;
+
 	//전투 중 아군 합류, 증원 강화가 호출한다
 	//caller 옆에 레벨 1로 세운 뒤 평균 레벨까지 올리고, 현재 턴 바로 다음 순서에 끼워 넣는다
 	//쌓인 대기 강화는 신병의 턴 시작에서 기존 경로대로 소비된다

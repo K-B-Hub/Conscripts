@@ -57,6 +57,15 @@ public:
 	//처치 후 패시브 실행
 	void DispatchAfterSlay(const FVector& slainLocation);
 
+	//회피 성공 후 패시브 실행
+	void DispatchAfterEvade(ACharacterBase* attacker);
+
+	//치명타 적중 후 패시브 실행
+	void DispatchAfterCritical(ACharacterBase* target, int32 dealtDamage);
+
+	//치명타 재굴림 패시브를 보유 중인지
+	bool HasExtraCriticalRoll() const;
+
 	//치사 피해 직전 패시브 실행, 하나라도 생존시키면 true
 	bool DispatchBeforeDeath(int32 hpBefore, int32 incomingDamage);
 

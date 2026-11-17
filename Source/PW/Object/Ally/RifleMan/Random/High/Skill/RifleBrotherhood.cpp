@@ -2,7 +2,6 @@
 
 #include "Object/Ally/RifleMan/Random/High/Skill/RifleBrotherhood.h"
 #include "Characters/CharacterBase.h"
-#include "Characters/AllyCharacterBase.h"
 #include "GameMode/BattleGameMode.h"
 
 URifleBrotherhood::URifleBrotherhood()
@@ -33,16 +32,8 @@ void URifleBrotherhood::Execute_Conditional()
 	const ABattleGameMode* gameMode = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	if (!gameMode) return;
 
-	//사거리 안의 살아있는 아군 수, 자신은 제외
-	int32 nearbyCount = 0;
-	for (const AAllyCharacterBase* ally : gameMode->GetAllies())
-	{
-		if (!IsValid(ally) || ally == o || ally->IsDead()) continue;
-		if (FVector::Dist2D(o->GetActorLocation(), ally->GetActorLocation()) <= auraRange)
-		{
-			++nearbyCount;
-		}
-	}
+	//사거리 안의 살아있는 같은 편 수, 자신은 제외, 적이 소지해도 적 진영을 센다
+	const int32 nearbyCount = gameMode->CountTeamInRange(o->IsAlly(), o->GetActorLocation(), auraRange, o);
 
 	const int32 targetStack = FMath::Min(nearbyCount, maxStack);
 	const int32 delta = targetStack - appliedStack;

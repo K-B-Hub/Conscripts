@@ -41,6 +41,9 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> buffClass, ACharacterBase* c
 		}
 	}
 
+	//중첩 상한 도달 시 새로 쌓지 않는다
+	if (buffCDO->isStackable && buffCDO->maxStack > 0 && HandleStackLimit(buffClass, buffCDO)) return;
+
 	//중첩 가능일경우 새 객체 생성
 	UBuffBase* buffInstance = NewObject<UBuffBase>(this, buffClass);
 	if (!buffInstance) return;
@@ -60,6 +63,20 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> buffClass, ACharacterBase* c
 	{
 		gm->BroadcastMoveComplete();
 	}
+}
+
+bool UBuffComponent::HandleStackLimit(TSubclassOf<UBuffBase> buffClass, const UBuffBase* buffCDO)
+{
+	//같은 클래스 중첩 수집
+	TArray<UBuffBase*> stacks;
+	for (UBuffBase* existing : activeBuffs)
+	{
+		if (existing && existing->GetClass() == buffClass) stacks.Add(existing);
+	}
+	if (stacks.Num() < buffCDO->maxStack) return false;
+
+	//상한이면 새 발동은 버린다, 기존 중첩의 남은 턴도 갱신하지 않는다
+	return true;
 }
 
 void UBuffComponent::RemoveBuffAt(int32 Index)

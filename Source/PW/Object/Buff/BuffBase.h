@@ -87,6 +87,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Buff")
 	bool isStackable = false;
 
+	//최대 중첩 수, 0이면 무제한, isStackable일 때만 의미가 있다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Buff", meta = (ClampMin = "0", EditCondition = "isStackable"))
+	int32 maxStack = 0;
+
 	//AI 평가용 기본 가치(턴당, 기대 HP 환산), 스탯 델타로 표현 안 되는 효과(알람 등)의 수동 환산치
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
 	float aiBaseValue = 0.f;

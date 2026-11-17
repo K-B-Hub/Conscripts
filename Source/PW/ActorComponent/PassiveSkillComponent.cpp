@@ -129,6 +129,13 @@ void UPassiveSkillComponent::DispatchBeforeDamageCalc(ACharacterBase* target, ES
 		}
 	}
 
+	//재굴림은 실패 확률을 제곱하는 것과 같다, 예측과 실제 굴림이 같은 값을 쓰도록 확률로 환산
+	if (HasExtraCriticalRoll())
+	{
+		const float missRatio = 1.f - FMath::Clamp(crit, 0.f, 100.f) / 100.f;
+		crit = (1.f - missRatio * missRatio) * 100.f;
+	}
+
 	//광역 피해는 치명타 불가, 투척만 해금 패시브로 예외가 된다
 	const bool bThrowCritUnlocked = (skillType == ESkillType::Throw) && HasThrowCriticalUnlock();
 	if (damageType == EDamageType::Area && !bThrowCritUnlocked)
@@ -152,6 +159,24 @@ void UPassiveSkillComponent::DispatchAfterSlay(const FVector& slainLocation)
 	{
 		if (!p || p->reactiveType != EReactiveType::AfterSlay) continue;
 		p->Execute_AfterSlay(slainLocation);
+	}
+}
+
+void UPassiveSkillComponent::DispatchAfterEvade(ACharacterBase* attacker)
+{
+	for (UPassiveSkillBase* p : reactivePassives)
+	{
+		if (!p || p->reactiveType != EReactiveType::AfterEvade) continue;
+		p->Execute_AfterEvade(attacker);
+	}
+}
+
+void UPassiveSkillComponent::DispatchAfterCritical(ACharacterBase* target, int32 dealtDamage)
+{
+	for (UPassiveSkillBase* p : reactivePassives)
+	{
+		if (!p || p->reactiveType != EReactiveType::AfterCritical) continue;
+		p->Execute_AfterCritical(target, dealtDamage);
 	}
 }
 
@@ -218,6 +243,18 @@ bool UPassiveSkillComponent::HasThrowCriticalUnlock() const
 	for (const UPassiveSkillBase* passive : activePassives)
 	{
 		if (passive && passive->bAllowThrowCritical)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UPassiveSkillComponent::HasExtraCriticalRoll() const
+{
+	for (const UPassiveSkillBase* passive : activePassives)
+	{
+		if (passive && passive->bExtraCriticalRoll)
 		{
 			return true;
 		}

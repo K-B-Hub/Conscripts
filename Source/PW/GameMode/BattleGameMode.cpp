@@ -960,6 +960,40 @@ void ABattleGameMode::BroadcastRoundStart()
 	}
 }
 
+int32 ABattleGameMode::CountTeamInRange(bool bAllyTeam, const FVector& center, float range, const ACharacterBase* exclude) const
+{
+	int32 count = 0;
+	auto countIn = [&](const ACharacterBase* c)
+	{
+		if (!IsValid(c) || c == exclude || c->IsDead()) return;
+		if (FVector::Dist2D(center, c->GetActorLocation()) <= range) ++count;
+	};
+
+	if (bAllyTeam)
+	{
+		for (const AAllyCharacterBase* a : allies) countIn(a);
+	}
+	else
+	{
+		for (const AEnemyBase* e : enemies) countIn(e);
+	}
+	return count;
+}
+
+TArray<ACharacterBase*> ABattleGameMode::GetTeam(bool bAllyTeam) const
+{
+	TArray<ACharacterBase*> team;
+	if (bAllyTeam)
+	{
+		for (AAllyCharacterBase* a : allies) team.Add(a);
+	}
+	else
+	{
+		for (AEnemyBase* e : enemies) team.Add(e);
+	}
+	return team;
+}
+
 void ABattleGameMode::BroadcastMoveComplete()
 {
 	for (ACharacterBase* Character : turnOrder)

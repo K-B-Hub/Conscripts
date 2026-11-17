@@ -75,7 +75,9 @@ enum class EReactiveType : uint8
 	BeforeMove			UMETA(DisplayName = "BeforeMove"),		//소지자의 이동 시작 시 (실제 이동 + 인디케이터 자동이동 가상 토글)
 	BeforeDamageCalc	UMETA(DisplayName = "Before Damage"),	//데미지 계산 이전
 	AfterDamage			UMETA(DisplayName = "After Damage"),	//데미지 적용 후
-	AfterSlay			UMETA(DisplayName = "After Slay")		//적 처치 후
+	AfterSlay			UMETA(DisplayName = "After Slay"),		//적 처치 후
+	AfterEvade			UMETA(DisplayName = "After Evade"),		//적의 공격을 회피한 후
+	AfterCritical		UMETA(DisplayName = "After Critical")	//치명타로 피해를 준 후
 };
 
 UENUM(BlueprintType)

@@ -2,7 +2,6 @@
 
 #include "Object/Ally/RifleMan/Random/Middle/Skill/RifleLeadership.h"
 #include "Characters/CharacterBase.h"
-#include "Characters/AllyCharacterBase.h"
 #include "GameMode/BattleGameMode.h"
 
 URifleLeadership::URifleLeadership()
@@ -31,9 +30,10 @@ void URifleLeadership::Execute_Conditional()
 	ABattleGameMode* gameMode = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
 	if (!gameMode) return;
 
-	//사거리 안의 살아있는 아군 수집, 시전자 자신은 제외 — 시전자 사망 시 비워서 전원 회수
+	//사거리 안의 살아있는 같은 편 수집, 시전자 자신은 제외 — 시전자 사망 시 비워서 전원 회수
+	//적이 소지하면 적 진영에 걸어야 하므로 소지자 진영으로 고른다
 	TArray<ACharacterBase*> inRange;
-	for (AAllyCharacterBase* ally : gameMode->GetAllies())
+	for (ACharacterBase* ally : gameMode->GetTeam(o->IsAlly()))
 	{
 		if (!IsValid(ally) || ally == o || ally->IsDead() || o->IsDead()) continue;
 		if (FVector::Dist2D(o->GetActorLocation(), ally->GetActorLocation()) <= auraRange)

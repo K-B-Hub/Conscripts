@@ -1,0 +1,45 @@
+//Fill out your copyright notice in the Description page of Project Settings.
+
+#include "Object/Ally/Sniper/Random/Top/Skill/SniperIncapacitate.h"
+#include "PW.h"
+#include "Object/Ally/Sniper/Random/Top/Buff/SniperIncapacitateDebuff.h"
+
+USniperIncapacitate::USniperIncapacitate()
+{
+	skillName = NSLOCTEXT("Skill", "SniperIncapacitate_Name", "무력화");
+	skillDescription = NSLOCTEXT("Skill", "SniperIncapacitate_Description", "20m 내의 적 1명에게 공격력 × 1.0의 원거리 피해를 주고 1턴간 행동력 -2를 부여한다.\n명중 +60");
+	skillGrade = EUpgradeGrade::Top;
+
+	skillType = ESkillType::Ranged;
+	damageType = EDamageType::Normal;
+	selectMode = ESelectMode::SinglePick;
+	pickTeam = EPickTeam::EnemyOnly;
+	areaTarget = EAreaTarget::None;
+
+	pickRange = 20.f * CmPerMeter;
+	pickCount = 1;
+
+	battleResourceCost = 1;
+	actionPointCost = 2;
+
+	damageRatio = 1.0f;
+	bonusAccuracy = 60.f;
+	bonusCritical = 0.f;
+	baseDamage = 0;
+	bonusPenetration = 0;
+	bonusDamageAmplication = 0;
+
+	//BP에서 아이콘이 붙은 BP 파생으로 교체할 수 있다
+	buffs.Add(USniperIncapacitateDebuff::StaticClass());
+
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> MontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_ShotSingle"));
+	if (MontageAsset.Succeeded())
+	{
+		skillMontage = MontageAsset.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> CrouchMontageAsset(TEXT("/Game/Animation/Soldier/AM_Soldier_ShotSingle_Crouch"));
+	if (CrouchMontageAsset.Succeeded())
+	{
+		crouchSkillMontage = CrouchMontageAsset.Object;
+	}
+}

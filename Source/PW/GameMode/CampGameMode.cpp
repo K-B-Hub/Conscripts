@@ -65,13 +65,17 @@ void ACampGameMode::SpawnRoster()
 			spawnPoints.Num(), roster.Num());
 	}
 
+	//못 선 인원은 출발 시 로스터에서 빠지므로 겹쳐도 반드시 세운다
+	FActorSpawnParameters params;
+	params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
 	for (const FAllyRunState& state : roster)
 	{
 		ACampSpawnPoint* point = TakeFreePoint();
 		if (!point || !state.AllyClass) continue;
 
 		AAllyCharacterBase* ally = GetWorld()->SpawnActor<AAllyCharacterBase>(
-			state.AllyClass, point->GetActorLocation(), point->GetActorRotation());
+			state.AllyClass, point->GetActorLocation(), point->GetActorRotation(), params);
 		if (!ally) continue;
 
 		ally->RestoreRunState(state);
@@ -120,8 +124,12 @@ AAllyCharacterBase* ACampGameMode::AddRecruit(TSubclassOf<AAllyCharacterBase> ch
 	ACampSpawnPoint* point = TakeFreePoint();
 	if (!point || !characterClass) return nullptr;
 
+	//SpawnRoster와 같은 이유
+	FActorSpawnParameters params;
+	params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
 	AAllyCharacterBase* ally = GetWorld()->SpawnActor<AAllyCharacterBase>(
-		characterClass, point->GetActorLocation(), point->GetActorRotation());
+		characterClass, point->GetActorLocation(), point->GetActorRotation(), params);
 	if (!ally) return nullptr;
 
 	//ForceLevelUpTo가 확률 성장을 굴리고 레벨당 강화를 대기 큐에 쌓는다

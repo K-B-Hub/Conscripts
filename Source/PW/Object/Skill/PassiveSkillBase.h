@@ -79,6 +79,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
 	bool bAllowThrowCritical = false;
 
+	//치명타 굴림이 실패하면 한 번 더 굴린다, 보유만 해도 적용되며 확률로 환산해 예측값에도 반영된다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stat|Combat")
+	bool bExtraCriticalRoll = false;
+
 	//패시브 스킬의 타입, Stat일 경우에는 별도의 검사 필요x, Conditional이나 Reactive 면 EConditionalType이나 EReactiveType에 따라 검사 후 Execute 필요
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PassiveType")
 	EPassiveType passiveType = EPassiveType::Stat;
@@ -94,6 +98,10 @@ public:
 	virtual void Execute_AfterDamage(ACharacterBase* target) {}
 	//처치 후 패시브 실행
 	virtual void Execute_AfterSlay(FVector slainLocation) {}
+	//적의 공격을 회피한 후 패시브 실행, 소지자가 피격자
+	virtual void Execute_AfterEvade(ACharacterBase* attacker) {}
+	//치명타로 피해를 준 후 패시브 실행, dealtDamage는 실제로 깎인 체력
+	virtual void Execute_AfterCritical(ACharacterBase* target, int32 dealtDamage) {}
 	//조건부 패시브 실행
 	virtual void Execute_Conditional() {}
 	//치사 피해 직전 조건 검사, true를 반환하면 체력 1로 생존
