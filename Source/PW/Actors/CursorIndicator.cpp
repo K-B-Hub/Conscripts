@@ -141,7 +141,7 @@ void ACursorIndicator::UpdatePathDistance()
 
 	UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(
 		GetWorld(),
-		activeUnit->GetActorLocation(),
+		activeUnit->GetNavAgentLocation(), //발밑 기준, 캡슐 중심은 투영 높이를 넘는다
 		GetActorLocation()
 	);
 

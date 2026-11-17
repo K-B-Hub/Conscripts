@@ -4,12 +4,35 @@
 #include "PW.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameMode/BattleGameMode.h"
+#include "Object/Skill/PassiveSkillBase.h"
+#include "Object/Buff/BuffBase.h"
+#include "ActorComponent/BuffComponent.h"
+#include "ActorComponent/TerrainComponent.h"
+#include "Actors/Terrain/TerrainBase.h"
 #include "Widget/HealthWidget.h"
 #include "Widget/CampDialogueWidget.h"
 #include "Components/WidgetComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimSequence.h"
+
+//패시브·버프·지형 공통 스탯 필드의 가감을 n번만큼 스냅샷에서 뺀다
+template <typename TSource>
+static void SubtractCommonStatDelta(FAllyRunState& state, const TSource* src, int32 n)
+{
+	state.MaxHp -= src->hp * n;
+	state.Atk -= src->atk * n;
+	state.Speed -= src->speed * n;
+	state.Skill -= src->skill * n;
+	state.Def -= src->def * n;
+	state.Mentality -= src->mentality * n;
+	state.MovingPoint -= src->movingPoint * n;
+	state.ActionPoint -= src->actionPoint * n;
+	state.DamageReduction -= src->damageReduction * n;
+	state.DamageAmplification -= src->damageAmplification * n;
+	state.Penetration -= src->penetration * n;
+	state.Sight -= src->sight * n;
+}
 
 AAllyCharacterBase::AAllyCharacterBase()
 {
@@ -108,6 +131,37 @@ FAllyRunState AAllyCharacterBase::CaptureRunState() const
 	//턴이 오지 않아 못 고른 강화, 저장하지 않으면 레벨만 오른 채 선택권이 사라진다
 	state.PendingUpgradeLevels = pendingUpgradeLevels;
 
+	//조건부 패시브 가감은 전장 상황값이라 빼고 저장, 복원 때 다시 평가해 건다
+	for (const TPair<TWeakObjectPtr<const UPassiveSkillBase>, int32>& pair : GetPassiveDeltaStacks())
+	{
+		const UPassiveSkillBase* p = pair.Key.Get();
+		if (!p) continue;
+		const int32 n = pair.Value;
+		SubtractCommonStatDelta(state, p, n);
+		state.Hp -= p->hp * n;
+		state.MaxBattleResource -= p->maxBattleResource * n;
+		state.BattleResource -= p->maxBattleResource * n;
+		state.CriticalDamage -= p->criticalDamage * n;
+	}
+
+	//버프·지형 가감도 전투 중 일시값이라 빼고 저장
+	if (const UBuffComponent* bc = GetBuffComponent())
+	{
+		for (const UBuffBase* b : bc->GetActiveBuffs())
+		{
+			if (!b) continue;
+			SubtractCommonStatDelta(state, b, 1);
+			state.CriticalDamage -= b->criticalDamage;
+		}
+	}
+	if (const UTerrainComponent* tc = GetTerrainComponent())
+	{
+		for (const ATerrainBase* t : tc->GetCurrentTerrains())
+		{
+			if (t) SubtractCommonStatDelta(state, t, 1);
+		}
+	}
+
 	return state;
 }
 
@@ -128,6 +182,20 @@ void AAllyCharacterBase::RestoreRunState(const FAllyRunState& state)
 
 	//못 고른 강화 큐, 다음 전투 첫 턴의 InitTurn이 기존 경로로 소비한다
 	pendingUpgradeLevels = state.PendingUpgradeLevels;
+
+	//조건부 패시브가 1)과 BeginPlay에서 건 가감을 걷어 둔다, 2)의 대입이 지우면 래치만 켜진 채 남는다
+	const TMap<TWeakObjectPtr<const UPassiveSkillBase>, int32> conditionalStacks = GetPassiveDeltaStacks();
+	for (const TPair<TWeakObjectPtr<const UPassiveSkillBase>, int32>& pair : conditionalStacks)
+	{
+		for (int32 i = 0; i < pair.Value; ++i) ApplyPassiveStatDelta(pair.Key.Get(), -1);
+	}
+	//스폰 시 겹친 지형과 그 진입 버프도 같은 이유로 걷어 둔다
+	TArray<TObjectPtr<UBuffBase>> buffs;
+	if (UBuffComponent* bc = GetBuffComponent()) buffs = bc->GetActiveBuffs();
+	for (const UBuffBase* b : buffs) ApplyBuffDelta(b, -1);
+	TArray<TObjectPtr<ATerrainBase>> terrains;
+	if (UTerrainComponent* tc = GetTerrainComponent()) terrains = tc->GetCurrentTerrains();
+	for (const ATerrainBase* t : terrains) ApplyTerrainStatDelta(t, -1);
 
 	//2) 베이스 스탯 대입. 대입은 멱등이라 BeginPlay 기본 패시브와 1)의 이중 가산이 함께 사라진다
 	level = state.Level;
@@ -153,6 +221,14 @@ void AAllyCharacterBase::RestoreRunState(const FAllyRunState& state)
 	hp = FMath::Clamp(state.Hp, 1, maxHp);
 	stress = state.Stress;
 	battleResource = FMath::Clamp(state.BattleResource, 0, maxBattleResource);
+
+	//걷어 둔 조건부·버프·지형 가감을 대입된 베이스 위에 다시 건다
+	for (const TPair<TWeakObjectPtr<const UPassiveSkillBase>, int32>& pair : conditionalStacks)
+	{
+		for (int32 i = 0; i < pair.Value; ++i) ApplyPassiveStatDelta(pair.Key.Get(), +1);
+	}
+	for (const UBuffBase* b : buffs) ApplyBuffDelta(b, +1);
+	for (const ATerrainBase* t : terrains) ApplyTerrainStatDelta(t, +1);
 
 	//턴 시작 전이므로 현재치는 최대치에서 출발
 	currentMovingPoint = movingPoint;

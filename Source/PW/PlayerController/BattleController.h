@@ -238,7 +238,7 @@ protected:
 
 	//담을 지점마다 화면 끝까지 둘 여유, 캐릭터 몸체와 이펙트가 잘리지 않게
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill")
-	float skillCameraFramePadding = 250.f;
+	float skillCameraFramePadding = 98.f * CharacterScale;
 
 	//화면 아래 HUD가 덮는 높이 비율, 이 아래로는 담지 않는다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill", meta = (ClampMin = "0.0", ClampMax = "0.8"))
@@ -246,7 +246,7 @@ protected:
 
 	//연출 카메라 거리 상한, 넘으면 먼 대상부터 프레임에서 뺀다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill")
-	float skillCameraMaxDistance = 9000.f;
+	float skillCameraMaxDistance = 35.f * CmPerMeter;
 
 	//연출 카메라로 넘어가는 시간, 시전 몽타주는 이만큼 늦게 시작한다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill", meta = (ClampMin = "0.0"))
@@ -393,7 +393,7 @@ private:
 
 	//배치 시 지면에서 띄울 높이, 캡슐이 지면에 박히지 않게 하고 중력으로 안착시킨다
 	UPROPERTY(EditDefaultsOnly, Category = "Deploy")
-	float deploySpawnZOffset = 240.f;
+	float deploySpawnZOffset = 94.f * CharacterScale;
 
 	//전투 결과 위젯 클래스
 	UPROPERTY(EditDefaultsOnly, Category = "UI")

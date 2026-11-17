@@ -161,6 +161,16 @@ void USettingsWidget::RefreshFromSettings(const UPWGameUserSettings* source)
 		SkillCameraCombo->SetSelectedIndex(static_cast<int32>(source->GetSkillCameraMode()));
 	}
 
+	if (SkillBannerCombo)
+	{
+		SkillBannerCombo->ClearOptions();
+		for (const FString& label : SkillCameraLabels())
+		{
+			SkillBannerCombo->AddOption(label);
+		}
+		SkillBannerCombo->SetSelectedIndex(static_cast<int32>(source->GetSkillBannerMode()));
+	}
+
 	if (CameraMoveSpeedCombo)
 	{
 		const TArray<float>& scales = UPWGameUserSettings::GetCameraMoveSpeedOptions();
@@ -313,6 +323,12 @@ void USettingsWidget::HandleApplyClicked()
 	if (SkillCameraLabels().IsValidIndex(skillCameraIndex))
 	{
 		settings->SetSkillCameraMode(static_cast<ESkillCameraMode>(skillCameraIndex));
+	}
+
+	const int32 skillBannerIndex = SkillBannerCombo ? SkillBannerCombo->GetSelectedIndex() : INDEX_NONE;
+	if (SkillCameraLabels().IsValidIndex(skillBannerIndex))
+	{
+		settings->SetSkillBannerMode(static_cast<ESkillCameraMode>(skillBannerIndex));
 	}
 
 	const TArray<float>& cameraScales = UPWGameUserSettings::GetCameraMoveSpeedOptions();

@@ -29,6 +29,7 @@
 #include "DataAsset/MissionData.h"
 #include "NavigationSystem.h"
 #include "Components/CapsuleComponent.h"
+#include "LandscapeProxy.h"
 
 ABattleGameMode::ABattleGameMode()
 {
@@ -40,6 +41,8 @@ void ABattleGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
+	RestrictDecalsToLandscape();
+
 	//모든 액터의 BeginPlay 완료를 보장하기 위해 다음 틱으로 지연
 	GetWorldTimerManager().SetTimerForNextTick([this]()
 	{
@@ -48,6 +51,20 @@ void ABattleGameMode::BeginPlay()
 		bEnemiesSpawned = true;
 		StartDeployPhase();
 	});
+}
+
+void ABattleGameMode::RestrictDecalsToLandscape()
+{
+	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+	{
+		if (It->IsA<ALandscapeProxy>()) continue;
+
+		TInlineComponentArray<UPrimitiveComponent*> prims(*It);
+		for (UPrimitiveComponent* prim : prims)
+		{
+			prim->SetReceivesDecals(false);
+		}
+	}
 }
 
 void ABattleGameMode::StartDeployPhase()
@@ -124,6 +141,9 @@ void ABattleGameMode::StartBattlePhase()
 		ApplyEnemyLevelScaling();
 
 		BuildTurnOrder();
+
+		//배치 중엔 아군·적 배열이 비어 스폰 시 평가가 틀리므로 배치 위치 기준으로 재평가
+		BroadcastMoveComplete();
 
 		//지속 HUD 생성 통지, 턴 순서 구성 뒤 첫 턴 시작 전이어야 한다
 		//뒤여야 하는 이유 — HUD가 생성 시점의 턴 순서를 당겨올 수 있다
@@ -855,6 +875,8 @@ float ABattleGameMode::BeginAction(ACharacterBase* actor, const UActiveSkillBase
 	actionActor = actor;
 	bTurnOwnerDiedInAction = false;
 
+	if (skill) OnSkillAnnounced.Broadcast(actor, skill);
+
 	ABattleController* BC = Cast<ABattleController>(GetWorld()->GetFirstPlayerController());
 	return BC ? BC->BeginSkillCamera(actor, skill, framePoints) : 0.f;
 }
@@ -1095,10 +1117,8 @@ void ABattleGameMode::ApplyStressEvent(ACharacterBase* Target)
 	}
 	else if (picked->IsChildOf(UPassiveSkillBase::StaticClass()))
 	{
-		if (UPassiveSkillComponent* PSC = Target->GetPassiveSkillComponent())
-		{
-			PSC->AddPassive(picked);
-		}
+		//습득 목록에 남겨야 다음 전투 복원 때 재등록된다
+		Target->AcquireUpgrade(picked);
 	}
 	else
 	{

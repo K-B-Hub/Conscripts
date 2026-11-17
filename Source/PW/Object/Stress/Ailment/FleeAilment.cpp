@@ -47,7 +47,7 @@ void UFleeAilment::Execute(ACharacterBase* affected)
 	}
 
 	UNavigationPath* path = UNavigationSystemV1::FindPathToLocationSynchronously(
-		ally->GetWorld(), ally->GetActorLocation(), destination);
+		ally->GetWorld(), ally->GetNavAgentLocation(), destination);
 	if (!path || path->PathPoints.Num() < 2)
 	{
 		ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
