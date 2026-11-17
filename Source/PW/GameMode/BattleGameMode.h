@@ -56,6 +56,8 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTurnOrderRebuilt, const TArray<ACharacte
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnChanged, int32);
 //턴 전환 알림 (턴 주인), 배너가 구독
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnAnnounced, ACharacterBase*);
+//스킬 사용 알림 (시전자, 스킬), 스킬 배너가 구독
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnSkillAnnounced, ACharacterBase*, const UActiveSkillBase*);
 //Deploy 페이즈 진입 시 통지, 컨트롤러가 배치 위젯을 띄운다
 DECLARE_MULTICAST_DELEGATE(FOnDeployPhaseStarted);
 //전투 페이즈 진입 시 통지, 컨트롤러가 지속 HUD를 띄운다
@@ -81,6 +83,9 @@ public:
 
 	//턴 전환 알림
 	FOnTurnAnnounced OnTurnAnnounced;
+
+	//스킬 사용 알림
+	FOnSkillAnnounced OnSkillAnnounced;
 
 	//Deploy 페이즈 진입 통지
 	FOnDeployPhaseStarted OnDeployPhaseStarted;
@@ -266,6 +271,10 @@ private:
 	//적 분대 스폰, 앵커를 추첨해 분대 단위로 세운다
 	//Deploy 시작 전에 돌아야 플레이어가 적 배치를 보고 아군을 놓을 수 있다
 	void SpawnEnemySquads();
+
+	//랜드스케이프 외 모든 표면의 데칼 수신을 끈다, 범위 표시가 지면에만 그려지도록
+	//이후 스폰되는 캐릭터는 CharacterBase가 직접 끈다
+	void RestrictDecalsToLandscape();
 
 	//앵커 하나에 분대 하나를 세운다, 실제로 세운 인원 수를 반환
 	int32 SpawnSquadAt(const ASquadSpawnPoint* anchor, const USquadData* squad);

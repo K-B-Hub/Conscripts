@@ -99,7 +99,7 @@ bool UAINavigationHelper::CanReach(const ACharacterBase* Mover, const FVector& T
 	const float budgetCm = Mover->GetCurrentMovingPoint() * CmPerMeter;
 	if (budgetCm <= 0.f) return false;
 
-	const FVector from = Mover->GetActorLocation();
+	const FVector from = Mover->GetNavAgentLocation();
 
 	//직선거리 초과 시 패스파인딩 생략, 지형 배율은 비용을 늘리기만 하므로 이 조기 반환은 안전
 	const float straightCm = FVector::Dist(from, Target);

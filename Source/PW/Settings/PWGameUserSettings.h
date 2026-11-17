@@ -6,7 +6,7 @@
 #include "GameFramework/GameUserSettings.h"
 #include "PWGameUserSettings.generated.h"
 
-//스킬 연출 카메라를 쓸 시전자 진영, 설정 화면 선택지 순서와 같다
+//시전자 진영 필터, 스킬 연출 카메라와 스킬 배너가 함께 쓴다, 설정 화면 선택지 순서와 같다
 UENUM()
 enum class ESkillCameraMode : uint8
 {
@@ -45,6 +45,10 @@ public:
 	ESkillCameraMode GetSkillCameraMode() const;
 	void SetSkillCameraMode(ESkillCameraMode newMode) { skillCameraMode = newMode; }
 
+	//누가 어떤 스킬을 썼는지 띄우는 배너를 어느 진영 시전에 쓸지
+	ESkillCameraMode GetSkillBannerMode() const;
+	void SetSkillBannerMode(ESkillCameraMode newMode) { skillBannerMode = newMode; }
+
 	//설정 화면이 제시할 배속 선택지, 오름차순 전제
 	//저장값이 인덱스가 아니라 배율 자체라 목록이 바뀌어도 기존 ini의 의미가 유지된다
 	static const TArray<float>& GetEnemyTurnSpeedOptions();
@@ -75,6 +79,9 @@ private:
 
 	UPROPERTY(config)
 	ESkillCameraMode skillCameraMode = ESkillCameraMode::All;
+
+	UPROPERTY(config)
+	ESkillCameraMode skillBannerMode = ESkillCameraMode::EnemyOnly;
 
 	UPROPERTY(config)
 	float cameraMoveSpeedScale = 1.f;

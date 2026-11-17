@@ -86,6 +86,9 @@ protected:
 	//선택지 순서가 ESkillCameraMode와 같다
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UComboBoxString> SkillCameraCombo;
+	//선택지는 SkillCameraCombo와 같다, WBP에 행을 놓기 전에도 컴파일되도록 옵션
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UComboBoxString> SkillBannerCombo;
 	//WBP에 행을 놓기 전에도 컴파일되도록 옵션
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UComboBoxString> CameraMoveSpeedCombo;

@@ -15,6 +15,7 @@ void UPWGameUserSettings::SetToDefaults()
 	enemyTurnSpeed = 1.f;
 	bEnemyTurnCameraFollow = true;
 	skillCameraMode = ESkillCameraMode::All;
+	skillBannerMode = ESkillCameraMode::EnemyOnly;
 	cameraMoveSpeedScale = 1.f;
 	masterVolume = 1.f;
 	musicVolume = 1.f;
@@ -32,6 +33,12 @@ ESkillCameraMode UPWGameUserSettings::GetSkillCameraMode() const
 {
 	//범위 밖 값은 기본값으로
 	return skillCameraMode <= ESkillCameraMode::All ? skillCameraMode : ESkillCameraMode::All;
+}
+
+ESkillCameraMode UPWGameUserSettings::GetSkillBannerMode() const
+{
+	//범위 밖 값은 기본값으로
+	return skillBannerMode <= ESkillCameraMode::All ? skillBannerMode : ESkillCameraMode::EnemyOnly;
 }
 
 float UPWGameUserSettings::GetEnemyTurnSpeed() const

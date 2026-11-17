@@ -55,7 +55,7 @@ void UConfusionAilment::Execute(ACharacterBase* affected)
 	}
 
 	UNavigationPath* path = UNavigationSystemV1::FindPathToLocationSynchronously(
-		ally->GetWorld(), ally->GetActorLocation(), castFrom);
+		ally->GetWorld(), ally->GetNavAgentLocation(), castFrom);
 	if (!path || path->PathPoints.Num() < 2)
 	{
 		ScheduleWithPacing(ally, [](ACharacterBase* character) { character->RequestEndTurn(); });
@@ -162,7 +162,7 @@ bool UConfusionAilment::FindCastPosition(AAllyCharacterBase* ally, const UActive
 	if (range <= 0.f) return false;
 
 	UNavigationPath* path = UNavigationSystemV1::FindPathToLocationSynchronously(
-		ally->GetWorld(), allyLoc, targetLoc);
+		ally->GetWorld(), ally->GetNavAgentLocation(), targetLoc);
 	if (!path || path->PathPoints.Num() < 2) return false;
 
 	//경로를 따라가며 사거리에 진입하는 첫 지점을 시전 지점으로, 필요한 이동을 최소화

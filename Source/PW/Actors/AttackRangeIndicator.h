@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "PW.h"
 #include "AttackRangeIndicator.generated.h"
 
 class UDecalComponent;
@@ -104,11 +105,11 @@ private:
 
 	//Ray/Cone 윤곽선 두께(cm), 형태와 무관하게 같은 두께로 보이도록 머티리얼이 UV로 환산
 	UPROPERTY(EditDefaultsOnly, Category = "Decal")
-	float decalEdgeThickness = 10.f;
+	float decalEdgeThickness = 4.f * CharacterScale;
 
-	//데칼 투영 깊이
+	//데칼 투영 반깊이, Ray/Cone은 캡슐 중심에 붙으므로 지형 고저차까지 덮을 만큼
 	UPROPERTY(EditDefaultsOnly, Category = "Decal")
-	float decalProjectionDepth = 500.f;
+	float decalProjectionDepth = 2500.f;
 
 	//비범위 스킬이 커서 밑 대상을 집는 반경
 	UPROPERTY(EditDefaultsOnly, Category = "Decal")

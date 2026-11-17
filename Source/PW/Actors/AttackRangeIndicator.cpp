@@ -508,7 +508,7 @@ void AAttackRangeIndicator::ComputeOptimalMovePoint()
 	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
 	if (!NavSys) return;
 
-	const FVector CasterLocation = caster->GetActorLocation();
+	const FVector CasterLocation = caster->GetNavAgentLocation();
 	const FVector TargetLocation = GetActorLocation();
 
 	//시전자 → 인디케이터 위치까지 NavMesh 경로 계산

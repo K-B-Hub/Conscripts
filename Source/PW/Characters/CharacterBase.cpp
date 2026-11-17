@@ -117,6 +117,9 @@ ACharacterBase::ACharacterBase()
 	WeaponMeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMeshComp->SetupAttachment(GetMesh(), FName("WeaponSocket_R"));
 	WeaponMeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	//범위 표시 데칼이 몸에 칠해지지 않게
+	GetMesh()->SetReceivesDecals(false);
+	WeaponMeshComp->SetReceivesDecals(false);
 	
 	skillComponent = CreateDefaultSubobject<USkillComponent>(TEXT("SkillComponent"));
 	if (skillComponent)
@@ -246,6 +249,7 @@ void ACharacterBase::ApplyAppearance()
 		//판정은 캡슐 몫, 파츠는 보이기만 한다
 		comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		comp->SetCanEverAffectNavigation(false);
+		comp->SetReceivesDecals(false);
 		comp->RegisterComponent();
 		//애니메이션은 리더만 평가하고 파츠는 본 트랜스폼을 빌려 쓴다
 		comp->SetLeaderPoseComponent(leader);
@@ -274,6 +278,7 @@ void ACharacterBase::ApplyAppearance()
 		ApplyMaterialOverrides(comp, attachment.Materials);
 		comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		comp->SetCanEverAffectNavigation(false);
+		comp->SetReceivesDecals(false);
 		comp->RegisterComponent();
 		//자체 스켈레톤이라 리더 포즈 대신 단일 애니로 자세를 잡는다
 		if (attachment.SkeletalMesh && attachment.Animation)
