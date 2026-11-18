@@ -9,7 +9,7 @@
 USpecialForcesChainCritical::USpecialForcesChainCritical()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesChainCritical_Name", "연쇄 치명");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesChainCritical_Description", "치명타 적중 시 2턴간 치명 +10(최대 3중첩)");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesChainCritical_Description", "치명타 적중 시 2턴간 치명 +5(최대 3중첩)");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Reactive;

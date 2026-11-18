@@ -6,7 +6,7 @@
 USpecialForcesEvasiveManeuver::USpecialForcesEvasiveManeuver()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesEvasiveManeuver_Name", "기동 회피");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesEvasiveManeuver_Description", "이번 턴에 이동했다면 다음 턴까지 회피 +15");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesEvasiveManeuver_Description", "이번 턴에 이동했다면 다음 턴까지 회피 +10");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Conditional;
@@ -16,7 +16,7 @@ USpecialForcesEvasiveManeuver::USpecialForcesEvasiveManeuver()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	evasion = 15.f;
+	evasion = 10.f;
 }
 
 void USpecialForcesEvasiveManeuver::Execute_Conditional()

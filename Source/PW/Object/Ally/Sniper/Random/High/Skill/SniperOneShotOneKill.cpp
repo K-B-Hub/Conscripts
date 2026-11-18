@@ -6,7 +6,7 @@
 USniperOneShotOneKill::USniperOneShotOneKill()
 {
 	skillName = NSLOCTEXT("Skill", "SniperOneShotOneKill_Name", "원샷 원킬");
-	skillDescription = NSLOCTEXT("Skill", "SniperOneShotOneKill_Description", "체력이 50% 이하인 적 원거리 공격 시 주는 피해 +25%, 치명 +15");
+	skillDescription = NSLOCTEXT("Skill", "SniperOneShotOneKill_Description", "체력이 50% 이하인 적 원거리 공격 시 주는 피해 +15%, 치명 +10");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Reactive;
@@ -16,8 +16,8 @@ USniperOneShotOneKill::USniperOneShotOneKill()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	damageAmplification = 25;
-	critical = 15.f;
+	damageAmplification = 15;
+	critical = 10.f;
 }
 
 bool USniperOneShotOneKill::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)

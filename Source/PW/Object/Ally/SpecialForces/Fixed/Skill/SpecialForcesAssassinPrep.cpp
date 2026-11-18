@@ -7,7 +7,7 @@
 USpecialForcesAssassinPrep::USpecialForcesAssassinPrep()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesAssassinPrep_Name", "암살 준비");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesAssassinPrep_Description", "자신에게 2턴간 회피 +30, 치명 +15를 부여한다.");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesAssassinPrep_Description", "자신에게 2턴간 회피 +15, 치명 +10를 부여한다.");
 
 	//피해가 없는 자기 버프 스킬
 	skillType = ESkillType::Buff;

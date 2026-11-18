@@ -444,7 +444,16 @@ void USkillComponent::OnSkillImpact()
 	{
 		//지면 지점은 반높이만큼 올리고, 대상 지점은 이미 캡슐 중심
 		FVector to = pendingSkill->skillPointLocation;
-		if (pendingSkill->selectMode != ESelectMode::SinglePick)
+		if (UAreaShapeLibrary::IsCasterAnchored(pendingSkill))
+		{
+			//Ray/Cone은 시전 지점이 시전자라 조준 방향 형태 끝으로, AI는 조준이 없어 정면
+			const FVector origin = ownerCharacter->GetActorLocation();
+			FVector dir = bHasPendingAim ? (pendingAimPoint - origin).GetSafeNormal2D() : FVector::ZeroVector;
+			if (dir.IsNearlyZero()) dir = ownerCharacter->GetActorForwardVector().GetSafeNormal2D();
+			const float reach = pendingSkill->areaForm == EAreaForm::Ray ? pendingSkill->areaParameter2 : pendingSkill->areaParameter1;
+			to = origin + dir * reach;
+		}
+		else if (pendingSkill->selectMode != ESelectMode::SinglePick)
 		{
 			to.Z += ownerCharacter->GetSimpleCollisionHalfHeight();
 		}

@@ -5,7 +5,7 @@
 USniperSharpshooter::USniperSharpshooter()
 {
 	skillName = NSLOCTEXT("Skill", "SniperSharpshooter_Name", "명사수");
-	skillDescription = NSLOCTEXT("Skill", "SniperSharpshooter_Description", "명중 +10, 치명 +10, 탄환 최대치 +2");
+	skillDescription = NSLOCTEXT("Skill", "SniperSharpshooter_Description", "명중 +10, 치명 +5, 탄환 최대치 +2");
 
 	passiveType = EPassiveType::Stat;
 	reactiveType = EReactiveType::None;
@@ -14,6 +14,6 @@ USniperSharpshooter::USniperSharpshooter()
 	bAllowDuplicate = false;
 
 	accuracy = 10.f;
-	critical = 10.f;
+	critical = 5.f;
 	maxBattleResource = 2;
 }

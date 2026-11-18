@@ -55,6 +55,9 @@ private:
 	//도착 통지 1회 보장
 	bool bArrived = false;
 
+	//도착 후 궤적 잔상을 기다리는 시간(초), 궤적 입자 수명보다 길어야 한다
+	static constexpr float trailLingerTime = 1.f;
+
 	//도착 처리, 통지 후 자기 제거
 	void Arrive();
 };

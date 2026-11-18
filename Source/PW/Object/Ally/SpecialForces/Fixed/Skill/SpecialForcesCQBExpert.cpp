@@ -6,7 +6,7 @@
 USpecialForcesCQBExpert::USpecialForcesCQBExpert()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesCQBExpert_Name", "CQB 전문가");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCQBExpert_Description", "6m 이내의 적 공격 시 주는 피해 +15%");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCQBExpert_Description", "6m 이내의 적 공격 시 주는 피해 +10%");
 
 	passiveType = EPassiveType::Reactive;
 	reactiveType = EReactiveType::BeforeDamageCalc;
@@ -15,7 +15,7 @@ USpecialForcesCQBExpert::USpecialForcesCQBExpert()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	damageAmplification = 15;
+	damageAmplification = 10;
 }
 
 bool USpecialForcesCQBExpert::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)

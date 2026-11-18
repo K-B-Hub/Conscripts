@@ -7,7 +7,7 @@
 USpecialForcesAgility::USpecialForcesAgility()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesAgility_Name", "날렵함");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesAgility_Description", "주변 4m 내의 적 1명당 회피 +3(최대 15)");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesAgility_Description", "주변 4m 내의 적 1명당 회피 +2(최대 10)");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Conditional;
@@ -17,7 +17,7 @@ USpecialForcesAgility::USpecialForcesAgility()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	evasion = 3.f;
+	evasion = 2.f;
 }
 
 void USpecialForcesAgility::Execute_Conditional()

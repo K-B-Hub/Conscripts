@@ -34,6 +34,7 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> buffClass, ACharacterBase* c
 			if (existing && existing->GetClass() == buffClass)
 			{
 				existing->remainingTurn += buffCDO->buffTurn;
+				existing->PlayApplyEffect(ownerCharacter);
 				//턴 HUD 툴팁 갱신용
 				ownerCharacter->OnVitalsChanged.Broadcast();
 				return;

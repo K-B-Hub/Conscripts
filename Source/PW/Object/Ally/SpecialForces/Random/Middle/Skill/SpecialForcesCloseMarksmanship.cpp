@@ -6,7 +6,7 @@
 USpecialForcesCloseMarksmanship::USpecialForcesCloseMarksmanship()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesCloseMarksmanship_Name", "근거리 사격술");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCloseMarksmanship_Description", "4m 이내의 적 공격 시 치명타 피해 +30%");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCloseMarksmanship_Description", "4m 이내의 적 공격 시 치명타 피해 +15%");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;
@@ -16,7 +16,7 @@ USpecialForcesCloseMarksmanship::USpecialForcesCloseMarksmanship()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	criticalDamage = 0.3f;
+	criticalDamage = 0.15f;
 }
 
 bool USpecialForcesCloseMarksmanship::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)

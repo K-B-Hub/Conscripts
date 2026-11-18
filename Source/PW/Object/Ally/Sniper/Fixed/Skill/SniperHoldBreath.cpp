@@ -7,7 +7,7 @@
 USniperHoldBreath::USniperHoldBreath()
 {
 	skillName = NSLOCTEXT("Skill", "SniperHoldBreath_Name", "숨 참기");
-	skillDescription = NSLOCTEXT("Skill", "SniperHoldBreath_Description", "자신에게 2턴간 명중 +30, 치명 +20, 주는 피해 +20%를 부여한다.");
+	skillDescription = NSLOCTEXT("Skill", "SniperHoldBreath_Description", "자신에게 2턴간 명중 +15, 치명 +10, 주는 피해 +10%를 부여한다.");
 
 	//피해가 없는 자기 버프 스킬
 	skillType = ESkillType::Buff;

@@ -6,7 +6,7 @@
 USpecialForcesFullAuto::USpecialForcesFullAuto()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesFullAuto_Name", "전탄 사격");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesFullAuto_Description", "6m 내의 적을 4번 지정해 각각 공격력 × 1.0의 원거리 피해를 준다(같은 대상 중복 가능).\n명중 +75, 치명 +15");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesFullAuto_Description", "6m 내의 적을 4번 지정해 각각 공격력 × 0.9의 원거리 피해를 준다(같은 대상 중복 가능).\n명중 +75, 치명 +5");
 
 	//4회 사격을 멀티픽으로 표현, 같은 대상을 거듭 고르면 그만큼 중복 적중한다
 	skillType = ESkillType::Ranged;
@@ -21,9 +21,9 @@ USpecialForcesFullAuto::USpecialForcesFullAuto()
 	battleResourceCost = 4;
 	actionPointCost = 3;
 
-	damageRatio = 1.0f;
+	damageRatio = 0.9f;
 	bonusAccuracy = 75.f;
-	bonusCritical = 15.f;
+	bonusCritical = 5.f;
 	baseDamage = 0;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;

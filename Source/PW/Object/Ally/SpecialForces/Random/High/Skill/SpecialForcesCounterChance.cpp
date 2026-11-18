@@ -9,7 +9,7 @@
 USpecialForcesCounterChance::USpecialForcesCounterChance()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesCounterChance_Name", "역공의 기회");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCounterChance_Description", "공격을 회피하면 1턴간 명중 +15, 치명 +15");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCounterChance_Description", "공격을 회피하면 1턴간 명중 +10, 치명 +10");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Reactive;

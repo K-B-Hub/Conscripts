@@ -5,10 +5,10 @@
 USpecialForcesCounterStanceBuff::USpecialForcesCounterStanceBuff()
 {
 	buffName = NSLOCTEXT("Buff", "SpecialForcesCounterStanceBuff_Name", "역습 태세");
-	buffDescription = NSLOCTEXT("Buff", "SpecialForcesCounterStanceBuff_Description", "반격할 자세를 잡아 명중과 치명이 15 증가한다");
+	buffDescription = NSLOCTEXT("Buff", "SpecialForcesCounterStanceBuff_Description", "반격할 자세를 잡아 명중과 치명이 10 증가한다");
 
-	accuracy = 15.f;
-	critical = 15.f;
+	accuracy = 10.f;
+	critical = 10.f;
 
 	buffTurn = 1;
 	isStart = false;

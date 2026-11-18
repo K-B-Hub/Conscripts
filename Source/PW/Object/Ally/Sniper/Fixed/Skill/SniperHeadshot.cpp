@@ -6,7 +6,7 @@
 USniperHeadshot::USniperHeadshot()
 {
 	skillName = NSLOCTEXT("Skill", "SniperHeadshot_Name", "헤드샷");
-	skillDescription = NSLOCTEXT("Skill", "SniperHeadshot_Description", "22m 내의 적 1명에게 공격력 × 1.6의 원거리 피해를 준다.\n명중 +70, 치명 +40");
+	skillDescription = NSLOCTEXT("Skill", "SniperHeadshot_Description", "22m 내의 적 1명에게 공격력 × 1.35의 원거리 피해를 준다.\n명중 +70, 치명 +20");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -20,9 +20,9 @@ USniperHeadshot::USniperHeadshot()
 	battleResourceCost = 2;
 	actionPointCost = 3;
 
-	damageRatio = 1.6f;
+	damageRatio = 1.35f;
 	bonusAccuracy = 70.f;
-	bonusCritical = 40.f;
+	bonusCritical = 20.f;
 	baseDamage = 0;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;

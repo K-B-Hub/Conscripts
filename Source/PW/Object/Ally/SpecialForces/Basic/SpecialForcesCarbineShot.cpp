@@ -6,7 +6,7 @@
 USpecialForcesCarbineShot::USpecialForcesCarbineShot()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesCarbineShot_Name", "카빈 사격");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCarbineShot_Description", "8m 내의 적 1명에게 공격력 × 1.0의 원거리 피해를 준다.\n명중 +65");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCarbineShot_Description", "8m 내의 적 1명에게 공격력 × 1.0의 원거리 피해를 준다.\n명중 +55");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -21,7 +21,7 @@ USpecialForcesCarbineShot::USpecialForcesCarbineShot()
 	actionPointCost = 2;
 
 	damageRatio = 1.0f;
-	bonusAccuracy = 65.f;
+	bonusAccuracy = 55.f;
 	bonusCritical = 0.f;
 	baseDamage = 0;
 	bonusPenetration = 0;
