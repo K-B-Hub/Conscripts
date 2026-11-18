@@ -36,6 +36,8 @@ void UFormationWidget::SetupForMode()
 
 	//후보가 정원보다 적으면 채울 수 없는 화면에 갇히므로 정원을 후보 수로 줄인다
 	rosterCapacity = FMath::Min(gameInstance->GetInitialRosterSize(), characterPool.Num());
+
+	rosterMinimum = storyRouteId.IsNone() ? gameInstance->GetMinInitialRosterSize() : rosterCapacity;
 }
 
 void UFormationWidget::BuildJobList()
@@ -77,7 +79,7 @@ void UFormationWidget::BuildRosterList()
 
 void UFormationWidget::RefreshConfirmState()
 {
-	const bool bFilled = pendingRoster.Num() == rosterCapacity && rosterCapacity > 0;
+	const bool bFilled = pendingRoster.Num() >= rosterMinimum && rosterCapacity > 0;
 
 	if (CountText)
 	{

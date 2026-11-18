@@ -168,6 +168,9 @@ private:
 	//카메라 도착 대기 타이머
 	FTimerHandle presentationTimer;
 
+	//몽타주 블렌드인 동안 첫 프레임에 멈춰 두는 타이머
+	FTimerHandle montageHoldTimer;
+
 	//상체 숙이기 정점 커밋 타이머
 	FTimerHandle bowImpactTimer;
 

@@ -6,7 +6,7 @@
 USniperAimedSnipe::USniperAimedSnipe()
 {
 	skillName = NSLOCTEXT("Skill", "SniperAimedSnipe_Name", "조준 저격");
-	skillDescription = NSLOCTEXT("Skill", "SniperAimedSnipe_Description", "20m 내의 적 1명에게 공격력 × 1.05의 원거리 피해를 준다.\n명중 +60");
+	skillDescription = NSLOCTEXT("Skill", "SniperAimedSnipe_Description", "20m 내의 적 1명에게 공격력 × 1.05 + 2의 원거리 피해를 준다.\n명중 +70");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -21,9 +21,9 @@ USniperAimedSnipe::USniperAimedSnipe()
 	actionPointCost = 2;
 
 	damageRatio = 1.05f;
-	bonusAccuracy = 60.f;
+	bonusAccuracy = 70.f;
 	bonusCritical = 0.f;
-	baseDamage = 0;
+	baseDamage = 2;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 

@@ -452,10 +452,15 @@ void ABattleGameMode::SpawnEnemySquads()
 
 	//맵에 직접 놓인 적은 필수 배치로 본다, 놓았다는 것 자체가 그 자리에 있어야 한다는 의도다
 	//Deploy 이전이라 아군은 아직 없고, 랜덤 스폰도 시작되지 않아 여기서 세면 수동 배치만 잡힌다
+	//거리 판정 기준, 필수 배치 옆에도 분대가 붙지 않도록 함께 쌓는다
+	TArray<FVector> chosenLocations;
 	int32 requiredCount = 0;
 	for (TActorIterator<AEnemyBase> It(GetWorld()); It; ++It)
 	{
-		if (IsValid(*It)) ++requiredCount;
+		if (!IsValid(*It)) continue;
+
+		++requiredCount;
+		chosenLocations.Add(It->GetActorLocation());
 	}
 
 	//총원은 난이도가 정하고, 필수 배치를 뺀 나머지만 랜덤으로 채운다
@@ -463,14 +468,13 @@ void ABattleGameMode::SpawnEnemySquads()
 	const int32 totalCount = FMath::RandRange(range.Min, FMath::Max(range.Min, range.Max));
 	const int32 targetCount = FMath::Max(0, totalCount - requiredCount);
 
-	//가중치 계산의 기준, 뽑은 앵커의 위치만 쌓는다
-	TArray<FVector> chosenLocations;
 	int32 spawnedUnits = 0;
+	int32 squadCount = 0;
 
 	//분대를 쪼개지 않으므로 마지막 분대가 목표를 조금 넘길 수 있다
 	while (spawnedUnits < targetCount)
 	{
-		const int32 pick = PickWeightedAnchor(anchors, chosenLocations);
+		const int32 pick = PickSpacedAnchor(anchors, chosenLocations);
 		if (pick == INDEX_NONE) break;
 
 		const ASquadSpawnPoint* anchor = anchors[pick];
@@ -480,6 +484,7 @@ void ABattleGameMode::SpawnEnemySquads()
 
 		const USquadData* squad = squadPool[FMath::RandRange(0, squadPool.Num() - 1)];
 		spawnedUnits += SpawnSquadAt(anchor, squad);
+		++squadCount;
 
 		chosenLocations.Add(anchor->GetActorLocation());
 	}
@@ -492,7 +497,7 @@ void ABattleGameMode::SpawnEnemySquads()
 
 	UE_LOG(LogTemp, Log, TEXT("[BattleGameMode] 적 %d체 = 필수 %d + 랜덤 %d (총원 목표 %d, 분대 %d개, 남은 앵커 %d개)"),
 		requiredCount + spawnedUnits, requiredCount, spawnedUnits, totalCount,
-		chosenLocations.Num(), anchors.Num());
+		squadCount, anchors.Num());
 }
 
 int32 ABattleGameMode::SpawnSquadAt(const ASquadSpawnPoint* anchor, const USquadData* squad)
@@ -540,43 +545,31 @@ int32 ABattleGameMode::SpawnSquadAt(const ASquadSpawnPoint* anchor, const USquad
 	return spawned;
 }
 
-int32 ABattleGameMode::PickWeightedAnchor(const TArray<ASquadSpawnPoint*>& candidates, const TArray<FVector>& chosenLocations) const
+int32 ABattleGameMode::PickSpacedAnchor(const TArray<ASquadSpawnPoint*>& candidates, const TArray<FVector>& chosenLocations) const
 {
 	if (candidates.Num() == 0) return INDEX_NONE;
 
-	//첫 분대는 제약이 없다
-	if (chosenLocations.Num() == 0) return FMath::RandRange(0, candidates.Num() - 1);
-
-	TArray<float> weights;
-	weights.Reserve(candidates.Num());
-
-	for (const ASquadSpawnPoint* candidate : candidates)
+	//기존 분대·필수 배치와 minSquadDistance 이상 떨어진 앵커만 후보로 남긴다
+	TArray<int32> valid;
+	for (int32 i = 0; i < candidates.Num(); ++i)
 	{
-		//가장 가까운 기존 분대와의 거리만 본다, 이웃 수를 곱해 누적하지 않아 분대가 적당히 붙기도 한다
-		float nearest = TNumericLimits<float>::Max();
+		bool bFar = true;
 		for (const FVector& chosen : chosenLocations)
 		{
-			nearest = FMath::Min(nearest, FVector::Dist2D(candidate->GetActorLocation(), chosen));
+			if (FVector::Dist2D(candidates[i]->GetActorLocation(), chosen) < minSquadDistance)
+			{
+				bFar = false;
+				break;
+			}
 		}
 
-		//거리가 minSquadDistance에 차면 감쇠가 사라지고, 붙어 있으면 0에 가까워진다
-		weights.Add(FMath::Min(1.f, nearest / minSquadDistance));
+		if (bFar) valid.Add(i);
 	}
 
-	float total = 0.f;
-	for (float w : weights) total += w;
+	//남은 자리가 없으면 목표 인원에 못 미쳐도 멈춘다
+	if (valid.Num() == 0) return INDEX_NONE;
 
-	//전부 깎여 나갔으면 뽑을 자리가 없다
-	if (total <= 0.f) return INDEX_NONE;
-
-	float roll = FMath::FRand() * total;
-	for (int32 i = 0; i < weights.Num(); ++i)
-	{
-		roll -= weights[i];
-		if (roll <= 0.f) return i;
-	}
-
-	return candidates.Num() - 1;
+	return valid[FMath::RandRange(0, valid.Num() - 1)];
 }
 
 void ABattleGameMode::ApplyEnemyLevelScaling()
@@ -767,8 +760,8 @@ void ABattleGameMode::OnEnemyDeath(AEnemyBase* DeadEnemy, AAllyCharacterBase* Ki
 	{
 		if (!IsValid(Ally)) continue;
 
-		//처치자는 55, 나머지 아군은 20
-		const float baseExp = (Ally == Killer) ? 55.f : 20.f;
+		//처치자는 92, 나머지 아군은 33, 적 수 40% 감축분을 메우려 55·20에서 1/0.6배
+		const float baseExp = (Ally == Killer) ? 92.f : 33.f;
 		const int32 levelDiffRow = 4 - FMath::Clamp(DeadEnemy->GetLevel() - Ally->GetLevel(), -8, 4);
 		Ally->GainExp(DifficultyExpMod[difficultyIndex] * baseExp * unitMod * LevelDiffExpMod[levelDiffRow][difficultyIndex]);
 	}

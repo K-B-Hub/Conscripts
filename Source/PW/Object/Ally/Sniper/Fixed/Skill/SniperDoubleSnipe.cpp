@@ -6,7 +6,7 @@
 USniperDoubleSnipe::USniperDoubleSnipe()
 {
 	skillName = NSLOCTEXT("Skill", "SniperDoubleSnipe_Name", "연속 저격");
-	skillDescription = NSLOCTEXT("Skill", "SniperDoubleSnipe_Description", "18m 내의 적을 2번 지정해 각각 공격력 × 0.85의 원거리 피해를 준다(같은 대상 중복 가능).\n명중 +55");
+	skillDescription = NSLOCTEXT("Skill", "SniperDoubleSnipe_Description", "18m 내의 적을 2번 지정해 각각 공격력 × 0.85 + 2의 원거리 피해를 준다(같은 대상 중복 가능).\n명중 +65");
 
 	//2회 사격을 멀티픽으로 표현, 같은 대상을 거듭 고르면 그만큼 중복 적중한다
 	skillType = ESkillType::Ranged;
@@ -22,9 +22,9 @@ USniperDoubleSnipe::USniperDoubleSnipe()
 	actionPointCost = 2;
 
 	damageRatio = 0.85f;
-	bonusAccuracy = 55.f;
+	bonusAccuracy = 65.f;
 	bonusCritical = 0.f;
-	baseDamage = 0;
+	baseDamage = 2;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 

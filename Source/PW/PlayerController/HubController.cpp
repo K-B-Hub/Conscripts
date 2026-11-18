@@ -7,6 +7,7 @@
 #include "Widget/SettingsWidget.h"
 #include "Widget/FormationWidget.h"
 #include "Widget/HelpWidget.h"
+#include "Widget/TutorialWidget.h"
 #include "DataAsset/TutorialData.h"
 #include "GameInstance/PWGameInstance.h"
 #include "Run/RunProgress.h"
@@ -108,6 +109,19 @@ void AHubController::ChooseMode(EGameDifficulty mode)
 
 	gameInstance->SetDifficulty(mode);
 
+	//처음 고른 모드면 설명 카드를 먼저 띄우고 닫힐 때 넘어간다
+	const TObjectPtr<UTutorialData>* tutorial = modeTutorials.Find(mode);
+	if (UTutorialWidget* card = gameInstance->ShowTutorialOnce(this, tutorial ? tutorial->Get() : nullptr))
+	{
+		card->onClosed.BindUObject(this, &AHubController::EnterMode, mode);
+		return;
+	}
+
+	EnterMode(mode);
+}
+
+void AHubController::EnterMode(EGameDifficulty mode)
+{
 	//스토리는 줄기를 먼저 고르고, 나머지는 바로 편성으로
 	if (mode == EGameDifficulty::Stage)
 	{

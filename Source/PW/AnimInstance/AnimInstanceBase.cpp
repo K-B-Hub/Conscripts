@@ -24,6 +24,7 @@ void UAnimInstanceBase::NativeInitializeAnimation()
 		CachedWeaponMesh = Mesh;
 	}
 	charMesh = OwnerCharacter->GetMesh();
+	prevActorYaw = OwnerCharacter->GetActorRotation().Yaw;
 }
 
 void UAnimInstanceBase::NativeUpdateAnimation(float DeltaTime)
@@ -44,13 +45,19 @@ void UAnimInstanceBase::NativeUpdateAnimation(float DeltaTime)
 		float targetYaw = 0.f;
 		float targetPitch = 0.f;
 		FVector aimPoint;
-		if (speed < 1.f && !bIsAirborne && OwnerCharacter->GetAimPoint(aimPoint))
+		const float actorYaw = OwnerCharacter->GetActorRotation().Yaw;
+		const bool bAiming = speed < 1.f && !bIsAirborne && OwnerCharacter->GetAimPoint(aimPoint);
+		if (bAiming)
 		{
 			const FRotator toAim = (aimPoint - OwnerCharacter->GetActorLocation()).Rotation();
 			const FRotator delta = (toAim - OwnerCharacter->GetActorRotation()).GetNormalized();
 			targetYaw = FMath::Clamp(delta.Yaw, -90.f, 90.f);
 			targetPitch = FMath::Clamp(delta.Pitch, -45.f, 45.f);
+
+			//몸통이 돈 만큼 상체를 되돌려 월드 기준 조준을 유지한다, 보간 지연으로 상체가 앞질러 돌지 않게
+			aimYaw = FMath::Clamp(aimYaw - FMath::FindDeltaAngleDegrees(prevActorYaw, actorYaw), -90.f, 90.f);
 		}
+		prevActorYaw = actorYaw;
 		aimYaw = FMath::FInterpTo(aimYaw, targetYaw, DeltaTime, aimInterpSpeed);
 		aimPitch = FMath::FInterpTo(aimPitch, targetPitch, DeltaTime, aimInterpSpeed);
 

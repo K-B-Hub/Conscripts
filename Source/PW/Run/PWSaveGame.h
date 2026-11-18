@@ -80,7 +80,7 @@ public:
 	//해당 모드를 선택할 수 있는지, 스토리는 항상 개방이고 나머지는 스토리 1줄기 클리어 필요
 	bool IsModeUnlocked(EGameDifficulty mode) const;
 
-	//해당 줄기를 클리어했는지, 줄기 선택 화면의 표시용
+	//해당 줄기를 클리어했는지, 줄기 선택 화면의 잠금 판정용
 	bool IsStoryRouteCleared(FName routeId) const { return clearedStoryRoutes.Contains(routeId); }
 
 	//줄기 클리어 기록, 중복 클리어는 누적하지 않음

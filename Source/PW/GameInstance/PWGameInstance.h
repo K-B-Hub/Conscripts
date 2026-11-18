@@ -34,10 +34,10 @@ struct FEnemyCountRange
 	FEnemyCountRange(int32 inMin, int32 inMax) : Min(inMin), Max(inMax) {}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int32 Min = 25;
+	int32 Min = 15;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int32 Max = 35;
+	int32 Max = 21;
 };
 
 //레벨 전환 간 유지되는 런 상태 보관(난이도, 추후 캐릭터 상태·특전 등)
@@ -89,8 +89,11 @@ public:
 	//진행 중인 런의 후보 풀, 야영지·전투 증원이 쓴다
 	TArray<TSubclassOf<AAllyCharacterBase>> GetRunCharacterPool() const;
 
-	//로그라이크·악몽의 시작 편성 인원
+	//시작 편성 최대 인원
 	int32 GetInitialRosterSize() const { return initialRosterSize; }
+
+	//로그라이크·악몽의 시작 편성 최소 인원
+	int32 GetMinInitialRosterSize() const { return minInitialRosterSize; }
 
 	//로스터가 이 수를 넘지 못한다, 야영지 자리 수와 별개로 규칙으로 두는 상한
 	int32 GetMaxRosterSize() const { return maxRosterSize; }
@@ -142,7 +145,8 @@ public:
 	float GetLoadingMaxWaitSeconds() const { return loadingMaxWaitSeconds; }
 
 	//아직 안 본 튜토리얼이면 카드를 띄운다, 화면에 닿는 지점마다 호출
-	void ShowTutorialOnce(APlayerController* owner, const UTutorialData* tutorial);
+	//띄운 카드를 돌려준다, 안 띄웠으면 nullptr
+	UTutorialWidget* ShowTutorialOnce(APlayerController* owner, const UTutorialData* tutorial);
 
 	bool IsTutorialOpen() const;
 
@@ -203,9 +207,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
 	TArray<TSubclassOf<AAllyCharacterBase>> selectableJobs;
 
-	//로그라이크·악몽의 시작 편성 인원, 밸런스 값이라 에디터에서 조정
+	//시작 편성 최대 인원, 스토리는 이 수를 다 채워야 한다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
 	int32 initialRosterSize = 6;
+
+	//로그라이크·악몽은 이 수 이상이면 출발할 수 있다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")
+	int32 minInitialRosterSize = 3;
 
 	//로스터 상한, 야영지 자리가 모자라 못 세우는 것과 달리 이쪽은 의도된 규칙이다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")

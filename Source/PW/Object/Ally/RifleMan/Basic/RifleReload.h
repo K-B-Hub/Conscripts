@@ -22,5 +22,5 @@ public:
 protected:
 	//한 번에 보충할 탄창 수
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill|Reload")
-	int32 reloadAmount = 3;
+	int32 reloadAmount = 6;
 };

@@ -86,6 +86,9 @@ private:
 
 	USkeletalMeshComponent* charMesh = nullptr;
 
+	//직전 프레임 몸통 방향, 조준 중 몸통 회전량을 aimYaw에서 상쇄하는 기준
+	float prevActorYaw = 0.f;
+
 	//0이면 숙이기 없음
 	float bowTotalTime = 0.f;
 	float bowElapsed = 0.f;

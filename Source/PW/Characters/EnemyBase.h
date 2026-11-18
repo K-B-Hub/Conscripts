@@ -42,6 +42,9 @@ public:
 	float GetDetectionAngle() const { return detectionAngle; }
 	float GetProximityWaveRadius() const { return proximityWaveRadius; }
 
+	//근접 합류 파동 연출을 발밑에 1회 재생, 파동이 나가는 순간 AIController가 호출
+	void PlayProximityWaveEffect();
+
 	//보스 유닛 여부, 경험치 유닛 계수(보스 2 / 일반 1) 판정용
 	bool IsBoss() const { return bIsBoss; }
 
@@ -97,7 +100,7 @@ protected:
 
 	//부채꼴 반경
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
-	float detectionRadius = 12.f * CmPerMeter;
+	float detectionRadius = 8.f * CmPerMeter;
 
 	//부채꼴 전체 각도, 전방 기준 좌우 각각 절반씩
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection", meta = (ClampMin = "0.0", ClampMax = "360.0"))
@@ -109,7 +112,11 @@ protected:
 
 	//감지·피격 전환 시 근접 합류 파동 반경, 이 안의 같은 진영 캐릭터를 함께 전투로 전환
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
-	float proximityWaveRadius = 20.f * CmPerMeter;
+	float proximityWaveRadius = 11.f * CmPerMeter;
+
+	//근접 합류 파동 연출, 반경은 User 파라미터 WaveRadius(cm)로 넘긴다
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Detection")
+	TObjectPtr<UNiagaraSystem> proximityWaveEffect;
 
 	//전투 행동 결정, 전투 진입 후 자기 턴에 ExecuteTurn 호출
 	UPROPERTY(VisibleAnywhere, Category = "AI")

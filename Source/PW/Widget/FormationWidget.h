@@ -54,7 +54,7 @@ private:
 
 	void BuildJobList();
 	void BuildRosterList();
-	//편성 인원이 정원을 채웠을 때만 확정 가능
+	//편성 인원이 최소 인원 이상일 때만 확정 가능
 	void RefreshConfirmState();
 
 	//캐릭터 후보 클릭, 정원이 남아 있으면 편성에 추가
@@ -81,6 +81,9 @@ private:
 	//스토리 줄기 식별자, 스토리에서 들어왔는지와 뒤로 갈 화면을 함께 가리킨다
 	FName storyRouteId = NAME_None;
 
-	//채워야 할 인원, 후보가 정원보다 적으면 후보 수로 줄인다
+	//편성할 수 있는 최대 인원, 후보가 정원보다 적으면 후보 수로 줄인다
 	int32 rosterCapacity = 0;
+
+	//확정에 필요한 인원, 스토리는 정원 전부이고 나머지 모드는 설정된 최소 인원
+	int32 rosterMinimum = 0;
 };

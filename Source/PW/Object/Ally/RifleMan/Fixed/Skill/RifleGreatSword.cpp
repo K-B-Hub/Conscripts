@@ -6,7 +6,7 @@
 URifleGreatSword::URifleGreatSword()
 {
 	skillName = NSLOCTEXT("Skill", "RifleGreatSword_Name", "대검술");
-	skillDescription = NSLOCTEXT("Skill", "RifleGreatSword_Description", "1m 내의 적 1명에게 공격력 × 1.0 + 5의 근접 피해를 준다.\n명중 +90");
+	skillDescription = NSLOCTEXT("Skill", "RifleGreatSword_Description", "1m 내의 적 1명에게 공격력 × 1.0 + 7의 근접 피해를 준다.\n명중 +100");
 
 	skillType = ESkillType::Melee;
 	damageType = EDamageType::Normal;
@@ -21,9 +21,9 @@ URifleGreatSword::URifleGreatSword()
 	actionPointCost = 2;
 
 	damageRatio = 1.0f;
-	bonusAccuracy = 90.f;
+	bonusAccuracy = 100.f;
 	bonusCritical = 0.f;
-	baseDamage = 5;
+	baseDamage = 7;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 

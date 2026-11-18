@@ -316,6 +316,9 @@ void USkillComponent::StartPendingExecution(UActiveSkillBase* Skill, const TArra
 	{
 		pendingAimPoint = aimPoint;
 		bHasPendingAim = true;
+
+		//카메라 대기 동안 몸통을 돌려 둔다, 상체는 에임오프셋이 조준을 유지한다
+		if (ownerCharacter) ownerCharacter->BeginAimAlign();
 	}
 
 	//연출 카메라가 담을 지점, 시전자가 맨 앞이어야 프레이밍에서 빠지지 않는다
@@ -352,6 +355,21 @@ void USkillComponent::PlayPendingPresentation()
 	//대기 중 강제 커밋됐으면 연출 생략
 	if (!pendingAction) return;
 
+	//몸통이 다 돌 때까지 미룬다, 상체만 돌린 자세에서 공격 애니로 튀지 않게
+	if (ownerCharacter && !ownerCharacter->IsAimAligned())
+	{
+		presentationTimer = GetWorld()->GetTimerManager().SetTimerForNextTick(this, &USkillComponent::PlayPendingPresentation);
+		return;
+	}
+
+	//이동 등으로 회전이 중간에 풀렸으면 남은 각만 맞춘다
+	if (bHasPendingAim && ownerCharacter)
+	{
+		FVector dir = pendingAimPoint - ownerCharacter->GetActorLocation();
+		dir.Z = 0.f;
+		if (!dir.IsNearlyZero()) ownerCharacter->SetActorRotation(dir.Rotation());
+	}
+
 	UActiveSkillBase* Skill = pendingSkill;
 
 	//시전자에 붙여 이동·도약을 따라가게 함
@@ -383,6 +401,20 @@ void USkillComponent::PlayPendingPresentation()
 				FOnMontageEnded endDelegate;
 				endDelegate.BindUObject(this, &USkillComponent::OnSkillMontageEnded);
 				anim->Montage_SetEndDelegate(endDelegate, montage);
+
+				//블렌드인 동안 첫 프레임에 멈춰 공격 자세로 다 옮겨간 뒤 재생한다, 가중치는 멈춰도 오른다
+				const float blendIn = montage->BlendIn.GetBlendTime();
+				if (blendIn > 0.f)
+				{
+					anim->Montage_Pause(montage);
+
+					TWeakObjectPtr<UAnimInstance> weakAnim = anim;
+					TWeakObjectPtr<UAnimMontage> weakMontage = montage;
+					GetWorld()->GetTimerManager().SetTimer(montageHoldTimer, [weakAnim, weakMontage]()
+					{
+						if (weakAnim.IsValid() && weakMontage.IsValid()) weakAnim->Montage_Resume(weakMontage.Get());
+					}, blendIn, false);
+				}
 			}
 		}
 		else
@@ -487,8 +519,19 @@ void USkillComponent::PlayMuzzleEffects()
 				muzzleComp->SetUsingAbsoluteRotation(true);
 				muzzleComp->SetWorldRotation(ownerCharacter->GetActorRotation());
 				//목표까지 거리로 흩뿌림 길이를 맞춘다, 이 파라미터가 없는 시스템은 무시
-				muzzleComp->SetVariableFloat(TEXT("User.TargetDistance"),
-					FVector::Dist(muzzleComp->GetComponentLocation(), pendingSkill->skillPointLocation));
+				//Ray/Cone은 시전 지점이 시전자라 형태 끝까지의 길이를 쓰고, 부채꼴은 중심각도 넘긴다
+				if (UAreaShapeLibrary::IsCasterAnchored(pendingSkill))
+				{
+					const bool bRay = pendingSkill->areaForm == EAreaForm::Ray;
+					muzzleComp->SetVariableFloat(TEXT("User.TargetDistance"),
+						bRay ? pendingSkill->areaParameter2 : pendingSkill->areaParameter1);
+					if (!bRay) muzzleComp->SetVariableFloat(TEXT("User.ConeAngle"), pendingSkill->areaParameter2);
+				}
+				else
+				{
+					muzzleComp->SetVariableFloat(TEXT("User.TargetDistance"),
+						FVector::Dist(muzzleComp->GetComponentLocation(), pendingSkill->skillPointLocation));
+				}
 			}
 		}
 		if (pendingSkill->muzzleSound)
@@ -652,7 +695,7 @@ void USkillComponent::CommitPendingExecution()
 		{
 			if (effect)
 			{
-				UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), effect, skill->skillPointLocation);
+				SpawnFxAtLocation(GetWorld(), effect, skill->skillPointLocation);
 			}
 		}
 		if (skill->pointSound)

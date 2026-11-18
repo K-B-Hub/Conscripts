@@ -70,10 +70,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
 	TObjectPtr<UTutorialData> formationTutorial;
 
+	//모드를 처음 골랐을 때 띄울 설명, 키가 없으면 바로 다음 화면으로 간다
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	TMap<EGameDifficulty, TObjectPtr<UTutorialData>> modeTutorials;
+
 private:
 	//기존 화면을 제거하고 새 위젯을 생성해 표시, 생성된 위젯을 돌려준다
 	//반환값은 생성 직후 설정이 필요한 화면만 쓴다
 	UUserWidget* SwapScreen(TSubclassOf<UUserWidget> widgetClass);
+
+	//모드 확정 뒤 다음 화면으로 진행, 모드 설명 카드가 떴으면 닫힐 때 호출된다
+	void EnterMode(EGameDifficulty mode);
 
 	//현재 표시 중인 화면, 전환 시 제거 대상
 	UPROPERTY()

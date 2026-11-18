@@ -6,7 +6,7 @@
 USpecialForcesBreachShot::USpecialForcesBreachShot()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesBreachShot_Name", "돌입 사격");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesBreachShot_Description", "6m 내의 적 1명에게 공격력 × 1.0의 원거리 피해를 준다.\n명중 +75");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesBreachShot_Description", "6m 내의 적 1명에게 공격력 × 1.0 + 2의 원거리 피해를 준다.\n명중 +85");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -21,9 +21,9 @@ USpecialForcesBreachShot::USpecialForcesBreachShot()
 	actionPointCost = 2;
 
 	damageRatio = 1.0f;
-	bonusAccuracy = 75.f;
+	bonusAccuracy = 85.f;
 	bonusCritical = 0.f;
-	baseDamage = 0;
+	baseDamage = 2;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 

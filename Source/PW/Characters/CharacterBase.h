@@ -445,6 +445,10 @@ public:
 	bool IsAirborne() const { return bIsArcMoving; }
 	//스킬 조준 지점, SkillComponent 위임
 	bool GetAimPoint(FVector& OutPoint) const;
+	//데드존과 무관하게 조준 지점까지 몸통을 돌린다, 시전 확정 시 호출
+	void BeginAimAlign() { bAimBodyTurning = true; }
+	//몸통 회전과 회전 애니가 모두 끝났는지
+	bool IsAimAligned() const { return !bAimBodyTurning && !aimTurnMontage; }
 	//포물선 궤적을 3D로 따라 이동, bForced=외력: 이동 패시브 훅·완료 통지 생략. 낙하 피해는 양쪽 공통
 	virtual void MoveAlongArc(const TArray<FVector>& ArcPoints, bool bForced = false);
 	//원점→대상 수평 일직선 방향으로 밀쳐냄, 궤적 계산·포복 강제 해제 포함

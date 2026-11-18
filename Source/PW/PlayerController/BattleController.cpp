@@ -16,7 +16,6 @@
 #include "ActorComponent/SkillComponent.h"
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Object/Skill/ActiveSkillBase.h"
-#include "Object/Skill/AreaShapeLibrary.h"
 #include "GameMode/BattleGameMode.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/EnemyBase.h"
@@ -1328,19 +1327,9 @@ void ABattleController::OnUnitMovementCompleted()
 
 		AAttackRangeIndicator* Indicator = SkillComp->GetAttackRangeIndicator();
 
-		//인디케이터 방향으로 캐릭터 회전, Self는 제외
+		//몸통 회전은 SkillComponent가 시전 전에 보간한다
 		UActiveSkillBase* Skill = SkillComp->GetCurrentSkill();
 		if (!Skill) return;
-
-		if (Indicator && Skill->selectMode != ESelectMode::Self)
-		{
-			FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
-			Dir.Z = 0.f;
-			if (!Dir.IsNearlyZero())
-			{
-				activeUnit->SetActorRotation(Dir.Rotation());
-			}
-		}
 
 		if (Indicator) Indicator->Unlock();
 
@@ -1475,17 +1464,7 @@ void ABattleController::ExecuteSkill()
 
 		if (remainingPicks > 0) return;
 
-		//모든 선택 완료, 누적된 영향 대상으로 실행
-		if (Indicator)
-		{
-			FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
-			Dir.Z = 0.f;
-			if (!Dir.IsNearlyZero())
-			{
-				activeUnit->SetActorRotation(Dir.Rotation());
-			}
-		}
-
+		//모든 선택 완료, 누적된 영향 대상으로 실행, 몸통 회전은 SkillComponent가 보간한다
 		//밀치기 기준점용 시전 지점 기록
 		Skill->skillPointLocation = Indicator ? Indicator->GetActorLocation() : activeUnit->GetActorLocation();
 
@@ -1527,25 +1506,7 @@ void ABattleController::ExecuteSkill()
 		return;
 	}
 
-	//인디케이터 방향으로 캐릭터 회전, Self는 제외
-	if (Indicator && Skill->selectMode != ESelectMode::Self)
-	{
-		//Ray/Cone은 인디케이터가 시전자 위치에 겹쳐 방향 벡터를 못 쓰므로 인디케이터 회전을 그대로 사용
-		if (UAreaShapeLibrary::IsCasterAnchored(Skill))
-		{
-			activeUnit->SetActorRotation(Indicator->GetActorRotation());
-		}
-		else
-		{
-			FVector Dir = Indicator->GetActorLocation() - activeUnit->GetActorLocation();
-			Dir.Z = 0.f;
-			if (!Dir.IsNearlyZero())
-			{
-				activeUnit->SetActorRotation(Dir.Rotation());
-			}
-		}
-	}
-
+	//몸통 회전은 SkillComponent가 확정 시점 조준 지점으로 보간한다
 	//스킬 영향 대상은 오버랩 단계에서 EAreaTarget으로 이미 필터된 SkillComponent 목록 사용
 	const TArray<ACharacterBase*> Targets = SkillComp->GetCurrentTargets();
 	//SinglePick만 타겟 필수, Self/GroundPoint는 타겟 없이도 실행 가능
