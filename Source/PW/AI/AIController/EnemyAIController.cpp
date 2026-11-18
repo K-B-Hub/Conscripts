@@ -351,6 +351,9 @@ void AEnemyAIController::BroadcastProximityWave()
 	const float radius = enemy->GetProximityWaveRadius();
 	if (radius <= 0.f) return;
 
+	//합류자가 없어도 파동이 나간 것은 보여준다
+	enemy->PlayProximityWaveEffect();
+
 	int32 joined = 0;
 	for (AEnemyBase* other : gm->GetEnemies())
 	{

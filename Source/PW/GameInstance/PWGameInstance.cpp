@@ -26,9 +26,9 @@ namespace
 UPWGameInstance::UPWGameInstance()
 {
 	//난이도가 올라갈수록 전장 규모가 커진다
-	enemyCountByDifficulty.Add(EGameDifficulty::Stage, FEnemyCountRange(25, 35));
-	enemyCountByDifficulty.Add(EGameDifficulty::Roguelike, FEnemyCountRange(40, 50));
-	enemyCountByDifficulty.Add(EGameDifficulty::Nightmare, FEnemyCountRange(60, 70));
+	enemyCountByDifficulty.Add(EGameDifficulty::Stage, FEnemyCountRange(15, 21));
+	enemyCountByDifficulty.Add(EGameDifficulty::Roguelike, FEnemyCountRange(24, 30));
+	enemyCountByDifficulty.Add(EGameDifficulty::Nightmare, FEnemyCountRange(36, 42));
 }
 
 const FEnemyCountRange& UPWGameInstance::GetEnemyCountRange() const
@@ -127,21 +127,22 @@ void UPWGameInstance::SaveProgress()
 		saveGame->clearedStoryRoutes.Num());
 }
 
-void UPWGameInstance::ShowTutorialOnce(APlayerController* owner, const UTutorialData* tutorial)
+UTutorialWidget* UPWGameInstance::ShowTutorialOnce(APlayerController* owner, const UTutorialData* tutorial)
 {
-	if (!tutorial || tutorial->pages.Num() == 0 || !tutorialWidgetClass || !saveGame) return;
-	if (saveGame->seenTutorials.Contains(tutorial->tutorialId)) return;
+	if (!tutorial || tutorial->pages.Num() == 0 || !tutorialWidgetClass || !saveGame) return nullptr;
+	if (saveGame->seenTutorials.Contains(tutorial->tutorialId)) return nullptr;
 
 	//카드는 한 번에 하나만, 밀린 쪽은 기록되지 않아 다음에 다시 시도된다
-	if (IsTutorialOpen()) return;
+	if (IsTutorialOpen()) return nullptr;
 
 	UTutorialWidget* widget = CreateWidget<UTutorialWidget>(owner, tutorialWidgetClass);
-	if (!widget) return;
+	if (!widget) return nullptr;
 
 	//전투의 어떤 창보다 위, 창 띄우기 ZOrder는 BattleController::OpenDetailWidget 참고
 	widget->AddToViewport(30);
 	widget->Open(tutorial);
 	activeTutorial = widget;
+	return widget;
 }
 
 bool UPWGameInstance::IsTutorialOpen() const

@@ -7,7 +7,7 @@
 USniperLegShot::USniperLegShot()
 {
 	skillName = NSLOCTEXT("Skill", "SniperLegShot_Name", "다리 사격");
-	skillDescription = NSLOCTEXT("Skill", "SniperLegShot_Description", "18m 내의 적 1명에게 공격력 × 0.7의 원거리 피해를 주고 2턴간 이동력 -3m를 부여한다.\n명중 +60");
+	skillDescription = NSLOCTEXT("Skill", "SniperLegShot_Description", "18m 내의 적 1명에게 공격력 × 0.7 + 2의 원거리 피해를 주고 2턴간 이동력 -3m를 부여한다.\n명중 +70");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -22,9 +22,9 @@ USniperLegShot::USniperLegShot()
 	actionPointCost = 2;
 
 	damageRatio = 0.7f;
-	bonusAccuracy = 60.f;
+	bonusAccuracy = 70.f;
 	bonusCritical = 0.f;
-	baseDamage = 0;
+	baseDamage = 2;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 

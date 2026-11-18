@@ -19,6 +19,9 @@ class PW_API UTutorialWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
+	//닫기 통지, 닫힌 뒤 할 일은 여는 쪽이 정한다
+	FSimpleDelegate onClosed;
+
 	//첫 장부터 표시
 	void Open(const UTutorialData* inData);
 

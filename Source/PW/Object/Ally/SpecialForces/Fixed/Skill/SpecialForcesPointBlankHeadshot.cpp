@@ -6,7 +6,7 @@
 USpecialForcesPointBlankHeadshot::USpecialForcesPointBlankHeadshot()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesPointBlankHeadshot_Name", "근거리 헤드샷");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesPointBlankHeadshot_Description", "3m 내의 적 1명에게 공격력 × 1.05의 원거리 피해를 준다.\n명중 +60, 치명 +15");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesPointBlankHeadshot_Description", "3m 내의 적 1명에게 공격력 × 1.05 + 2의 원거리 피해를 준다.\n명중 +70, 치명 +15");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -21,9 +21,9 @@ USpecialForcesPointBlankHeadshot::USpecialForcesPointBlankHeadshot()
 	actionPointCost = 2;
 
 	damageRatio = 1.05f;
-	bonusAccuracy = 60.f;
+	bonusAccuracy = 70.f;
 	bonusCritical = 15.f;
-	baseDamage = 0;
+	baseDamage = 2;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 

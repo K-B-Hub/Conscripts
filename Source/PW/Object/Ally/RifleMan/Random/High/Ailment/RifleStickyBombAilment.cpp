@@ -5,7 +5,6 @@
 #include "Characters/AllyCharacterBase.h"
 #include "Characters/EnemyBase.h"
 #include "GameMode/BattleGameMode.h"
-#include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 
 URifleStickyBombAilment::URifleStickyBombAilment()
@@ -47,7 +46,7 @@ void URifleStickyBombAilment::Execute(ACharacterBase* affected)
 	{
 		if (effect)
 		{
-			UNiagaraFunctionLibrary::SpawnSystemAtLocation(affected, effect, explodeLocation);
+			SpawnFxAtLocation(affected->GetWorld(), effect, explodeLocation);
 		}
 	}
 	if (explodeSound)

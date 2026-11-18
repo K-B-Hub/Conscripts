@@ -49,6 +49,9 @@ void UTutorialWidget::Close()
 	{
 		gameInstance->NotifyTutorialClosed(data, bReachedLastPage);
 	}
+
+	//카드를 거둔 뒤에 불러야 이어지는 화면의 카드가 뜰 수 있다
+	onClosed.ExecuteIfBound();
 }
 
 void UTutorialWidget::HandlePrevClicked()

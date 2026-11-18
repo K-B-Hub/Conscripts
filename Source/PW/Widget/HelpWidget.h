@@ -18,10 +18,6 @@ class PW_API UHelpWidget : public UTutorialWidget
 	GENERATED_BODY()
 
 public:
-	//닫기 통지, 복귀 방법은 여는 쪽이 정한다
-	//허브는 화면 교체이고 전투 일시정지는 겹침 제거라 이쪽이 알 수 없다
-	FSimpleDelegate onClosed;
-
 	//본 기록을 건드리지 않도록 GameInstance에 알리지 않는다
 	virtual void Close() override;
 

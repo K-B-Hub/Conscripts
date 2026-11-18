@@ -6,7 +6,7 @@
 URifleCoveringFire::URifleCoveringFire()
 {
 	skillName = NSLOCTEXT("Skill", "RifleCoveringFire_Name", "엄호 사격");
-	skillDescription = NSLOCTEXT("Skill", "RifleCoveringFire_Description", "16m 내의 아군 1명을 지정해 반경 2m 안의 적에게 공격력 × 0.8~1.2의 원거리 피해를 준다.\n명중 +75");
+	skillDescription = NSLOCTEXT("Skill", "RifleCoveringFire_Description", "16m 내의 아군 1명을 지정해 반경 2m 안의 적에게 공격력 × 0.8~1.2 + 2의 원거리 피해를 준다.\n명중 +85");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Area;
@@ -26,9 +26,9 @@ URifleCoveringFire::URifleCoveringFire()
 	//공격력 0.8~1.2배의 변동 피해
 	damageRatio = 0.8f;
 	damageRatioMax = 1.2f;
-	bonusAccuracy = 75.f;
+	bonusAccuracy = 85.f;
 	bonusCritical = 0.f;
-	baseDamage = 0;
+	baseDamage = 2;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 

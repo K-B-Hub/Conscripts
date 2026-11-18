@@ -7,6 +7,8 @@
 #include "DrawDebugHelpers.h"
 #include "Components/SplineComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
 #include "DataAsset/UpgradeLibrary.h"
 #include "DataAsset/FixedUpgradeTableData.h"
 #include "GameInstance/PWGameInstance.h"
@@ -166,6 +168,19 @@ bool AEnemyBase::IsInDetectionFan(const FVector& worldPoint) const
 
 	const float cosHalfAngle = FMath::Cos(FMath::DegreesToRadians(detectionAngle * 0.5f));
 	return FVector::DotProduct(forward, dir) >= cosHalfAngle;
+}
+
+void AEnemyBase::PlayProximityWaveEffect()
+{
+	if (!proximityWaveEffect) return;
+
+	//캡슐 중심이 아니라 발밑에서 퍼져야 지면에 붙는다
+	const FVector feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+
+	//위치 스폰은 게임에서 안 보여 오라처럼 부착 스폰
+	UNiagaraComponent* fx = UNiagaraFunctionLibrary::SpawnSystemAttached(proximityWaveEffect, GetRootComponent(), NAME_None,
+		feet, FRotator::ZeroRotator, EAttachLocation::KeepWorldPosition, true);
+	if (fx) fx->SetVariableFloat(TEXT("WaveRadius"), proximityWaveRadius);
 }
 
 void AEnemyBase::ReceiveDamage(int32 Amount, bool bIsLethal)

@@ -19,8 +19,8 @@ class PW_API UStoryRouteButton : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	//표시할 줄기 설정
-	void InitRoute(const UStoryRouteData* route);
+	//표시할 줄기 설정, 잠긴 줄기는 버튼을 비활성한다
+	void InitRoute(const UStoryRouteData* route, bool bUnlocked);
 
 	//클릭 통지, 목록 위젯이 바인딩
 	FOnStoryRouteClicked OnClicked;

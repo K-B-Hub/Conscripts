@@ -10,7 +10,6 @@
 #include "ActorComponent/PassiveSkillComponent.h"
 #include "Actors/Terrain/TerrainBase.h"
 #include "Components/BoxComponent.h"
-#include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 
 bool UActiveSkillBase::CanExecute() const
@@ -163,7 +162,7 @@ void UActiveSkillBase::SpawnHitEffect(const FVector& Location) const
 
 	if (hitEffect)
 	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(world, hitEffect, Location);
+		SpawnFxAtLocation(world, hitEffect, Location);
 	}
 	if (hitSound)
 	{

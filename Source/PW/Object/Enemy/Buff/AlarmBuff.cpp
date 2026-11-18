@@ -6,7 +6,7 @@
 #include "Characters/EnemyBase.h"
 #include "AI/AIController/EnemyAIController.h"
 #include "GameMode/BattleGameMode.h"
-#include "NiagaraFunctionLibrary.h"
+#include "PW.h"
 #include "Kismet/GameplayStatics.h"
 
 UAlarmBuff::UAlarmBuff()
@@ -46,7 +46,7 @@ void UAlarmBuff::Execute(ACharacterBase* affected)
 	const FVector alarmOrigin = affected->GetActorLocation();
 	if (alarmEffect)
 	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(world, alarmEffect, alarmOrigin);
+		SpawnFxAtLocation(world, alarmEffect, alarmOrigin);
 	}
 	if (alarmSound)
 	{

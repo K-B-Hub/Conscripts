@@ -5,6 +5,7 @@
 #include "PlayerController/HubController.h"
 #include "GameInstance/PWGameInstance.h"
 #include "DataAsset/StoryRouteData.h"
+#include "Run/PWSaveGame.h"
 #include "Components/Button.h"
 #include "Components/PanelWidget.h"
 
@@ -25,17 +26,25 @@ void UStoryRouteSelectWidget::BuildRouteList()
 	const UPWGameInstance* gameInstance = world ? world->GetGameInstance<UPWGameInstance>() : nullptr;
 	if (!gameInstance) return;
 
+	const UPWSaveGame* save = gameInstance->GetSaveGame();
+
 	//재진입 시 중복 생성 방지
 	RouteContainer->ClearChildren();
+
+	//목록 순서가 곧 진행 순서, 첫 줄기만 열려 있고 나머지는 앞 줄기를 깨야 열린다
+	bool bPrevCleared = true;
 
 	for (const UStoryRouteData* route : gameInstance->GetStoryRoutes())
 	{
 		if (!route) continue;
 
+		const bool bUnlocked = bPrevCleared;
+		bPrevCleared = save && save->IsStoryRouteCleared(route->routeId);
+
 		UStoryRouteButton* button = CreateWidget<UStoryRouteButton>(this, routeButtonClass);
 		if (!button) continue;
 
-		button->InitRoute(route);
+		button->InitRoute(route, bUnlocked);
 		button->OnClicked.BindUObject(this, &UStoryRouteSelectWidget::HandleRouteClicked);
 		RouteContainer->AddChild(button);
 	}
