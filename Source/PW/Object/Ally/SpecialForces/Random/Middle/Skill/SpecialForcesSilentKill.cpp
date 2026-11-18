@@ -6,7 +6,7 @@
 USpecialForcesSilentKill::USpecialForcesSilentKill()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesSilentKill_Name", "소리 없는 처리");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesSilentKill_Description", "1m 내의 적 1명에게 공격력 × 1.0의 근접 피해를 준다.\n명중 +85, 치명 +30");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesSilentKill_Description", "1m 내의 적 1명에게 공격력 × 1.0의 근접 피해를 준다.\n명중 +85, 치명 +15");
 	skillGrade = EUpgradeGrade::Mid;
 
 	skillType = ESkillType::Melee;
@@ -23,7 +23,7 @@ USpecialForcesSilentKill::USpecialForcesSilentKill()
 
 	damageRatio = 1.0f;
 	bonusAccuracy = 85.f;
-	bonusCritical = 30.f;
+	bonusCritical = 15.f;
 	baseDamage = 0;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;

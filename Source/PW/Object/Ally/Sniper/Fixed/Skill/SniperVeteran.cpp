@@ -6,11 +6,14 @@
 USniperVeteran::USniperVeteran()
 {
 	skillName = NSLOCTEXT("Skill", "SniperVeteran_Name", "노련한 저격수");
-	skillDescription = NSLOCTEXT("Skill", "SniperVeteran_Description", "턴 시작마다 탄환을 1개 회복한다.");
+	skillDescription = NSLOCTEXT("Skill", "SniperVeteran_Description", "명중 +10, 턴 시작마다 탄환을 1개 회복한다.");
 
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;
 	conditionType = EConditionalType::TurnStart;
+
+	//조건부 패시브는 스탯이 자동 적용되지 않아 Execute_Conditional에서 건다
+	accuracy = 10.f;
 
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
@@ -20,6 +23,12 @@ void USniperVeteran::Execute_Conditional()
 {
 	ACharacterBase* o = owner.Get();
 	if (!o) return;
+
+	if (!bApplied)
+	{
+		bApplied = true;
+		o->ApplyPassiveStatDelta(this, 1);
+	}
 
 	//최대치 초과분은 GainBattleResource가 클램프
 	const int32 before = o->GetBattleResource();

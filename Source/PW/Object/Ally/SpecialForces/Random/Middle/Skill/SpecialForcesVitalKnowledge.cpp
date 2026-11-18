@@ -6,7 +6,7 @@
 USpecialForcesVitalKnowledge::USpecialForcesVitalKnowledge()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesVitalKnowledge_Name", "급소 숙지");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesVitalKnowledge_Description", "체력이 가득 찬 적 공격 시 치명 +25");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesVitalKnowledge_Description", "체력이 가득 찬 적 공격 시 치명 +10");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;
@@ -16,7 +16,7 @@ USpecialForcesVitalKnowledge::USpecialForcesVitalKnowledge()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	critical = 25.f;
+	critical = 10.f;
 }
 
 bool USpecialForcesVitalKnowledge::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)

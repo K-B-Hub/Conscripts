@@ -8,7 +8,7 @@
 USpecialForcesSmokeUse::USpecialForcesSmokeUse()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesSmokeUse_Name", "연막 활용");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesSmokeUse_Description", "연막 안에 있을 때 치명 +20");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesSmokeUse_Description", "연막 안에 있을 때 치명 +10");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Conditional;
@@ -18,7 +18,7 @@ USpecialForcesSmokeUse::USpecialForcesSmokeUse()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	critical = 20.f;
+	critical = 10.f;
 }
 
 void USpecialForcesSmokeUse::Execute_Conditional()

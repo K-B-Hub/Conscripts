@@ -5,10 +5,10 @@
 USpecialForcesCounterChanceBuff::USpecialForcesCounterChanceBuff()
 {
 	buffName = NSLOCTEXT("Buff", "SpecialForcesCounterChanceBuff_Name", "역공의 기회");
-	buffDescription = NSLOCTEXT("Buff", "SpecialForcesCounterChanceBuff_Description", "빗나간 총알 뒤로 틈을 봐 명중과 치명이 15 증가한다");
+	buffDescription = NSLOCTEXT("Buff", "SpecialForcesCounterChanceBuff_Description", "빗나간 총알 뒤로 틈을 봐 명중과 치명이 10 증가한다");
 
-	accuracy = 15.f;
-	critical = 15.f;
+	accuracy = 10.f;
+	critical = 10.f;
 
 	buffTurn = 1;
 	isStart = false;

@@ -7,7 +7,7 @@
 USpecialForcesIsolatedTarget::USpecialForcesIsolatedTarget()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesIsolatedTarget_Name", "고립된 표적");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesIsolatedTarget_Description", "주변 8m 내에 다른 적이 없는 대상 공격 시 치명 +20, 주는 피해 +20%");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesIsolatedTarget_Description", "주변 8m 내에 다른 적이 없는 대상 공격 시 치명 +10, 주는 피해 +15%");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Reactive;
@@ -17,8 +17,8 @@ USpecialForcesIsolatedTarget::USpecialForcesIsolatedTarget()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	critical = 20.f;
-	damageAmplification = 20;
+	critical = 10.f;
+	damageAmplification = 15;
 }
 
 bool USpecialForcesIsolatedTarget::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)

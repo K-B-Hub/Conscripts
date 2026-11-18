@@ -5,10 +5,10 @@
 USpecialForcesAssassinPrepBuff::USpecialForcesAssassinPrepBuff()
 {
 	buffName = NSLOCTEXT("Buff", "SpecialForcesAssassinPrepBuff_Name", "암살 준비");
-	buffDescription = NSLOCTEXT("Buff", "SpecialForcesAssassinPrepBuff_Description", "몸을 감춰 회피가 30, 치명이 15 증가한다");
+	buffDescription = NSLOCTEXT("Buff", "SpecialForcesAssassinPrepBuff_Description", "몸을 감춰 회피가 15, 치명이 10 증가한다");
 
-	evasion = 30.f;
-	critical = 15.f;
+	evasion = 15.f;
+	critical = 10.f;
 
 	buffTurn = 2;
 	isStart = false;

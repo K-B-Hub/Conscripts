@@ -6,7 +6,7 @@
 USniperLastBullet::USniperLastBullet()
 {
 	skillName = NSLOCTEXT("Skill", "SniperLastBullet_Name", "비장의 한 발");
-	skillDescription = NSLOCTEXT("Skill", "SniperLastBullet_Description", "25m 내의 적 1명에게 공격력 × 2.0 + 10의 원거리 피해를 준다.\n명중 +90, 치명 +30");
+	skillDescription = NSLOCTEXT("Skill", "SniperLastBullet_Description", "25m 내의 적 1명에게 공격력 × 1.6 + 8의 원거리 피해를 준다.\n명중 +90, 치명 +15");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -20,10 +20,10 @@ USniperLastBullet::USniperLastBullet()
 	battleResourceCost = 4;
 	actionPointCost = 3;
 
-	damageRatio = 2.0f;
+	damageRatio = 1.6f;
 	bonusAccuracy = 90.f;
-	bonusCritical = 30.f;
-	baseDamage = 10;
+	bonusCritical = 15.f;
+	baseDamage = 8;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;
 

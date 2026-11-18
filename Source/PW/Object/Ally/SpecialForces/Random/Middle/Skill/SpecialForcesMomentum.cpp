@@ -9,7 +9,7 @@
 USpecialForcesMomentum::USpecialForcesMomentum()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesMomentum_Name", "고조");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesMomentum_Description", "적 처치 시 2턴간 회피 +25");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesMomentum_Description", "적 처치 시 2턴간 회피 +15");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;

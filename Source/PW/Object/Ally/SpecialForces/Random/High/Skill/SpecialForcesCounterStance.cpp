@@ -9,7 +9,7 @@
 USpecialForcesCounterStance::USpecialForcesCounterStance()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesCounterStance_Name", "역습 태세");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCounterStance_Description", "피해를 받으면 1턴간 명중 +15, 치명 +15");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCounterStance_Description", "피해를 받으면 1턴간 명중 +10, 치명 +10");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Conditional;

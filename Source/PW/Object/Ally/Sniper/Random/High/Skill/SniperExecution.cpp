@@ -6,7 +6,7 @@
 USniperExecution::USniperExecution()
 {
 	skillName = NSLOCTEXT("Skill", "SniperExecution_Name", "처형");
-	skillDescription = NSLOCTEXT("Skill", "SniperExecution_Description", "체력이 30% 이하인 적 공격 시 주는 피해 +100%, 치명 +20");
+	skillDescription = NSLOCTEXT("Skill", "SniperExecution_Description", "체력이 30% 이하인 적 공격 시 주는 피해 +100%, 치명 +10");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Reactive;
@@ -17,7 +17,7 @@ USniperExecution::USniperExecution()
 	bAllowDuplicate = false;
 
 	damageAmplification = 100;
-	critical = 20.f;
+	critical = 10.f;
 }
 
 bool USniperExecution::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)

@@ -5,9 +5,9 @@
 USpecialForcesMomentumBuff::USpecialForcesMomentumBuff()
 {
 	buffName = NSLOCTEXT("Buff", "SpecialForcesMomentumBuff_Name", "고조");
-	buffDescription = NSLOCTEXT("Buff", "SpecialForcesMomentumBuff_Description", "몸이 가벼워져 회피가 25 증가한다");
+	buffDescription = NSLOCTEXT("Buff", "SpecialForcesMomentumBuff_Description", "몸이 가벼워져 회피가 15 증가한다");
 
-	evasion = 25.f;
+	evasion = 15.f;
 
 	buffTurn = 2;
 	isStart = false;

@@ -6,7 +6,7 @@
 USniperSteadyAim::USniperSteadyAim()
 {
 	skillName = NSLOCTEXT("Skill", "SniperSteadyAim_Name", "정조준");
-	skillDescription = NSLOCTEXT("Skill", "SniperSteadyAim_Description", "이번 턴에 이동하지 않고 공격 시 명중 +15, 치명 +10");
+	skillDescription = NSLOCTEXT("Skill", "SniperSteadyAim_Description", "이번 턴에 이동하지 않고 공격 시 명중 +10, 치명 +5");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;
@@ -16,8 +16,8 @@ USniperSteadyAim::USniperSteadyAim()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	accuracy = 15.f;
-	critical = 10.f;
+	accuracy = 10.f;
+	critical = 5.f;
 }
 
 bool USniperSteadyAim::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)

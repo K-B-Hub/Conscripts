@@ -6,7 +6,7 @@
 USniperPreyOnWeak::USniperPreyOnWeak()
 {
 	skillName = NSLOCTEXT("Skill", "SniperPreyOnWeak_Name", "약자 사냥");
-	skillDescription = NSLOCTEXT("Skill", "SniperPreyOnWeak_Description", "체력이 50% 이하인 적 공격 시 치명 +15");
+	skillDescription = NSLOCTEXT("Skill", "SniperPreyOnWeak_Description", "체력이 50% 이하인 적 공격 시 치명 +10");
 	skillGrade = EUpgradeGrade::Mid;
 
 	passiveType = EPassiveType::Reactive;
@@ -16,7 +16,7 @@ USniperPreyOnWeak::USniperPreyOnWeak()
 	//조건부 발동이라 중복 획득 불가
 	bAllowDuplicate = false;
 
-	critical = 15.f;
+	critical = 10.f;
 }
 
 bool USniperPreyOnWeak::Execute_BeforeDamageCalc(ACharacterBase* target, ESkillType skillType, EDamageType damageType, const FVector& attackerLocation)

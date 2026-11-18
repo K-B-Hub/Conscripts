@@ -7,7 +7,7 @@
 UMiddleStrongWillPassive::UMiddleStrongWillPassive()
 {
 	skillName = NSLOCTEXT("Skill", "MiddleStrongWill_Name", "굳센 의지");
-	skillDescription = NSLOCTEXT("Skill", "MiddleStrongWill_Description", "체력이 40% 이하일 때 회피와 명중이 25 증가한다");
+	skillDescription = NSLOCTEXT("Skill", "MiddleStrongWill_Description", "체력이 40% 이하일 때 회피와 명중이 15 증가한다");
 
 	passiveType = EPassiveType::Conditional;
 	reactiveType = EReactiveType::None;
@@ -16,8 +16,8 @@ UMiddleStrongWillPassive::UMiddleStrongWillPassive()
 	//조건 충족 여부를 인스턴스가 래치하므로 중복 획득 불가
 	bAllowDuplicate = false;
 
-	evasion = 25.0f;
-	accuracy = 25.0f;
+	evasion = 15.0f;
+	accuracy = 15.0f;
 }
 
 void UMiddleStrongWillPassive::Execute_Conditional()

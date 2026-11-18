@@ -5,7 +5,7 @@
 USniperExpert::USniperExpert()
 {
 	skillName = NSLOCTEXT("Skill", "SniperExpert_Name", "저격 전문가");
-	skillDescription = NSLOCTEXT("Skill", "SniperExpert_Description", "주는 피해 +15%");
+	skillDescription = NSLOCTEXT("Skill", "SniperExpert_Description", "주는 피해 +10%");
 
 	passiveType = EPassiveType::Stat;
 	reactiveType = EReactiveType::None;
@@ -13,5 +13,5 @@ USniperExpert::USniperExpert()
 
 	bAllowDuplicate = false;
 
-	damageAmplification = 15;
+	damageAmplification = 10;
 }

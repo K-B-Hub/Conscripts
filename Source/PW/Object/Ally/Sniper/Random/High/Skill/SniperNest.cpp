@@ -6,7 +6,7 @@
 USniperNest::USniperNest()
 {
 	skillName = NSLOCTEXT("Skill", "SniperNest_Name", "저격 진지");
-	skillDescription = NSLOCTEXT("Skill", "SniperNest_Description", "포복 상태에서 공격 시 명중 +10, 치명 +15, 주는 피해 +10%");
+	skillDescription = NSLOCTEXT("Skill", "SniperNest_Description", "포복 상태에서 공격 시 명중 +10, 치명 +10, 주는 피해 +10%");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Reactive;
@@ -17,7 +17,7 @@ USniperNest::USniperNest()
 	bAllowDuplicate = false;
 
 	accuracy = 10.f;
-	critical = 15.f;
+	critical = 10.f;
 	damageAmplification = 10;
 }
 

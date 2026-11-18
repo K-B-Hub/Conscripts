@@ -9,7 +9,7 @@
 USpecialForcesBlur::USpecialForcesBlur()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesBlur_Name", "잔상");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesBlur_Description", "피해를 받을 때마다 2턴간 회피 +10(최대 3중첩)");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesBlur_Description", "피해를 받을 때마다 2턴간 회피 +5(최대 3중첩)");
 	skillGrade = EUpgradeGrade::High;
 
 	passiveType = EPassiveType::Conditional;

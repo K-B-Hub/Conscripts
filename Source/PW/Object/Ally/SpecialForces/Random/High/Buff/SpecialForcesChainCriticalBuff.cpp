@@ -5,9 +5,9 @@
 USpecialForcesChainCriticalBuff::USpecialForcesChainCriticalBuff()
 {
 	buffName = NSLOCTEXT("Buff", "SpecialForcesChainCriticalBuff_Name", "연쇄 치명");
-	buffDescription = NSLOCTEXT("Buff", "SpecialForcesChainCriticalBuff_Description", "급소가 더 잘 보여 치명이 10 증가한다(최대 3중첩)");
+	buffDescription = NSLOCTEXT("Buff", "SpecialForcesChainCriticalBuff_Description", "급소가 더 잘 보여 치명이 5 증가한다(최대 3중첩)");
 
-	critical = 10.f;
+	critical = 5.f;
 
 	buffTurn = 2;
 	isStart = false;

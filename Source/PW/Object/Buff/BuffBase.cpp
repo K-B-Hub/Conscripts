@@ -23,6 +23,8 @@ void UBuffBase::StartPresentation(ACharacterBase* affected)
 	if (!affected) return;
 	USceneComponent* root = affected->GetRootComponent();
 
+	PlayApplyEffect(affected);
+
 	if (buffEffect)
 	{
 		effectComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(buffEffect, root, NAME_None,
@@ -32,6 +34,13 @@ void UBuffBase::StartPresentation(ACharacterBase* affected)
 	{
 		soundComponent = UGameplayStatics::SpawnSoundAttached(buffSound, root);
 	}
+}
+
+void UBuffBase::PlayApplyEffect(ACharacterBase* affected) const
+{
+	if (!affected || !applyEffect) return;
+	UNiagaraFunctionLibrary::SpawnSystemAttached(applyEffect, affected->GetRootComponent(), NAME_None,
+		FVector::ZeroVector, FRotator::ZeroRotator, EAttachLocation::KeepRelativeOffset, true);
 }
 
 void UBuffBase::StopPresentation()

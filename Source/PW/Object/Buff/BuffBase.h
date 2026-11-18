@@ -108,9 +108,16 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff|Presentation")
 	TObjectPtr<USoundBase> buffSound;
 
+	//적용·갱신 순간 1회 재생, 버프·디버프 구분용 충격파
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff|Presentation")
+	TObjectPtr<UNiagaraSystem> applyEffect;
+
 	//연출 시작·정리, 컴포넌트가 적용·제거 시 호출
 	void StartPresentation(ACharacterBase* affected);
 	void StopPresentation();
+
+	//applyEffect 1회 재생, 중첩 불가 버프의 턴 갱신 때도 호출
+	void PlayApplyEffect(ACharacterBase* affected) const;
 
 private:
 	UPROPERTY(Transient)

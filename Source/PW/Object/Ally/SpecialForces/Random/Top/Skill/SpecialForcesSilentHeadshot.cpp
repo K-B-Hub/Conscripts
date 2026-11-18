@@ -7,7 +7,7 @@
 USpecialForcesSilentHeadshot::USpecialForcesSilentHeadshot()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesSilentHeadshot_Name", "무음 헤드샷");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesSilentHeadshot_Description", "4m 내의 적 1명에게 공격력 × 1.5의 원거리 피해를 주고 1턴간 행동력 -1을 부여한다.\n명중 +90, 치명 +50");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesSilentHeadshot_Description", "4m 내의 적 1명에게 공격력 × 1.2의 원거리 피해를 주고 1턴간 행동력 -1을 부여한다.\n명중 +90, 치명 +25");
 	skillGrade = EUpgradeGrade::Top;
 
 	skillType = ESkillType::Ranged;
@@ -22,9 +22,9 @@ USpecialForcesSilentHeadshot::USpecialForcesSilentHeadshot()
 	battleResourceCost = 1;
 	actionPointCost = 2;
 
-	damageRatio = 1.5f;
+	damageRatio = 1.2f;
 	bonusAccuracy = 90.f;
-	bonusCritical = 50.f;
+	bonusCritical = 25.f;
 	baseDamage = 0;
 	bonusPenetration = 0;
 	bonusDamageAmplication = 0;

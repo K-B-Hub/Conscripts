@@ -5,9 +5,9 @@
 USpecialForcesBlurBuff::USpecialForcesBlurBuff()
 {
 	buffName = NSLOCTEXT("Buff", "SpecialForcesBlurBuff_Name", "잔상");
-	buffDescription = NSLOCTEXT("Buff", "SpecialForcesBlurBuff_Description", "움직임이 흐려져 회피가 10 증가한다(최대 3중첩)");
+	buffDescription = NSLOCTEXT("Buff", "SpecialForcesBlurBuff_Description", "움직임이 흐려져 회피가 5 증가한다(최대 3중첩)");
 
-	evasion = 10.f;
+	evasion = 5.f;
 
 	buffTurn = 2;
 	isStart = false;

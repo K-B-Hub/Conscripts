@@ -5,7 +5,7 @@
 USpecialForcesCombatMastery::USpecialForcesCombatMastery()
 {
 	skillName = NSLOCTEXT("Skill", "SpecialForcesCombatMastery_Name", "전투 숙련");
-	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCombatMastery_Description", "치명 +10, 치명타 피해 +30%");
+	skillDescription = NSLOCTEXT("Skill", "SpecialForcesCombatMastery_Description", "치명 +5, 치명타 피해 +20%");
 
 	passiveType = EPassiveType::Stat;
 	reactiveType = EReactiveType::None;
@@ -13,6 +13,6 @@ USpecialForcesCombatMastery::USpecialForcesCombatMastery()
 
 	bAllowDuplicate = false;
 
-	critical = 10.f;
-	criticalDamage = 0.3f;
+	critical = 5.f;
+	criticalDamage = 0.2f;
 }

@@ -90,5 +90,9 @@ void AProjectileBase::Arrive()
 	bArrived = true;
 
 	onArrived.ExecuteIfBound();
-	Destroy();
+
+	//액터와 함께 지우면 궤적이 한순간에 끊기므로 메시만 숨기고 남은 입자가 수명대로 사라진 뒤 제거
+	projectileMesh->SetVisibility(false);
+	trailFx->Deactivate();
+	SetLifeSpan(trailLingerTime);
 }

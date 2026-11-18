@@ -6,7 +6,7 @@
 USniperShot::USniperShot()
 {
 	skillName = NSLOCTEXT("Skill", "SniperShot_Name", "저격");
-	skillDescription = NSLOCTEXT("Skill", "SniperShot_Description", "20m 내의 적 1명에게 공격력 × 1.3의 원거리 피해를 준다.\n명중 +55");
+	skillDescription = NSLOCTEXT("Skill", "SniperShot_Description", "20m 내의 적 1명에게 공격력 × 1.0의 원거리 피해를 준다.\n명중 +55");
 
 	skillType = ESkillType::Ranged;
 	damageType = EDamageType::Normal;
@@ -20,7 +20,7 @@ USniperShot::USniperShot()
 	battleResourceCost = 1;
 	actionPointCost = 2;
 
-	damageRatio = 1.3f;
+	damageRatio = 1.0f;
 	bonusAccuracy = 55.f;
 	bonusCritical = 0.f;
 	baseDamage = 0;

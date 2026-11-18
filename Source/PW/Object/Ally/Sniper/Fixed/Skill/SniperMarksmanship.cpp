@@ -5,7 +5,7 @@
 USniperMarksmanship::USniperMarksmanship()
 {
 	skillName = NSLOCTEXT("Skill", "SniperMarksmanship_Name", "저격 숙련");
-	skillDescription = NSLOCTEXT("Skill", "SniperMarksmanship_Description", "명중 +20");
+	skillDescription = NSLOCTEXT("Skill", "SniperMarksmanship_Description", "명중 +5");
 
 	passiveType = EPassiveType::Stat;
 	reactiveType = EReactiveType::None;
@@ -13,5 +13,5 @@ USniperMarksmanship::USniperMarksmanship()
 
 	bAllowDuplicate = false;
 
-	accuracy = 20.f;
+	accuracy = 5.f;
 }
