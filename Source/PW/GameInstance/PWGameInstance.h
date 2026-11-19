@@ -71,6 +71,9 @@ public:
 	//공용 강화 후보 풀 조회, 미설정 시 nullptr
 	UUpgradeTableData* GetCommonUpgradeTable() const { return commonUpgradeTable; }
 
+	//전 직업 공용 강화 후보 풀(직업 카드), 미설정 시 nullptr
+	UUpgradeTableData* GetSharedClassUpgradeTable() const { return sharedClassUpgradeTable; }
+
 	//스토리 줄기 목록, 줄기 선택 화면이 사용
 	const TArray<TObjectPtr<UStoryRouteData>>& GetStoryRoutes() const { return storyRoutes; }
 
@@ -199,9 +202,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
 	TObjectPtr<UUpgradeTableData> commonUpgradeTable;
 
+	//모든 직업이 직업 카드로 얻는 강화 후보 풀, 아군과 적이 공유
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
+	TObjectPtr<UUpgradeTableData> sharedClassUpgradeTable;
+
 	//스토리 모드가 제공하는 줄기 목록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Story")
 	TArray<TObjectPtr<UStoryRouteData>> storyRoutes;
+
+	//전시 데모용, 켜면 시작 시 모든 줄기를 클리어한 것으로 친다
+	UPROPERTY(EditDefaultsOnly, Category = "Story")
+	bool bUnlockAllForDemo = false;
 
 	//해금과 무관하게 언제나 고를 수 있는 기본 직업
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Job")

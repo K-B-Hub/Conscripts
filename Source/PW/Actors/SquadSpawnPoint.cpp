@@ -2,6 +2,9 @@
 
 #include "Actors/SquadSpawnPoint.h"
 #include "Components/ArrowComponent.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/Texture2D.h"
+#include "UObject/ConstructorHelpers.h"
 
 ASquadSpawnPoint::ASquadSpawnPoint()
 {
@@ -13,7 +16,19 @@ ASquadSpawnPoint::ASquadSpawnPoint()
 	SetRootComponent(arrow);
 
 #if WITH_EDITORONLY_DATA
-	arrow->ArrowSize = 2.f;
+	//화면 크기 고정이라 멀리서도 같은 크기로 보인다
+	arrow->ArrowSize = 3.f;
+	arrow->bIsScreenSizeScaled = true;
 	arrow->SetArrowColor(FLinearColor::Red);
+
+	//맵 전체를 내려다볼 때 위치를 찾는 아이콘
+	UBillboardComponent* sprite = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
+	if (sprite)
+	{
+		static ConstructorHelpers::FObjectFinderOptional<UTexture2D> icon(TEXT("/Engine/EditorMaterials/TargetIcon"));
+		sprite->Sprite = icon.Get();
+		sprite->bIsScreenSizeScaled = true;
+		sprite->SetupAttachment(arrow);
+	}
 #endif
 }

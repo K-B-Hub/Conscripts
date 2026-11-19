@@ -16,7 +16,6 @@ class AAllyCharacterBase;
 enum class ELevelUpUpgradeKind : uint8
 {
 	Random,			//기존 랜덤 강화(하급 포함 전 등급)
-	ClassFixed,		//직업별 레벨 고정 강화
 	HighRandom		//고급 랜덤(하급 풀 제외)
 };
 
@@ -30,24 +29,26 @@ public:
 	//부여 레벨로 강화 종류 분류
 	static ELevelUpUpgradeKind ClassifyLevelUpUpgrade(int32 level);
 
-	//등급 확률 추첨, 55/30/10/5
+	//등급 확률 추첨, 60/30/7/3
 	static EUpgradeGrade RollGrade();
 
 	//대기 중인 강화 하나에 대한 후보 목록, 부여 레벨로 종류를 복원해 분기
 	//전투 턴 시작과 야영지 충원이 공유한다. 후보 수 3은 선택 위젯 슬롯 수와 맞물려 있어 내부에 둔다
-	//outGrade는 버튼 아트용 등급, 고정 강화는 풀 소속이 없어 High로 돌려준다
+	//직업 카드 후보 = 전 직업 공용 + 직업 + 캐릭터 전용, outGrade는 버튼 아트용 등급
 	static TArray<TSubclassOf<USkillBase>> BuildPendingChoices(
 		const AAllyCharacterBase* character,
+		const UUpgradeTableData* sharedClassTable,
 		const UUpgradeTableData* commonTable,
 		EUpgradeGrade* outGrade = nullptr);
 
 	//강화 후보 count개를 추출, character는 보유 중복 필터용
 	//뽑힌 등급 후보가 부족하면 하위 등급으로 보충하되 minGrade 미만으로는 내려가지 않음
 	//등급 내 공용/직업 분배는 랜덤이며 부족 시 반대 풀에서 보충
+	//classTables는 합집합으로 직업 카드 후보가 된다, null 항목은 건너뜀
 	//outGrade는 추첨된 등급, 폴백으로 하위 등급이 섞여도 추첨 등급 하나만 돌려준다
 	static TArray<TSubclassOf<USkillBase>> BuildChoices(
 		const ACharacterBase* character,
-		const UUpgradeTableData* classTable,
+		const TArray<const UUpgradeTableData*>& classTables,
 		const UUpgradeTableData* commonTable,
 		int32 count,
 		EUpgradeGrade minGrade = EUpgradeGrade::Low,
@@ -66,6 +67,9 @@ private:
 		const TArray<TSubclassOf<USkillBase>>& pool,
 		const TArray<TSubclassOf<USkillBase>>& already,
 		TArray<TSubclassOf<USkillBase>>& outCandidates);
+
+	//need장 중 공용에서 뽑을 장수, 나머지는 직업에서 뽑는다
+	static int32 RollCommonCount(int32 need, int32 commonNum, int32 classNum);
 
 	//candidates에서 무작위 n개를 뽑아 out에 추가, 뽑힌 항목은 candidates에서 제거
 	static void PickRandom(TArray<TSubclassOf<USkillBase>>& candidates, int32 n, TArray<TSubclassOf<USkillBase>>& out);

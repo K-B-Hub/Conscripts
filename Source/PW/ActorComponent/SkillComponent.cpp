@@ -519,13 +519,29 @@ void USkillComponent::PlayMuzzleEffects()
 				muzzleComp->SetUsingAbsoluteRotation(true);
 				muzzleComp->SetWorldRotation(ownerCharacter->GetActorRotation());
 				//목표까지 거리로 흩뿌림 길이를 맞춘다, 이 파라미터가 없는 시스템은 무시
-				//Ray/Cone은 시전 지점이 시전자라 형태 끝까지의 길이를 쓰고, 부채꼴은 중심각도 넘긴다
-				if (UAreaShapeLibrary::IsCasterAnchored(pendingSkill))
+				//Ray/Cone은 시전 지점이 시전자라 형태 끝까지의 길이를 쓴다
+				if (pendingSkill->areaForm == EAreaForm::Cone && UAreaShapeLibrary::IsCasterAnchored(pendingSkill))
 				{
-					const bool bRay = pendingSkill->areaForm == EAreaForm::Ray;
-					muzzleComp->SetVariableFloat(TEXT("User.TargetDistance"),
-						bRay ? pendingSkill->areaParameter2 : pendingSkill->areaParameter1);
-					if (!bRay) muzzleComp->SetVariableFloat(TEXT("User.ConeAngle"), pendingSkill->areaParameter2);
+					//판정 부채꼴의 꼭짓점은 시전자라, 총구에서 양 끝점을 다시 겨눠 방향과 각도를 맞춘다
+					const FVector origin = ownerCharacter->GetActorLocation();
+					const FVector muzzle = muzzleComp->GetComponentLocation();
+					FRotator rot = ownerCharacter->GetActorRotation();
+					const float half = pendingSkill->areaParameter2 * 0.5f;
+					FVector toLeft = origin + FRotator(0.f, rot.Yaw - half, 0.f).Vector() * pendingSkill->areaParameter1 - muzzle;
+					FVector toRight = origin + FRotator(0.f, rot.Yaw + half, 0.f).Vector() * pendingSkill->areaParameter1 - muzzle;
+					toLeft.Z = 0.f;
+					toRight.Z = 0.f;
+					const float leftYaw = toLeft.Rotation().Yaw;
+					const float delta = FMath::FindDeltaAngleDegrees(leftYaw, toRight.Rotation().Yaw);
+					rot.Yaw = leftYaw + delta * 0.5f;
+					muzzleComp->SetWorldRotation(rot);
+					//에셋이 절반으로 쓰는데 Cone Angle 입력은 전체각이라 두 배로 넘긴다
+					muzzleComp->SetVariableFloat(TEXT("User.ConeAngle"), FMath::Abs(delta) * 2.f);
+					muzzleComp->SetVariableFloat(TEXT("User.TargetDistance"), (toLeft.Size() + toRight.Size()) * 0.5f);
+				}
+				else if (UAreaShapeLibrary::IsCasterAnchored(pendingSkill))
+				{
+					muzzleComp->SetVariableFloat(TEXT("User.TargetDistance"), pendingSkill->areaParameter2);
 				}
 				else
 				{

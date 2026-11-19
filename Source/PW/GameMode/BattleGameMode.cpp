@@ -482,8 +482,26 @@ void ABattleGameMode::SpawnEnemySquads()
 		//한 앵커에 두 분대가 겹치지 않도록 후보에서 빼낸다
 		anchors.RemoveAtSwap(pick);
 
-		const USquadData* squad = squadPool[FMath::RandRange(0, squadPool.Num() - 1)];
-		spawnedUnits += SpawnSquadAt(anchor, squad);
+		//한 명도 못 세우면 다른 분대로 다시 시도한다, 무작위 순서로 풀 전체를 한 번씩
+		TArray<int32> order;
+		for (int32 i = 0; i < squadPool.Num(); ++i) order.Add(i);
+		for (int32 i = order.Num() - 1; i > 0; --i) order.Swap(i, FMath::RandRange(0, i));
+
+		int32 spawned = 0;
+		for (const int32 index : order)
+		{
+			spawned = SpawnSquadAt(anchor, squadPool[index]);
+			if (spawned > 0) break;
+		}
+
+		//모든 분대가 실패한 앵커는 버리고 거리 판정에도 넣지 않는다
+		if (spawned == 0)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[BattleGameMode] %s에 어떤 분대도 세우지 못했습니다"), *anchor->GetName());
+			continue;
+		}
+
+		spawnedUnits += spawned;
 		++squadCount;
 
 		chosenLocations.Add(anchor->GetActorLocation());
@@ -549,27 +567,35 @@ int32 ABattleGameMode::PickSpacedAnchor(const TArray<ASquadSpawnPoint*>& candida
 {
 	if (candidates.Num() == 0) return INDEX_NONE;
 
-	//기존 분대·필수 배치와 minSquadDistance 이상 떨어진 앵커만 후보로 남긴다
-	TArray<int32> valid;
-	for (int32 i = 0; i < candidates.Num(); ++i)
+	//가장 가까운 기존 분대·필수 배치와의 거리로 가중치를 매긴다
+	//falloff 이상이면 1, 붙어 있어도 최소값을 남겨 거리 때문에 못 뽑히는 앵커는 없다
+	constexpr float minWeight = 0.05f;
+
+	TArray<float> weights;
+	weights.Reserve(candidates.Num());
+	float total = 0.f;
+
+	for (const ASquadSpawnPoint* candidate : candidates)
 	{
-		bool bFar = true;
+		float nearest = TNumericLimits<float>::Max();
 		for (const FVector& chosen : chosenLocations)
 		{
-			if (FVector::Dist2D(candidates[i]->GetActorLocation(), chosen) < minSquadDistance)
-			{
-				bFar = false;
-				break;
-			}
+			nearest = FMath::Min(nearest, static_cast<float>(FVector::Dist2D(candidate->GetActorLocation(), chosen)));
 		}
 
-		if (bFar) valid.Add(i);
+		const float weight = FMath::Clamp(nearest / squadSpacingFalloff, minWeight, 1.f);
+		weights.Add(weight);
+		total += weight;
 	}
 
-	//남은 자리가 없으면 목표 인원에 못 미쳐도 멈춘다
-	if (valid.Num() == 0) return INDEX_NONE;
+	float roll = FMath::FRand() * total;
+	for (int32 i = 0; i < weights.Num(); ++i)
+	{
+		roll -= weights[i];
+		if (roll <= 0.f) return i;
+	}
 
-	return valid[FMath::RandRange(0, valid.Num() - 1)];
+	return candidates.Num() - 1;
 }
 
 void ABattleGameMode::ApplyEnemyLevelScaling()
@@ -1011,7 +1037,10 @@ TArray<ACharacterBase*> ABattleGameMode::GetTeam(bool bAllyTeam) const
 
 void ABattleGameMode::BroadcastMoveComplete()
 {
-	for (ACharacterBase* Character : turnOrder)
+	//위치 기반이라 턴 순서 밖의 비전투 적도 평가, 적 분대장 오라가 첫 턴부터 걸리게
+	TArray<ACharacterBase*> everyone = GetTeam(true);
+	everyone.Append(GetTeam(false));
+	for (ACharacterBase* Character : everyone)
 	{
 		if (!IsValid(Character) || Character->IsDead()) continue;
 		if (UPassiveSkillComponent* PSC = Character->GetPassiveSkillComponent())

@@ -224,6 +224,22 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	float cameraFollowInterpSpeed = 8.f;
 
+	//자유 이동 피벗이 평면보다 높은 지형 위로 오르내리는 보간 속도
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Terrain")
+	float pivotHeightInterpSpeed = 3.f;
+
+	//카메라와 지형 사이 최소 간격
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Terrain")
+	float cameraTerrainClearance = 50.f * CharacterScale;
+
+	//지형 때문에 당긴 암이 다시 펴지는 보간 속도, 당길 때는 즉시
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Terrain")
+	float armRecoverInterpSpeed = 4.f;
+
+	//나무·지형 컷아웃에 캐릭터 위치를 넘기는 MPC, 슬롯 Target0~15
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Occlusion")
+	TObjectPtr<class UMaterialParameterCollection> occlusionCollection;
+
 	//지금 카메라 피치에 더할 값, 음수면 더 내려다본다
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Skill")
 	float skillCameraPitchOffset = -8.f;
@@ -298,8 +314,30 @@ private:
 	//줌 비율로 암 길이·피치를 정해 스프링암에 반영
 	void ApplyZoom(USpringArmComponent* SpringArm);
 
-	//스프링암 피벗을 지면에 스냅, 경사면 관통 방지
+	//스프링암 피벗을 지면에 즉시 스냅하고 자유 이동 평면도 그 높이로 맞춘다
 	void SnapSpringArmToGround(USpringArmComponent* SpringArm);
+
+	//자유 이동 피벗 높이, 지면을 따라가지 않고 이 평면을 유지한다
+	float freePivotZ = 0.f;
+
+	//자유 이동 피벗 Z 갱신, 평면보다 높은 지형 위에서만 띄운다
+	void UpdateFreePivotHeight(USpringArmComponent* SpringArm, float DeltaTime);
+
+	//높이 샘플링 대상, 없으면 지형 처리 생략
+	UPROPERTY()
+	TObjectPtr<class ALandscape> cachedLandscape = nullptr;
+
+	//XY 지점의 랜드스케이프 높이, 지형 밖이면 미설정
+	TOptional<float> GetTerrainHeight(const FVector& location) const;
+
+	//지형이 허용하는 암 길이 상한, 풀릴 때만 보간
+	float terrainArmLimit = TNumericLimits<float>::Max();
+
+	//카메라가 지형 아래로 들어가지 않게 암을 당긴다, 중간 능선은 컷아웃이 맡는다
+	void ClampArmAboveTerrain(USpringArmComponent* SpringArm, float DeltaTime);
+
+	//살아 있는 캐릭터 위치를 피벗에 가까운 순으로 MPC 슬롯에 쓴다
+	void UpdateOcclusionTargets();
 
 	//자유 이동 경계, 맵에 놓인 ACameraBoundsVolume을 감싼다, 무효면 제한 없음
 	FBox cameraBounds = FBox(ForceInit);
