@@ -43,6 +43,8 @@
 #include "DataAsset/TutorialData.h"
 #include "Actors/CameraBoundsVolume.h"
 #include "EngineUtils.h"
+#include "Materials/MaterialParameterCollection.h"
+#include "Materials/MaterialParameterCollectionInstance.h"
 
 ABattleController::ABattleController()
 {
@@ -82,6 +84,14 @@ void ABattleController::BeginPlay()
 
 		cameraHomeLocation = SpringArm->GetComponentLocation();
 		BuildCameraBounds();
+
+		//랜드스케이프 부모 액터는 스트리밍과 무관하게 상주한다
+		for (TActorIterator<ALandscape> It(GetWorld()); It; ++It)
+		{
+			cachedLandscape = *It;
+			break;
+		}
+		SnapSpringArmToGround(SpringArm);
 
 		//소리는 카메라가 아닌 지면 쪽 피벗에서 듣는다, 회전은 스프링암을 따라 화면 좌우와 맞는다
 		SetAudioListenerOverride(SpringArm, FVector::ZeroVector, FRotator::ZeroRotator);
@@ -362,13 +372,14 @@ void ABattleController::ShowUpgradeSelect()
 {
 	if (!IsValid(activeUnit) || !upgradeSelectWidgetClass) return;
 
-	//공용 풀은 런 단위로 GameInstance에서, 직업 풀은 캐릭터에서 조회
+	//공용과 전 직업 공용 풀은 런 단위로 GameInstance에서, 직업과 캐릭터 풀은 캐릭터에서 조회
 	UPWGameInstance* gameInstance = Cast<UPWGameInstance>(GetGameInstance());
 	UUpgradeTableData* commonTable = gameInstance ? gameInstance->GetCommonUpgradeTable() : nullptr;
+	UUpgradeTableData* sharedClassTable = gameInstance ? gameInstance->GetSharedClassUpgradeTable() : nullptr;
 
 	//후보 생성은 야영지 충원과 공유하므로 UUpgradeLibrary에 있다
 	EUpgradeGrade grade = EUpgradeGrade::Low;
-	const TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildPendingChoices(activeUnit, commonTable, &grade);
+	const TArray<TSubclassOf<USkillBase>> choices = UUpgradeLibrary::BuildPendingChoices(activeUnit, sharedClassTable, commonTable, &grade);
 
 	//후보가 하나도 없으면 큐만 소비하고 종료
 	if (choices.Num() == 0)
@@ -638,8 +649,10 @@ void ABattleController::Tick(float DeltaTime)
 				- FVector(0.f, 0.f, followUnit->GetSimpleCollisionHalfHeight() - cameraGroundOffset);
 			SpringArm->SetWorldLocation(FMath::VInterpTo(SpringArm->GetComponentLocation(),
 				followPos, DeltaTime, cameraFollowInterpSpeed));
+			//추적을 놓으면 이 높이가 자유 이동 평면이 된다
+			freePivotZ = SpringArm->GetComponentLocation().Z;
 		}
-		//자유 이동 모드, 입력 없으면 관성 감속, 항상 지면 스냅
+		//자유 이동 모드, 입력 없으면 관성 감속, 지면 굴곡을 따라가지 않는다
 		else
 		{
 			if (!bCameraInputActive && !cameraVelocity.IsNearlyZero(1.f))
@@ -648,9 +661,13 @@ void ABattleController::Tick(float DeltaTime)
 				SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
 			}
 			ClampSpringArmToBounds(SpringArm);
-			SnapSpringArmToGround(SpringArm);
+			UpdateFreePivotHeight(SpringArm, DeltaTime);
 		}
+
+		ClampArmAboveTerrain(SpringArm, DeltaTime);
 	}
+
+	UpdateOcclusionTargets();
 
 	bCameraInputActive = false;
 }
@@ -687,7 +704,6 @@ void ABattleController::OnCameraMove(const FInputActionValue& Value)
 
 	SpringArm->AddWorldOffset(cameraVelocity * DeltaTime);
 	ClampSpringArmToBounds(SpringArm);
-	SnapSpringArmToGround(SpringArm);
 
 	bCameraInputActive = true;
 }
@@ -864,7 +880,11 @@ void ABattleController::FocusCameraOn(ACharacterBase* target)
 
 	//추적을 켜면 다음 틱에 activeUnit·aiFollowTarget으로 되돌아간다, 위치만 옮기고 자유 모드로 둔다
 	//Yaw는 건드리지 않는다 — 플레이어가 맞춰 둔 시야각을 뒤집을 이유가 없다
-	SpringArm->SetWorldLocation(target->GetActorLocation());
+	//높이는 추적 모드와 같은 발 + cameraGroundOffset, 자유 이동 평면도 여기로 옮긴다
+	const FVector focusPos = target->GetActorLocation()
+		- FVector(0.f, 0.f, target->GetSimpleCollisionHalfHeight() - cameraGroundOffset);
+	SpringArm->SetWorldLocation(focusPos);
+	freePivotZ = focusPos.Z;
 	cameraVelocity = FVector::ZeroVector;
 	bIsFollowingCharacter = false;
 }
@@ -1542,23 +1562,104 @@ void ABattleController::RefreshSkillButtons()
 
 void ABattleController::SnapSpringArmToGround(USpringArmComponent* SpringArm)
 {
-	const FVector PivotPos = SpringArm->GetComponentLocation();
-
-	//랜드스케이프만 감지하기 위해 멀티 트레이스 후 필터링
-	TArray<FHitResult> Hits;
-	GetWorld()->LineTraceMultiByChannel(
-		Hits,
-		PivotPos + FVector(0.f, 0.f, 500.f),
-		PivotPos - FVector(0.f, 0.f, 500.f),
-		ECC_Visibility);
-
-	for (const FHitResult& Hit : Hits)
+	FVector pos = SpringArm->GetComponentLocation();
+	if (const TOptional<float> ground = GetTerrainHeight(pos))
 	{
-		if (Hit.GetActor() && Hit.GetActor()->IsA<ALandscapeProxy>())
+		pos.Z = ground.GetValue() + cameraGroundOffset;
+		SpringArm->SetWorldLocation(pos);
+	}
+	freePivotZ = pos.Z;
+}
+
+TOptional<float> ABattleController::GetTerrainHeight(const FVector& location) const
+{
+	//높이필드를 직접 읽어 바위·건물 등 다른 콜리전에 영향받지 않는다
+	return IsValid(cachedLandscape) ? cachedLandscape->GetHeightAtLocation(location) : TOptional<float>();
+}
+
+void ABattleController::UpdateFreePivotHeight(USpringArmComponent* SpringArm, float DeltaTime)
+{
+	FVector pos = SpringArm->GetComponentLocation();
+
+	//평면 아래 굴곡은 무시하고, 평면보다 솟은 지형에서만 그 위로 띄워 피벗이 땅에 묻히지 않게 한다
+	float targetZ = freePivotZ;
+	if (const TOptional<float> ground = GetTerrainHeight(pos))
+	{
+		targetZ = FMath::Max(targetZ, ground.GetValue() + cameraGroundOffset);
+	}
+	if (FMath::IsNearlyEqual(pos.Z, targetZ, 0.1)) return;
+
+	pos.Z = FMath::FInterpTo(pos.Z, targetZ, DeltaTime, pivotHeightInterpSpeed);
+	SpringArm->SetWorldLocation(pos);
+}
+
+void ABattleController::ClampArmAboveTerrain(USpringArmComponent* SpringArm, float DeltaTime)
+{
+	//암을 몇 등분해 카메라 쪽 끝부터 검사할지
+	constexpr int32 SampleCount = 16;
+
+	const float desiredLength = FMath::Lerp(zoomNearArmLength, zoomFarArmLength, currentZoomAlpha);
+	const FVector pivot = SpringArm->GetComponentLocation();
+	const FVector back = -SpringArm->GetComponentRotation().Vector();
+
+	//카메라 쪽 끝에서 피벗 쪽으로 훑어 처음으로 지형 위에 뜬 지점까지만 편다
+	float allowedLength = 0.f;
+	for (int32 i = SampleCount; i > 0; --i)
+	{
+		const float length = desiredLength * i / SampleCount;
+		const FVector point = pivot + back * length;
+		const TOptional<float> ground = GetTerrainHeight(point);
+		if (!ground.IsSet() || point.Z >= ground.GetValue() + cameraTerrainClearance)
 		{
-			SpringArm->SetWorldLocation(FVector(PivotPos.X, PivotPos.Y, Hit.Location.Z + cameraGroundOffset));
-			return;
+			//끝점이 지형 위면 제한을 풀어 줌 보간과 겹치지 않게 한다
+			allowedLength = (i == SampleCount) ? zoomFarArmLength : length;
+			break;
 		}
+	}
+
+	//파고들 때는 즉시 당기고 풀릴 때만 천천히 편다
+	terrainArmLimit = allowedLength < terrainArmLimit
+		? allowedLength
+		: FMath::FInterpTo(terrainArmLimit, allowedLength, DeltaTime, armRecoverInterpSpeed);
+	SpringArm->TargetArmLength = FMath::Min(desiredLength, terrainArmLimit);
+}
+
+void ABattleController::UpdateOcclusionTargets()
+{
+	if (!occlusionCollection) return;
+
+	UMaterialParameterCollectionInstance* mpc = GetWorld()->GetParameterCollectionInstance(occlusionCollection);
+	const ABattleGameMode* gameMode = GetWorld()->GetAuthGameMode<ABattleGameMode>();
+	const USpringArmComponent* SpringArm = cachedSpringArm;
+	if (!mpc || !gameMode || !SpringArm) return;
+
+	//슬롯 이름은 한 번만 만든다, 개수는 MF_OcclusionCutout 입력 수와 같아야 한다
+	constexpr int32 SlotCount = 16;
+	static const TArray<FName> slotNames = []()
+	{
+		TArray<FName> names;
+		for (int32 i = 0; i < SlotCount; ++i) names.Add(FName(*FString::Printf(TEXT("Target%d"), i)));
+		return names;
+	}();
+
+	TArray<ACharacterBase*> targets = gameMode->GetTeam(true);
+	targets.Append(gameMode->GetTeam(false));
+	targets.RemoveAll([](const ACharacterBase* c) { return !IsValid(c) || c->IsDead(); });
+
+	//슬롯이 모자라면 화면 중심(피벗)에서 먼 캐릭터부터 빠진다
+	const FVector pivot = SpringArm->GetComponentLocation();
+	targets.Sort([&pivot](const ACharacterBase& a, const ACharacterBase& b)
+	{
+		return FVector::DistSquared2D(a.GetActorLocation(), pivot) < FVector::DistSquared2D(b.GetActorLocation(), pivot);
+	});
+
+	//w=1이 사용 중인 슬롯, 빈 슬롯은 0으로 비워 셰이더가 건너뛴다
+	for (int32 i = 0; i < SlotCount; ++i)
+	{
+		const FVector4 value = targets.IsValidIndex(i)
+			? FVector4(targets[i]->GetActorLocation(), 1.0)
+			: FVector4(0.0, 0.0, 0.0, 0.0);
+		mpc->SetVectorParameterValue(slotNames[i], FLinearColor(value));
 	}
 }
 

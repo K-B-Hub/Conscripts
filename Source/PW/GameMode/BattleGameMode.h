@@ -279,13 +279,14 @@ private:
 	//앵커 하나에 분대 하나를 세운다, 실제로 세운 인원 수를 반환
 	int32 SpawnSquadAt(const ASquadSpawnPoint* anchor, const USquadData* squad);
 
-	//기존 적 위치에서 minSquadDistance 이상 떨어진 앵커 중 하나를 고른다
-	//남은 후보가 없으면 INDEX_NONE
+	//후보 앵커 중 하나를 가중 추첨, 기존 적 위치에 가까운 후보는 확률이 낮아진다
+	//후보가 없으면 INDEX_NONE
 	int32 PickSpacedAnchor(const TArray<ASquadSpawnPoint*>& candidates, const TArray<FVector>& chosenLocations) const;
 
-	//분대끼리, 분대와 필수 배치 적 사이의 최소 거리, 근접 합류 파동이 바로 번지지 않도록 파동 반경에 맞춘다
-	UPROPERTY(EditDefaultsOnly, Category = "Enemy Spawn", meta = (ClampMin = "0.0"))
-	float minSquadDistance = 11.f * CmPerMeter;
+	//이 거리보다 가까우면 추첨 확률이 선형으로 깎인다, 막지는 않는다
+	//파동 반경에 맞춰 근접 합류가 바로 번지는 배치를 줄인다, 가중치 분모라 0 불가
+	UPROPERTY(EditDefaultsOnly, Category = "Enemy Spawn", meta = (ClampMin = "1.0"))
+	float squadSpacingFalloff = 11.f * CmPerMeter;
 
 	//적 초기 레벨 스케일링, 아군 평균 레벨 +2까지 레벨업하며 랜덤 강화 자동 습득
 	void ApplyEnemyLevelScaling();

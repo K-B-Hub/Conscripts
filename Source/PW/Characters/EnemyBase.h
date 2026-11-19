@@ -11,7 +11,6 @@ class AAllyCharacterBase;
 class AEnemyAIController;
 class UUtilityAIComponent;
 class UUpgradeTableData;
-class UFixedUpgradeTableData;
 class USplineComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEnemyDeath, AEnemyBase*, DeadEnemy, AAllyCharacterBase*, Killer);
@@ -64,13 +63,9 @@ protected:
 	//레벨업 시 선택 없이 랜덤 강화 1개를 자동 습득
 	virtual void GrantLevelUpUpgrade() override;
 
-	//직업 고유 강화 후보 풀, 적 BP에서 지정
+	//적 전용 강화 후보 풀, 그 직업 캐릭터 전원의 스킬을 담는다. 적 BP에서 지정
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
 	TObjectPtr<UUpgradeTableData> classUpgradeTable;
-
-	//레벨 고정 강화 매핑, 적 BP에서 지정
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
-	TObjectPtr<UFixedUpgradeTableData> fixedUpgradeTable;
 
 	//보스 유닛 여부
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")

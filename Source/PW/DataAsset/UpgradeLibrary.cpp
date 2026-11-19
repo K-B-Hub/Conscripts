@@ -2,7 +2,6 @@
 
 #include "DataAsset/UpgradeLibrary.h"
 #include "DataAsset/UpgradeTableData.h"
-#include "DataAsset/FixedUpgradeTableData.h"
 #include "Characters/CharacterBase.h"
 #include "Characters/AllyCharacterBase.h"
 #include "ActorComponent/SkillComponent.h"
@@ -15,51 +14,22 @@
 #include "GameInstance/PWGameInstance.h"
 
 TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildPendingChoices(
-	const AAllyCharacterBase* character, const UUpgradeTableData* commonTable, EUpgradeGrade* outGrade)
+	const AAllyCharacterBase* character, const UUpgradeTableData* sharedClassTable,
+	const UUpgradeTableData* commonTable, EUpgradeGrade* outGrade)
 {
-	TArray<TSubclassOf<USkillBase>> choices;
-	if (!character) return choices;
+	if (!character) return {};
 
-	//가장 앞 대기 강화의 부여 레벨로 종류를 복원해 분기
-	const int32 pendingLevel = character->PeekPendingUpgradeLevel();
+	//가장 앞 대기 강화의 부여 레벨로 종류를 복원, 고급 랜덤은 하급 풀 제외
+	const ELevelUpUpgradeKind kind = ClassifyLevelUpUpgrade(character->PeekPendingUpgradeLevel());
+	const EUpgradeGrade minGrade = (kind == ELevelUpUpgradeKind::HighRandom) ? EUpgradeGrade::Mid : EUpgradeGrade::Low;
 
-	switch (ClassifyLevelUpUpgrade(pendingLevel))
-	{
-	case ELevelUpUpgradeKind::ClassFixed:
-	{
-		//직업별 레벨 고정 강화, 단일 카드로 제시
-		const UFixedUpgradeTableData* fixedTable = character->GetFixedUpgradeTable();
-		const TSubclassOf<USkillBase> fixed = fixedTable ? fixedTable->GetFixedUpgrade(pendingLevel) : nullptr;
-		if (fixed)
-		{
-			choices.Add(fixed);
-			//풀 소속이 없으므로 등급이 없다, 버튼 아트는 상급을 쓴다
-			if (outGrade) *outGrade = EUpgradeGrade::High;
-			break;
-		}
-		//해당 레벨에 배정된 고정 강화가 없으면 선택지가 빈 채로 뜨므로 일반 랜덤으로 돌린다
-		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Low, outGrade);
-		break;
-	}
-	case ELevelUpUpgradeKind::HighRandom:
-		//하급 풀 제외 고급 랜덤
-		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Mid, outGrade);
-		break;
-
-	default:
-		choices = BuildChoices(character, character->GetClassUpgradeTable(), commonTable, 3, EUpgradeGrade::Low, outGrade);
-		break;
-	}
-
-	return choices;
+	const TArray<const UUpgradeTableData*> classTables = {
+		sharedClassTable, character->GetClassUpgradeTable(), character->GetCharacterUpgradeTable() };
+	return BuildChoices(character, classTables, commonTable, 3, minGrade, outGrade);
 }
 
 ELevelUpUpgradeKind UUpgradeLibrary::ClassifyLevelUpUpgrade(int32 level)
 {
-	if (level <= 80 && level % 5 == 0)
-	{
-		return ELevelUpUpgradeKind::ClassFixed;
-	}
 	if (level > 80 && level % 10 == 0)
 	{
 		return ELevelUpUpgradeKind::HighRandom;
@@ -70,10 +40,10 @@ ELevelUpUpgradeKind UUpgradeLibrary::ClassifyLevelUpUpgrade(int32 level)
 EUpgradeGrade UUpgradeLibrary::RollGrade()
 {
 	const int32 r = FMath::RandRange(1, 100);
-	if (r <= 55) return EUpgradeGrade::Low;		//55%
-	if (r <= 85) return EUpgradeGrade::Mid;		//30%
-	if (r <= 95) return EUpgradeGrade::High;	//10%
-	return EUpgradeGrade::Top;					//5%
+	if (r <= 60) return EUpgradeGrade::Low;		//60%
+	if (r <= 90) return EUpgradeGrade::Mid;		//30%
+	if (r <= 97) return EUpgradeGrade::High;	//7%
+	return EUpgradeGrade::Top;					//3%
 }
 
 bool UUpgradeLibrary::CanAcquire(const ACharacterBase* character, TSubclassOf<USkillBase> skillClass)
@@ -157,6 +127,25 @@ void UUpgradeLibrary::CollectAcquirable(
 	}
 }
 
+//카드 한 장이 직업 강화일 확률(%), 공용보다 낮게
+static constexpr int32 ClassSlotChance = 35;
+
+int32 UUpgradeLibrary::RollCommonCount(int32 need, int32 commonNum, int32 classNum)
+{
+	//한쪽이 부족하면 반대쪽에서 보충되도록 범위 클램프
+	const int32 maxFromCommon = FMath::Min(need, commonNum);
+	const int32 minFromCommon = FMath::Max(0, need - classNum);
+	if (minFromCommon > maxFromCommon) return 0;
+
+	//장마다 독립 굴림, 직업이 아니면 공용
+	int32 fromCommon = 0;
+	for (int32 i = 0; i < need; ++i)
+	{
+		if (FMath::RandRange(1, 100) > ClassSlotChance) ++fromCommon;
+	}
+	return FMath::Clamp(fromCommon, minFromCommon, maxFromCommon);
+}
+
 void UUpgradeLibrary::PickRandom(TArray<TSubclassOf<USkillBase>>& candidates, int32 n, TArray<TSubclassOf<USkillBase>>& out)
 {
 	const int32 pickCount = FMath::Min(n, candidates.Num());
@@ -170,7 +159,7 @@ void UUpgradeLibrary::PickRandom(TArray<TSubclassOf<USkillBase>>& candidates, in
 
 TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildChoices(
 	const ACharacterBase* character,
-	const UUpgradeTableData* classTable,
+	const TArray<const UUpgradeTableData*>& classTables,
 	const UUpgradeTableData* commonTable,
 	int32 count,
 	EUpgradeGrade minGrade,
@@ -194,14 +183,15 @@ TArray<TSubclassOf<USkillBase>> UUpgradeLibrary::BuildChoices(
 		TArray<TSubclassOf<USkillBase>> commonCand;
 		TArray<TSubclassOf<USkillBase>> classCand;
 		if (commonTable) CollectAcquirable(character, commonTable->GetPool(grade), result, commonCand);
-		if (classTable)  CollectAcquirable(character, classTable->GetPool(grade), result, classCand);
+		//여러 테이블에 같은 스킬이 있어도 CollectAcquirable이 한 번만 담는다
+		for (const UUpgradeTableData* classTable : classTables)
+		{
+			if (classTable) CollectAcquirable(character, classTable->GetPool(grade), result, classCand);
+		}
 
 		const int32 need = count - result.Num();
 
-		//공용/직업 분배를 랜덤 결정, 한쪽이 부족하면 반대쪽에서 보충되도록 범위 클램프
-		const int32 maxFromCommon = FMath::Min(need, commonCand.Num());
-		const int32 minFromCommon = FMath::Max(0, need - classCand.Num());
-		const int32 fromCommon = (minFromCommon <= maxFromCommon) ? FMath::RandRange(minFromCommon, maxFromCommon) : 0;
+		const int32 fromCommon = RollCommonCount(need, commonCand.Num(), classCand.Num());
 		const int32 fromClass = need - fromCommon;
 
 		//등급이 뽑힌 등급보다 낮으면 폴백 보충 상황

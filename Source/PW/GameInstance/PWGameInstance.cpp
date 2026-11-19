@@ -26,9 +26,9 @@ namespace
 UPWGameInstance::UPWGameInstance()
 {
 	//난이도가 올라갈수록 전장 규모가 커진다
-	enemyCountByDifficulty.Add(EGameDifficulty::Stage, FEnemyCountRange(15, 21));
-	enemyCountByDifficulty.Add(EGameDifficulty::Roguelike, FEnemyCountRange(24, 30));
-	enemyCountByDifficulty.Add(EGameDifficulty::Nightmare, FEnemyCountRange(36, 42));
+	enemyCountByDifficulty.Add(EGameDifficulty::Stage, FEnemyCountRange(20, 25));
+	enemyCountByDifficulty.Add(EGameDifficulty::Roguelike, FEnemyCountRange(30, 35));
+	enemyCountByDifficulty.Add(EGameDifficulty::Nightmare, FEnemyCountRange(40, 45));
 }
 
 const FEnemyCountRange& UPWGameInstance::GetEnemyCountRange() const
@@ -64,6 +64,15 @@ void UPWGameInstance::Init()
 	if (!saveGame)
 	{
 		saveGame = Cast<UPWSaveGame>(UGameplayStatics::CreateSaveGameObject(UPWSaveGame::StaticClass()));
+	}
+
+	//줄기·모드·캐릭터 해금이 모두 클리어 기록에서 파생되므로 여기만 채우면 된다
+	if (bUnlockAllForDemo)
+	{
+		for (const UStoryRouteData* route : storyRoutes)
+		{
+			if (route) saveGame->RegisterStoryClear(route->routeId);
+		}
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("[GameInstance] 세이브 슬롯 %s / 로드 %s / 클리어한 줄기 %d개"),

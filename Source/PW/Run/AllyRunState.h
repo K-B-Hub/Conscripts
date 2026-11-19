@@ -81,7 +81,7 @@ struct FAllyRunState
 	TArray<TSubclassOf<USkillBase>> SkillSlots;
 
 	//아직 고르지 않은 레벨업 강화가 부여된 레벨들(FIFO), 배열 길이가 남은 횟수다
-	//횟수만 저장하면 BuildPendingChoices가 종류를 복원하지 못해 직업 고정 강화가 하급 랜덤으로 강등된다
+	//횟수만 저장하면 BuildPendingChoices가 종류를 복원하지 못해 고급 랜덤이 하급 포함 랜덤으로 강등된다
 	UPROPERTY(BlueprintReadWrite)
 	TArray<int32> PendingUpgradeLevels;
 
