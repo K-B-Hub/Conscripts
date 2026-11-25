@@ -107,6 +107,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
 	float moveDecelRadius = 0.8f * CmPerMeter;
 
+	//경유점 도달 허용 거리
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
+	float waypointAcceptRadius = 0.05f * CmPerMeter;
+
+	//이 시간 동안 거의 못 움직이면 끼임으로 보고 이동 종료
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
+	float moveStuckTimeout = 0.5f;
+
 protected:
 	//직업 고유 강화 후보 풀, 파생 직업 BP에서 지정
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Upgrade")
@@ -141,4 +149,7 @@ private:
 
 	//이전 프레임 위치, 이동 거리 실시간 차감용
 	FVector lastFrameLocation = FVector::ZeroVector;
+
+	//저속 누적 시간, 끼임 판정용
+	float stuckTime = 0.f;
 };

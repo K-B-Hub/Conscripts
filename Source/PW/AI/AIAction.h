@@ -44,7 +44,7 @@ struct FAIAction
 	UPROPERTY(BlueprintReadOnly)
 	float PathLengthCm = 0.f;
 
-	//최근접 플레이어와의 거리 감소량, 이동 후보 전용
+	//최근접 플레이어와의 거리 감소량, 이동 후보와 이동 후 공격 후보
 	UPROPERTY(BlueprintReadOnly)
 	float ApproachDeltaCm = 0.f;
 

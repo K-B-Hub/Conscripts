@@ -291,8 +291,11 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 	ConsumeMovingPoint(MovedCm / CmPerMeter * GetTerrainMoveCostMultiplier() * GetStanceMoveCostMultiplier());
 	lastFrameLocation = CurrentLoc;
 
-	//이동력 소진 시 즉시 정지 후 자연 종료 알림
-	if (currentMovingPoint <= 0.f)
+	//초당 0.2m 미만이면 끼임 시간 누적
+	stuckTime = (MovedCm < 0.2f * CmPerMeter * DeltaTime) ? stuckTime + DeltaTime : 0.f;
+
+	//이동력 소진 또는 끼임 시 즉시 정지 후 자연 종료 알림
+	if (currentMovingPoint <= 0.f || stuckTime >= moveStuckTimeout)
 	{
 		StopMovement();
 		//MoveComplete 패시브 발동을 OnMovementCompleted 브로드캐스트 전에 처리
@@ -304,30 +307,38 @@ void AAllyCharacterBase::Tick(float DeltaTime)
 		return;
 	}
 
-	const FVector Target = pathPoints[pathPointIndex];
-	const FVector Delta = Target - CurrentLoc;
-	const float Dist2D = FVector2D(Delta.X, Delta.Y).Size();
-
-	//현재 경유점 도달 판정
-	if (Dist2D < 5.f)
+	//경유점 도달 판정, 프레임당 이동량이 허용 거리보다 커서 지나친 것도 도달로 본다
+	while (pathPointIndex < pathPoints.Num())
 	{
-		pathPointIndex++;
-
-		//마지막 경유점 도달 시 정확한 위치에 스냅 후 이동 종료, 자연 종료 알림
-		if (pathPointIndex >= pathPoints.Num())
+		const FVector toPoint = pathPoints[pathPointIndex] - CurrentLoc;
+		const FVector2D toPoint2D(toPoint.X, toPoint.Y);
+		bool bReached = toPoint2D.Size() < waypointAcceptRadius;
+		if (!bReached && pathPointIndex > 0)
 		{
-			SetActorLocation(FVector(moveDestination.X, moveDestination.Y, CurrentLoc.Z));
-			GetCharacterMovement()->StopMovementImmediately();
-			bIsMovingToTarget = false;
-			//MoveComplete 패시브 발동을 OnMovementCompleted 브로드캐스트 전에 처리
-			if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
-			{
-				GM->BroadcastMoveComplete();
-			}
-			OnMovementCompleted.Broadcast();
-			return;
+			//구간 진행 방향과 남은 방향이 반대면 지나친 것
+			const FVector seg = pathPoints[pathPointIndex] - pathPoints[pathPointIndex - 1];
+			bReached = FVector2D::DotProduct(FVector2D(seg.X, seg.Y), toPoint2D) <= 0.f;
 		}
+		if (!bReached) break;
+		pathPointIndex++;
 	}
+
+	//마지막 경유점 도달 시 정확한 위치에 스냅 후 이동 종료, 자연 종료 알림
+	if (pathPointIndex >= pathPoints.Num())
+	{
+		SetActorLocation(FVector(moveDestination.X, moveDestination.Y, CurrentLoc.Z));
+		GetCharacterMovement()->StopMovementImmediately();
+		bIsMovingToTarget = false;
+		//MoveComplete 패시브 발동을 OnMovementCompleted 브로드캐스트 전에 처리
+		if (ABattleGameMode* GM = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+		{
+			GM->BroadcastMoveComplete();
+		}
+		OnMovementCompleted.Broadcast();
+		return;
+	}
+
+	const FVector Delta = pathPoints[pathPointIndex] - CurrentLoc;
 
 	//다음 경유점 방향으로 입력, 목적지 근접 시 감속
 	const FVector MoveDir = FVector(Delta.X, Delta.Y, 0.f).GetSafeNormal();
@@ -370,6 +381,7 @@ void AAllyCharacterBase::MoveAlongPath(const TArray<FVector>& Points)
 	pathPointIndex = 0;
 	moveDestination = Points.Last();
 	lastFrameLocation = GetActorLocation(); //첫 프레임 거리 오차 방지
+	stuckTime = 0.f;
 	bIsMovingToTarget = true;
 }
 
