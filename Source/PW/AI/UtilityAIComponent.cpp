@@ -165,6 +165,8 @@ void UUtilityAIComponent::GatherCastPositions(const FVector& AimLoc, float PickR
 
 	const FVector casterLoc = ownerCharacter->GetActorLocation();
 	const float budgetCm = ownerCharacter->GetCurrentMovingPoint() * CmPerMeter;
+	//접근 축 기준 거리, 이동 후 후보만 사용
+	const float baseDist = bAssumeMoved ? DistToNearestPlayer(casterLoc) : -1.f;
 
 	TArray<FVector> samples;
 	if (bAssumeMoved)
@@ -204,6 +206,8 @@ void UUtilityAIComponent::GatherCastPositions(const FVector& AimLoc, float PickR
 			pos.TerrainWeightedCostCm = terrainInfo.WeightedCostCm;
 			pos.TerrainValueAtDest = SumTerrainStayValue(terrainInfo.DestTerrains);
 			pos.TerrainPassThroughValue = SumTerrainPassValue(terrainInfo.PassedTerrains);
+			//순수 이동과 같은 접근 보상, 같은 자리면 공격 가치만큼 앞서도록
+			pos.ApproachDeltaCm = (baseDist >= 0.f) ? baseDist - DistToNearestPlayer(s) : 0.f;
 		}
 		else
 		{
@@ -882,6 +886,8 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 
 		//이동 거리 페널티
 		score += Action.PathLengthCm * p->weightDistancePenalty;
+		//접근 보상, 제자리 후보는 0
+		score += Action.ApproachDeltaCm * p->weightApproach;
 
 		//지형 점수, 시전 위치의 체류 가치와 경로 통과 손익
 		score += ScoreTerrain(Action);
@@ -913,10 +919,8 @@ float UUtilityAIComponent::ScoreAction(const FAIAction& Action) const
 					if (AAllyCharacterBase* allyTarget = Cast<AAllyCharacterBase>(primary))
 					{
 						const FThreatProfile& tp = gm->GetThreatProfile(allyTarget);
-						const float ownerEva = ownerCharacter ? ownerCharacter->GetEvasion() : 0.f;
-						const float tHitP  = tp.Accuracy / FMath::Max(1.f, tp.Accuracy + ownerEva);
-						const float tCritP = tp.CritChance / 100.f;
-						const float targetThreat = tHitP * ((1.f - tCritP) * tp.NormalDamage + tCritP * tp.CritDamage);
+						const float targetThreat = ExpectedThreatDamage(tp, allyTarget,
+							FVector::Dist2D(allyTarget->GetActorLocation(), Action.CastFrom));
 						score += targetThreat * p->weightTargetThreat;
 					}
 				}
@@ -1248,13 +1252,27 @@ float UUtilityAIComponent::ComputeIncomingDangerAt(const FVector& AtLocation) co
 			hit, threatLoc + eye, AtLocation + eye, ECC_Visibility, params);
 		if (bBlocked && hit.GetActor() != ownerCharacter) continue;   //시야 차단
 
-		//기대 피해 합산, 명중은 내 회피와의 비율로 환산
-		const float ownerEva = ownerCharacter ? ownerCharacter->GetEvasion() : 0.f;
-		const float hitP  = prof.Accuracy / FMath::Max(1.f, prof.Accuracy + ownerEva);
-		const float critP = prof.CritChance / 100.f;
-		total += hitP * ((1.f - critP) * prof.NormalDamage + critP * prof.CritDamage);
+		total += ExpectedThreatDamage(prof, threat, FVector::Dist2D(threatLoc, AtLocation));
 	}
 	return total;
+}
+
+float UUtilityAIComponent::ExpectedThreatDamage(const FThreatProfile& Prof, const ACharacterBase* Threat,
+                                                float DistanceCm) const
+{
+	if (!ownerCharacter || !Threat) return 0.f;
+
+	//ComputeDamageNumbers와 같은 식, 시야 초과 감쇠 후 뺄셈 명중
+	const float overMeters = FMath::Max(0.f, DistanceCm / CmPerMeter - Threat->GetSight());
+	const float acc = Prof.Accuracy - overMeters * ACharacterBase::AccuracyLossPerMeterBeyondSight;
+	const float hitP = FMath::Clamp(acc - ownerCharacter->GetEvasion(), 0.f, 100.f) / 100.f;
+
+	//방어력·피해 감소 적용, 치명타는 감산 후 피해에 배율
+	const float reduction = 1.f - ownerCharacter->GetDamageReduction() / 100.f;
+	const float normal = FMath::Max(0.f, (Prof.NormalDamage - ownerCharacter->GetDef()) * reduction);
+	const float critMul = (Prof.NormalDamage > 0.f) ? Prof.CritDamage / Prof.NormalDamage : 1.f;
+	const float critP = Prof.CritChance / 100.f;
+	return hitP * normal * ((1.f - critP) + critP * critMul);
 }
 
 //최근접 생존 플레이어까지의 거리, 없으면 -1

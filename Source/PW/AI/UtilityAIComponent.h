@@ -15,6 +15,7 @@ class UAIPersonalityData;
 class UBuffBase;
 class UAilmentBase;
 class ATerrainBase;
+struct FThreatProfile;
 
 //버프가 가감하는 스탯 식별자, StatLeverage 환산용
 enum class EAIBuffStat : uint8
@@ -112,6 +113,9 @@ protected:
 
 	//지정 위치의 예상 피격 피해 계산
 	float ComputeIncomingDangerAt(const FVector& AtLocation) const;
+
+	//위협 프로파일이 거리 DistanceCm에서 나에게 줄 기대 피해, 실제 피해 공식과 같은 식
+	float ExpectedThreatDamage(const FThreatProfile& Prof, const ACharacterBase* Threat, float DistanceCm) const;
 
 	//최근접 생존 플레이어까지의 거리, 없으면 -1
 	float DistToNearestPlayer(const FVector& From) const;
