@@ -43,6 +43,9 @@ public:
 	//후보 지점을 그 XY의 네비 바닥에 붙여 캡슐 중심 높이로 돌려줌, 바닥이 없으면 false
 	static bool SnapToNavFloor(const ACharacterBase* Mover, FVector& InOutLocation);
 
+	//Goal 쪽 네비 경로를 이동력만큼 따라간 목적지와 실질 비용, 부분 경로 허용, 전진 불가면 false
+	static bool FindBudgetPointToward(const ACharacterBase* Mover, const FVector& Goal, FVector& OutDest, float& OutCostCm);
+
 	//지정 위치에서 대상까지 시야선 확인
 	static bool HasLineOfSightFrom(const ACharacterBase* Caster, const FVector& FromLocation, const ACharacterBase* Target);
 

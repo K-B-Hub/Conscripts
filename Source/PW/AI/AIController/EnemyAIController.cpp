@@ -127,13 +127,9 @@ void AEnemyAIController::BeginTurnAction()
 				UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 교전 게이트 통과 (알람도달=%d)"),
 					*GetNameSafe(pawnPtr), bReachedGate);
 			}
-			else
+			//접근 이동 후 턴 종료, 접근 불가면 이번 턴은 UtilityAI로 넘겨 제자리 정지를 막는다
+			else if (TryStartApproachToAlarm())
 			{
-				//접근 이동 후 턴 종료, 이동 불가면 즉시 종료
-				if (!TryStartApproachToAlarm())
-				{
-					OnEnemyTurnEnd();
-				}
 				return;
 			}
 		}
@@ -391,36 +387,15 @@ bool AEnemyAIController::TryStartApproachToAlarm()
 	ACharacterBase* pawnChar = Cast<ACharacterBase>(GetPawn());
 	if (!pawnChar) return false;
 
-	const float budgetCm = pawnChar->GetCurrentMovingPoint() * CmPerMeter;
-	if (budgetCm <= 0.f) return false;
-
-	const FVector pawnLoc = pawnChar->GetActorLocation();
-	const FVector desired = ComputeApproachDestination(pawnLoc, budgetCm);
-	if (FVector::Dist(pawnLoc, desired) < 1.f) return false;
-
-	//직선 목적지가 막혀 있으면 비율 축소 재시도
-	static const float ratios[] = { 1.f, 0.7f, 0.4f };
-	FVector dest = pawnLoc;
-	float pathLenCm = 0.f;
+	//직선 방향은 벽·절벽에 막히면 매 턴 실패하므로 네비 경로를 따라간다
+	FVector dest;
 	float moveCostCm = 0.f;
-	bool bFound = false;
-	for (float ratio : ratios)
+	if (!UAINavigationHelper::FindBudgetPointToward(pawnChar, alarmFocusLocation, dest, moveCostCm))
 	{
-		FVector candidate = pawnLoc + (desired - pawnLoc) * ratio;
-		//내 높이 그대로면 내리막 지점이 투영 범위를 벗어난다
-		if (!UAINavigationHelper::SnapToNavFloor(pawnChar, candidate)) continue;
-		FTerrainPathInfo terrainInfo;
-		//도달 판정과 이동력 차감 모두 지형 배율을 반영한 실질 비용 기준
-		if (UAINavigationHelper::CanReach(pawnChar, candidate, pathLenCm, &terrainInfo)
-			&& terrainInfo.WeightedCostCm <= budgetCm)
-		{
-			dest = candidate;
-			moveCostCm = terrainInfo.WeightedCostCm;
-			bFound = true;
-			break;
-		}
+		UE_LOG(LogTemp, Warning, TEXT("[EnemyAIController] %s 알람 지점 접근 경로 없음 (이동력 %.1f)"),
+			*GetNameSafe(pawnChar), pawnChar->GetCurrentMovingPoint());
+		return false;
 	}
-	if (!bFound) return false;
 
 	//중복 콜백 방지
 	ReceiveMoveCompleted.RemoveDynamic(this, &AEnemyAIController::OnApproachMoveCompleted);
@@ -443,21 +418,6 @@ bool AEnemyAIController::TryStartApproachToAlarm()
 	UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 알람 지점 접근 이동 (잔여 거리 %.0f)"),
 		*GetNameSafe(pawnChar), FVector::Dist(dest, alarmFocusLocation));
 	return true;
-}
-
-FVector AEnemyAIController::ComputeApproachDestination(const FVector& PawnLoc, float BudgetCm) const
-{
-	//TODO: 알람 지점(alarmFocusLocation) 방향 목적지 결정
-	//선택지 1: 이동력(BudgetCm)만큼 최대 직진 — 게이트 안쪽 깊숙이 진입 가능
-	//선택지 2: 게이트 경계(engagementGateRadius) 근처에서 정지 — 경계에 도열 후 다음 턴부터 UtilityAI
-	//반환 Z는 PawnLoc.Z 유지, 도달 가능 여부는 호출부가 검증
-	FVector targetLoc = alarmFocusLocation;
-	targetLoc.Z = PawnLoc.Z;
-
-	const FVector direction = (targetLoc - PawnLoc).GetSafeNormal();
-	if (direction.IsNearlyZero()) return PawnLoc;
-
-	return PawnLoc + direction * BudgetCm;
 }
 
 void AEnemyAIController::OnApproachMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)

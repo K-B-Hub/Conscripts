@@ -124,9 +124,6 @@ private:
 	//알람 지점 접근 이동 시작, 이동 접수 시 true
 	bool TryStartApproachToAlarm();
 
-	//접근 이동 목적지 계산
-	FVector ComputeApproachDestination(const FVector& PawnLoc, float BudgetCm) const;
-
 	//접근 이동 완료 콜백
 	UFUNCTION()
 	void OnApproachMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);

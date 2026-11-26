@@ -150,6 +150,59 @@ bool UAINavigationHelper::SnapToNavFloor(const ACharacterBase* Mover, FVector& I
 	return true;
 }
 
+bool UAINavigationHelper::FindBudgetPointToward(const ACharacterBase* Mover, const FVector& Goal, FVector& OutDest, float& OutCostCm)
+{
+	if (!Mover) return false;
+	const float budgetCm = Mover->GetCurrentMovingPoint() * CmPerMeter;
+	if (budgetCm <= 0.f) return false;
+
+	UWorld* world = Mover->GetWorld();
+	UNavigationSystemV1* navSys = world ? UNavigationSystemV1::GetCurrent(world) : nullptr;
+	if (!navSys) return false;
+
+	//목표가 캐릭터면 발밑이 통행 불가 구멍 안이라 넓게 투영해 가장자리를 목표로
+	FVector goalExtent = navSys->GetDefaultSupportedAgentConfig().DefaultQueryExtent;
+	goalExtent.X = goalExtent.Y = 2.f * CmPerMeter;
+	FNavLocation goal;
+	if (!navSys->ProjectPointToNavigation(Goal, goal, goalExtent)) return false;
+
+	//막혀 있어도 갈 수 있는 데까지 가도록 부분 경로 허용
+	const FVector from = Mover->GetNavAgentLocation();
+	UNavigationPath* path = navSys->FindPathToLocationSynchronously(world, from, goal.Location);
+	if (!path || !path->IsValid() || path->PathPoints.Num() < 2) return false;
+	const TArray<FVector>& pts = path->PathPoints;
+
+	//경로를 따라 lengthCm 지점, 경로보다 길면 끝점
+	auto pointAlongPath = [&pts](float lengthCm) -> FVector
+	{
+		for (int32 i = 0; i < pts.Num() - 1; ++i)
+		{
+			const float seg = FVector::Dist(pts[i], pts[i + 1]);
+			if (lengthCm <= seg) return FMath::Lerp(pts[i], pts[i + 1], seg > 0.f ? lengthCm / seg : 0.f);
+			lengthCm -= seg;
+		}
+		return pts.Last();
+	};
+
+	//이동력 길이에서 자르고, 지형 배율로 비용이 넘치면 조금씩 당긴다
+	static const float ratios[] = { 1.f, 0.75f, 0.5f, 0.25f };
+	for (float ratio : ratios)
+	{
+		const FVector dest = pointAlongPath(budgetCm * ratio);
+		if (FVector::Dist2D(from, dest) < 0.1f * CmPerMeter) return false;
+
+		float pathLenCm = 0.f;
+		FTerrainPathInfo info;
+		if (CanReach(Mover, dest, pathLenCm, &info))
+		{
+			OutDest = dest;
+			OutCostCm = info.WeightedCostCm;
+			return true;
+		}
+	}
+	return false;
+}
+
 bool UAINavigationHelper::HasLineOfSightFrom(const ACharacterBase* Caster, const FVector& FromLocation, const ACharacterBase* Target)
 {
 	if (!Caster || !Target) return false;

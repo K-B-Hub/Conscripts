@@ -20,8 +20,6 @@
 #include "TimerManager.h"
 #include "AIController.h"
 #include "Navigation/PathFollowingComponent.h"
-#include "NavigationSystem.h"
-#include "NavigationPath.h"
 #include "DrawDebugHelpers.h"
 
 //후보 점수 디버그 시각화 토글
@@ -1332,13 +1330,10 @@ bool UUtilityAIComponent::HasPlayerAffectingAction(const TArray<FAIAction>& Cand
 bool UUtilityAIComponent::FindAdvanceDestination(FVector& OutDest, float& OutCostCm) const
 {
 	if (!ownerCharacter) return false;
-	const float budgetCm = ownerCharacter->GetCurrentMovingPoint() * CmPerMeter;
-	if (budgetCm <= 0.f) return false;
 
 	UWorld* world = GetWorld();
 	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
-	UNavigationSystemV1* navSys = world ? UNavigationSystemV1::GetCurrent(world) : nullptr;
-	if (!gm || !navSys) return false;
+	if (!gm) return false;
 
 	//최근접 생존 플레이어
 	const FVector from = ownerCharacter->GetNavAgentLocation();
@@ -1352,46 +1347,7 @@ bool UUtilityAIComponent::FindAdvanceDestination(FVector& OutDest, float& OutCos
 	}
 	if (!nearest) return false;
 
-	//플레이어 발밑은 그 캐릭터의 통행 불가 구멍 안이라 넓게 투영해 가장자리를 목표로
-	FVector goalExtent = navSys->GetDefaultSupportedAgentConfig().DefaultQueryExtent;
-	goalExtent.X = goalExtent.Y = 2.f * CmPerMeter;
-	FNavLocation goal;
-	if (!navSys->ProjectPointToNavigation(nearest->GetNavAgentLocation(), goal, goalExtent)) return false;
-
-	//막혀 있어도 갈 수 있는 데까지 가도록 부분 경로 허용
-	UNavigationPath* path = navSys->FindPathToLocationSynchronously(world, from, goal.Location);
-	if (!path || !path->IsValid() || path->PathPoints.Num() < 2) return false;
-	const TArray<FVector>& pts = path->PathPoints;
-
-	//경로를 따라 lengthCm 지점, 경로보다 길면 끝점
-	auto pointAlongPath = [&pts](float lengthCm) -> FVector
-	{
-		for (int32 i = 0; i < pts.Num() - 1; ++i)
-		{
-			const float seg = FVector::Dist(pts[i], pts[i + 1]);
-			if (lengthCm <= seg) return FMath::Lerp(pts[i], pts[i + 1], seg > 0.f ? lengthCm / seg : 0.f);
-			lengthCm -= seg;
-		}
-		return pts.Last();
-	};
-
-	//이동력 길이에서 자르고, 지형 배율로 비용이 넘치면 조금씩 당긴다
-	static const float ratios[] = { 1.f, 0.75f, 0.5f, 0.25f };
-	for (float ratio : ratios)
-	{
-		const FVector dest = pointAlongPath(budgetCm * ratio);
-		if (FVector::Dist2D(from, dest) < 0.1f * CmPerMeter) return false;
-
-		float pathLenCm = 0.f;
-		FTerrainPathInfo info;
-		if (UAINavigationHelper::CanReach(ownerCharacter, dest, pathLenCm, &info))
-		{
-			OutDest = dest;
-			OutCostCm = info.WeightedCostCm;
-			return true;
-		}
-	}
-	return false;
+	return UAINavigationHelper::FindBudgetPointToward(ownerCharacter, nearest->GetNavAgentLocation(), OutDest, OutCostCm);
 }
 
 void UUtilityAIComponent::UpdateBattlefieldAverages()
