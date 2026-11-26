@@ -20,6 +20,8 @@
 #include "TimerManager.h"
 #include "AIController.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
 #include "DrawDebugHelpers.h"
 
 //후보 점수 디버그 시각화 토글
@@ -187,8 +189,11 @@ void UUtilityAIComponent::GatherCastPositions(const FVector& AimLoc, float PickR
 		samples.Add(casterLoc);
 	}
 
-	for (const FVector& s : samples)
+	for (FVector s : samples)
 	{
+		//aim 높이 그대로면 기복이 있는 지점이 투영 범위를 벗어난다
+		if (bAssumeMoved && !UAINavigationHelper::SnapToNavFloor(ownerCharacter, s)) continue;
+
 		//사거리 밖 후보 제외, 멀티픽은 픽별 검사에 위임하므로 게이트 생략
 		if (bGateAimRange && PickRangeCm > 0.f && FVector::Dist(s, AimLoc) > PickRangeCm) continue;
 
@@ -736,10 +741,12 @@ void UUtilityAIComponent::EnumerateMoveActions(TArray<FAIAction>& OutCandidates)
 		for (int32 i = 0; i < numDirs; ++i)
 		{
 			const float theta = i * angleStep;
-			const FVector sample(
+			FVector sample(
 				casterLoc.X + ringR * FMath::Cos(theta),
 				casterLoc.Y + ringR * FMath::Sin(theta),
 				casterLoc.Z);
+			//내 높이 그대로면 내리막 지점이 투영 범위를 벗어난다
+			if (!UAINavigationHelper::SnapToNavFloor(ownerCharacter, sample)) continue;
 
 			float pathLenCm = 0.f;
 			FTerrainPathInfo terrainInfo;
@@ -994,6 +1001,23 @@ void UUtilityAIComponent::StepNext()
 	TArray<FAIAction> candidates;
 	EnumerateActions(lastWasMove, candidates);
 	if (candidates.Num() == 0) { FinishTurn(); return; }
+
+	//플레이어에게 영향을 줄 행동이 없으면 점수와 무관하게 최근접 플레이어 쪽으로 전진
+	if (!lastWasMove && !HasPlayerAffectingAction(candidates))
+	{
+		FVector advanceDest;
+		float advanceCostCm = 0.f;
+		if (FindAdvanceDestination(advanceDest, advanceCostCm))
+		{
+			++currentIter;
+			lastWasMove = true;
+			bHasPendingAfterMove = false;
+			UE_LOG(LogTemp, Log, TEXT("[UtilityAI] %s 공격 수단 없음 — 최근접 플레이어 쪽 전진 (비용 %.0f)"),
+				*GetNameSafe(ownerCharacter), advanceCostCm);
+			StartMoveTo(advanceDest, advanceCostCm);
+			return;
+		}
+	}
 
 	TArray<float> scores;
 	const FAIAction* best = ScoreAndPickBest(candidates, &scores);
@@ -1290,6 +1314,84 @@ float UUtilityAIComponent::DistToNearestPlayer(const FVector& From) const
 		if (best < 0.f || d < best) best = d;
 	}
 	return best;
+}
+
+bool UUtilityAIComponent::HasPlayerAffectingAction(const TArray<FAIAction>& Candidates) const
+{
+	for (const FAIAction& c : Candidates)
+	{
+		if (c.IsMove() || c.IsWait()) continue;
+		for (const TObjectPtr<ACharacterBase>& t : c.Targets)
+		{
+			if (Cast<AAllyCharacterBase>(t)) return true;
+		}
+	}
+	return false;
+}
+
+bool UUtilityAIComponent::FindAdvanceDestination(FVector& OutDest, float& OutCostCm) const
+{
+	if (!ownerCharacter) return false;
+	const float budgetCm = ownerCharacter->GetCurrentMovingPoint() * CmPerMeter;
+	if (budgetCm <= 0.f) return false;
+
+	UWorld* world = GetWorld();
+	ABattleGameMode* gm = world ? world->GetAuthGameMode<ABattleGameMode>() : nullptr;
+	UNavigationSystemV1* navSys = world ? UNavigationSystemV1::GetCurrent(world) : nullptr;
+	if (!gm || !navSys) return false;
+
+	//최근접 생존 플레이어
+	const FVector from = ownerCharacter->GetNavAgentLocation();
+	const AAllyCharacterBase* nearest = nullptr;
+	float nearestDist = TNumericLimits<float>::Max();
+	for (AAllyCharacterBase* a : gm->GetAllies())
+	{
+		if (!IsValid(a) || a->IsDead()) continue;
+		const float d = FVector::Dist(a->GetNavAgentLocation(), from);
+		if (d < nearestDist) { nearestDist = d; nearest = a; }
+	}
+	if (!nearest) return false;
+
+	//플레이어 발밑은 그 캐릭터의 통행 불가 구멍 안이라 넓게 투영해 가장자리를 목표로
+	FVector goalExtent = navSys->GetDefaultSupportedAgentConfig().DefaultQueryExtent;
+	goalExtent.X = goalExtent.Y = 2.f * CmPerMeter;
+	FNavLocation goal;
+	if (!navSys->ProjectPointToNavigation(nearest->GetNavAgentLocation(), goal, goalExtent)) return false;
+
+	//막혀 있어도 갈 수 있는 데까지 가도록 부분 경로 허용
+	UNavigationPath* path = navSys->FindPathToLocationSynchronously(world, from, goal.Location);
+	if (!path || !path->IsValid() || path->PathPoints.Num() < 2) return false;
+	const TArray<FVector>& pts = path->PathPoints;
+
+	//경로를 따라 lengthCm 지점, 경로보다 길면 끝점
+	auto pointAlongPath = [&pts](float lengthCm) -> FVector
+	{
+		for (int32 i = 0; i < pts.Num() - 1; ++i)
+		{
+			const float seg = FVector::Dist(pts[i], pts[i + 1]);
+			if (lengthCm <= seg) return FMath::Lerp(pts[i], pts[i + 1], seg > 0.f ? lengthCm / seg : 0.f);
+			lengthCm -= seg;
+		}
+		return pts.Last();
+	};
+
+	//이동력 길이에서 자르고, 지형 배율로 비용이 넘치면 조금씩 당긴다
+	static const float ratios[] = { 1.f, 0.75f, 0.5f, 0.25f };
+	for (float ratio : ratios)
+	{
+		const FVector dest = pointAlongPath(budgetCm * ratio);
+		if (FVector::Dist2D(from, dest) < 0.1f * CmPerMeter) return false;
+
+		float pathLenCm = 0.f;
+		FTerrainPathInfo info;
+		if (UAINavigationHelper::CanReach(ownerCharacter, dest, pathLenCm, &info))
+		{
+			OutDest = dest;
+			OutCostCm = info.WeightedCostCm;
+			return true;
+		}
+	}
+	return false;
 }
 
 void UUtilityAIComponent::UpdateBattlefieldAverages()

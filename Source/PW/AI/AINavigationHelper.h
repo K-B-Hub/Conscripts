@@ -40,6 +40,9 @@ public:
 	static bool CanReach(const ACharacterBase* Mover, const FVector& Target, float& OutPathLengthCm,
 		FTerrainPathInfo* OutTerrainInfo = nullptr);
 
+	//후보 지점을 그 XY의 네비 바닥에 붙여 캡슐 중심 높이로 돌려줌, 바닥이 없으면 false
+	static bool SnapToNavFloor(const ACharacterBase* Mover, FVector& InOutLocation);
+
 	//지정 위치에서 대상까지 시야선 확인
 	static bool HasLineOfSightFrom(const ACharacterBase* Caster, const FVector& FromLocation, const ACharacterBase* Target);
 

@@ -78,6 +78,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Combat")
 	float engagementDetectRadius = 8.f * CmPerMeter;
 
+	//네비 밖에서 턴을 시작했을 때 탈출 지점을 찾는 최대 반경
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Movement")
+	float navEscapeMaxRadius = 3.f * CmPerMeter;
+
 	//턴 시작 후 첫 행동까지의 연출 딜레이
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Pacing")
 	float turnStartDelay = 0.8f;
@@ -126,4 +130,17 @@ private:
 	//접근 이동 완료 콜백
 	UFUNCTION()
 	void OnApproachMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);
+
+	//네비 밖이면 가장 가까운 네비 지점으로 직선 이동, 이동 접수 시 true
+	bool TryStartNavEscape();
+
+	//탈출 이동 완료 콜백, 이어서 턴 행동 개시
+	UFUNCTION()
+	void OnNavEscapeMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);
+
+	//이번 턴 탈출 시도 여부, 탈출 후 재진입 시 반복 방지
+	bool bNavEscapeTried = false;
+
+	//탈출 이동 진행 중, 즉시 완료 통지를 걸러낸다
+	bool bNavEscapeMoving = false;
 };

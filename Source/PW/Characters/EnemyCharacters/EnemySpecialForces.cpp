@@ -17,7 +17,7 @@ AEnemySpecialForces::AEnemySpecialForces()
 	def = 5;
 	mentality = 4;
 	sight = 10.f;
-	movingPoint = 8.f;
+	movingPoint = 11.f;
 	currentMovingPoint = movingPoint;
 
 	//고유 자원은 장비

@@ -17,7 +17,7 @@ AEnemySniper::AEnemySniper()
 	def = 6;
 	mentality = 2;
 	sight = 22.f;
-	movingPoint = 5.f;
+	movingPoint = 7.f;
 	currentMovingPoint = movingPoint;
 
 	//고유 자원은 탄환

@@ -12,6 +12,8 @@
 #include "AI/AINavigationHelper.h"
 #include "Settings/PWGameUserSettings.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "NavigationSystem.h"
 
 const FName AEnemyAIController::BBKey_TargetActor(TEXT("TargetActor"));
 const FName AEnemyAIController::BBKey_InCombat(TEXT("InCombat"));
@@ -51,6 +53,8 @@ void AEnemyAIController::OnUnPossess()
 
 void AEnemyAIController::OnEnemyTurnStart()
 {
+	bNavEscapeTried = false;
+
 	//자기 충돌로 인한 이동 경로 흔들림 방지
 	if (ACharacterBase* pawnAsChar = Cast<ACharacterBase>(GetPawn()))
 	{
@@ -101,6 +105,13 @@ void AEnemyAIController::OnEnemyTurnStart()
 
 void AEnemyAIController::BeginTurnAction()
 {
+	//네비 밖이면 경로 탐색이 전부 실패하므로 먼저 빠져나온다, 완료 콜백이 다시 들어온다
+	if (!bNavEscapeTried)
+	{
+		bNavEscapeTried = true;
+		if (TryStartNavEscape()) return;
+	}
+
 	//알람 합류자는 교전 게이트 밖이면 알람 지점 접근만 수행
 	if (bHasAlarmFocus)
 	{
@@ -395,7 +406,9 @@ bool AEnemyAIController::TryStartApproachToAlarm()
 	bool bFound = false;
 	for (float ratio : ratios)
 	{
-		const FVector candidate = pawnLoc + (desired - pawnLoc) * ratio;
+		FVector candidate = pawnLoc + (desired - pawnLoc) * ratio;
+		//내 높이 그대로면 내리막 지점이 투영 범위를 벗어난다
+		if (!UAINavigationHelper::SnapToNavFloor(pawnChar, candidate)) continue;
 		FTerrainPathInfo terrainInfo;
 		//도달 판정과 이동력 차감 모두 지형 배율을 반영한 실질 비용 기준
 		if (UAINavigationHelper::CanReach(pawnChar, candidate, pathLenCm, &terrainInfo)
@@ -460,6 +473,107 @@ void AEnemyAIController::OnApproachMoveCompleted(FAIRequestID RequestID, EPathFo
 		}
 	}
 	OnEnemyTurnEnd();
+}
+
+bool AEnemyAIController::TryStartNavEscape()
+{
+	ACharacterBase* pawnChar = Cast<ACharacterBase>(GetPawn());
+	UWorld* world = GetWorld();
+	UNavigationSystemV1* navSys = world ? UNavigationSystemV1::GetCurrent(world) : nullptr;
+	if (!pawnChar || !navSys) return false;
+
+	//경로 탐색 출발점과 같은 기준, 기본 투영 범위에 닿으면 네비 위
+	const FVector feet = pawnChar->GetNavAgentLocation();
+	FNavLocation onNav;
+	if (navSys->ProjectPointToNavigation(feet, onNav)) return false;
+
+	const float budgetCm = pawnChar->GetCurrentMovingPoint() * CmPerMeter;
+	if (budgetCm <= 0.f) return false;
+
+	//직선 통행 검사, 계단 높이만큼 띄우고 좁은 참호 벽에 스치지 않게 반경을 줄인다
+	const UCapsuleComponent* capsule = pawnChar->GetCapsuleComponent();
+	const float halfHeight = capsule->GetScaledCapsuleHalfHeight();
+	const float stepUp = pawnChar->GetCharacterMovement()->MaxStepHeight;
+	const FCollisionShape shape = FCollisionShape::MakeCapsule(capsule->GetScaledCapsuleRadius() * 0.8f, halfHeight);
+	const FCollisionQueryParams params(SCENE_QUERY_STAT(AI_NavEscape), false, pawnChar);
+	const FVector sweepFrom = pawnChar->GetActorLocation() + FVector(0.f, 0.f, stepUp);
+
+	//샘플 근처의 네비만 잡도록 수평은 좁게
+	const FVector probeExtent(0.25f * CmPerMeter, 0.25f * CmPerMeter,
+		navSys->GetDefaultSupportedAgentConfig().DefaultQueryExtent.Z);
+
+	//가까운 링부터, 링 안에서는 가장 가까운 지점
+	static const float radiusRatios[] = { 0.25f, 0.5f, 0.75f, 1.f };
+	static constexpr int32 numDirs = 8;
+	FVector dest = FVector::ZeroVector;
+	float destDist = TNumericLimits<float>::Max();
+	for (float ratio : radiusRatios)
+	{
+		for (int32 i = 0; i < numDirs; ++i)
+		{
+			const FVector dir = FRotator(0.f, i * 360.f / numDirs, 0.f).Vector();
+			FNavLocation probe;
+			if (!navSys->ProjectPointToNavigation(feet + dir * navEscapeMaxRadius * ratio, probe, probeExtent)) continue;
+
+			const float dist = FVector::Dist2D(feet, probe.Location);
+			if (dist > budgetCm || dist >= destDist) continue;
+
+			//벽 너머 네비는 직선으로 못 가므로 제외
+			const FVector sweepTo = probe.Location + FVector(0.f, 0.f, halfHeight + stepUp);
+			if (world->SweepTestByChannel(sweepFrom, sweepTo, FQuat::Identity, ECC_Pawn, shape, params)) continue;
+
+			dest = probe.Location;
+			destDist = dist;
+		}
+		if (destDist < TNumericLimits<float>::Max()) break;
+	}
+
+	if (destDist == TNumericLimits<float>::Max())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[EnemyAIController] %s 네비 밖, 반경 %.0f 내 탈출 지점 없음"),
+			*GetNameSafe(pawnChar), navEscapeMaxRadius);
+		return false;
+	}
+
+	ReceiveMoveCompleted.RemoveDynamic(this, &AEnemyAIController::OnNavEscapeMoveCompleted);
+	ReceiveMoveCompleted.AddUniqueDynamic(this, &AEnemyAIController::OnNavEscapeMoveCompleted);
+
+	//출발점이 네비 밖이라 경로 탐색 없이 직선 이동
+	FAIMoveRequest req(dest);
+	req.SetUsePathfinding(false);
+	req.SetAcceptanceRadius(10.f);
+
+	if (MoveTo(req) != EPathFollowingRequestResult::RequestSuccessful)
+	{
+		ReceiveMoveCompleted.RemoveDynamic(this, &AEnemyAIController::OnNavEscapeMoveCompleted);
+		return false;
+	}
+	bNavEscapeMoving = true;
+
+	pawnChar->OnMoveStateChanged(true);
+	pawnChar->ConsumeMovingPoint(destDist / CmPerMeter);
+
+	UE_LOG(LogTemp, Log, TEXT("[EnemyAIController] %s 네비 밖 탈출 이동 (%.0f)"), *GetNameSafe(pawnChar), destDist);
+	return true;
+}
+
+void AEnemyAIController::OnNavEscapeMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
+{
+	if (!bNavEscapeMoving) return;
+	bNavEscapeMoving = false;
+	ReceiveMoveCompleted.RemoveDynamic(this, &AEnemyAIController::OnNavEscapeMoveCompleted);
+
+	//이동 완료 패시브 발동
+	if (Result == EPathFollowingResult::Success)
+	{
+		if (ABattleGameMode* gm = GetWorld()->GetAuthGameMode<ABattleGameMode>())
+		{
+			gm->BroadcastMoveComplete();
+		}
+	}
+
+	//막혀서 덜 갔어도 원래 행동을 이어간다
+	BeginTurnAction();
 }
 
 void AEnemyAIController::RunCurrentBT()

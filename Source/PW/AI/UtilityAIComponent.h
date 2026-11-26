@@ -120,6 +120,12 @@ protected:
 	//최근접 생존 플레이어까지의 거리, 없으면 -1
 	float DistToNearestPlayer(const FVector& From) const;
 
+	//플레이어 진영을 대상으로 하는 후보가 있는지
+	bool HasPlayerAffectingAction(const TArray<FAIAction>& Candidates) const;
+
+	//최근접 플레이어 쪽 네비 경로를 이동력만큼 따라간 목적지와 실질 비용, 전진 불가면 false
+	bool FindAdvanceDestination(FVector& OutDest, float& OutCostCm) const;
+
 	//전장 평균 스탯 스냅샷, 극단성 배율의 분모
 	struct FBattlefieldStatAverages
 	{

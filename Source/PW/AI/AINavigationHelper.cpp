@@ -4,12 +4,16 @@
 #include "PW.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
+#include "Components/CapsuleComponent.h"
 #include "Characters/CharacterBase.h"
 #include "Actors/Terrain/TerrainBase.h"
 #include "GameMode/BattleGameMode.h"
 
 //경로 샘플링 간격(cm), CursorIndicator의 경로 세분화 간격과 맞춰 AI 판정과 플레이어 표시를 일치시킴
 static constexpr float TerrainSampleIntervalCm = 10.f;
+
+//후보 지점 바닥 투영의 수직 탐색 반경(cm)
+static constexpr float NavFloorSnapHeightCm = 10.f * CmPerMeter;
 
 void UAINavigationHelper::ComputeTerrainPathInfo(const UWorld* World, const TArray<FVector>& PathPoints, FTerrainPathInfo& OutInfo)
 {
@@ -102,7 +106,8 @@ bool UAINavigationHelper::CanReach(const ACharacterBase* Mover, const FVector& T
 	const FVector from = Mover->GetNavAgentLocation();
 
 	//직선거리 초과 시 패스파인딩 생략, 지형 배율은 비용을 늘리기만 하므로 이 조기 반환은 안전
-	const float straightCm = FVector::Dist(from, Target);
+	//발밑과 캡슐 중심의 높이차가 섞이지 않도록 평면 거리
+	const float straightCm = FVector::Dist2D(from, Target);
 	if (straightCm > budgetCm) return false;
 
 	UWorld* world = Mover->GetWorld();
@@ -123,6 +128,26 @@ bool UAINavigationHelper::CanReach(const ACharacterBase* Mover, const FVector& T
 	if (OutTerrainInfo) *OutTerrainInfo = info;
 
 	return info.WeightedCostCm <= budgetCm;
+}
+
+bool UAINavigationHelper::SnapToNavFloor(const ACharacterBase* Mover, FVector& InOutLocation)
+{
+	if (!Mover) return false;
+	UWorld* world = Mover->GetWorld();
+	UNavigationSystemV1* navSys = world ? UNavigationSystemV1::GetCurrent(world) : nullptr;
+	if (!navSys) return false;
+
+	//수평은 기본 투영 범위, 수직은 내리막·오르막 후보를 모두 잡도록 넓게
+	FVector extent = navSys->GetDefaultSupportedAgentConfig().DefaultQueryExtent;
+	extent.Z = NavFloorSnapHeightCm;
+
+	FNavLocation projected;
+	if (!navSys->ProjectPointToNavigation(InOutLocation, projected, extent)) return false;
+
+	//후보는 캡슐 중심 기준이라 반높이만큼 올림
+	InOutLocation = projected.Location
+		+ FVector(0.f, 0.f, Mover->GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	return true;
 }
 
 bool UAINavigationHelper::HasLineOfSightFrom(const ACharacterBase* Caster, const FVector& FromLocation, const ACharacterBase* Target)

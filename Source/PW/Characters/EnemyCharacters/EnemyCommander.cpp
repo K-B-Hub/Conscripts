@@ -18,7 +18,7 @@ AEnemyCommander::AEnemyCommander()
 	mentality = 6;
 	sight = 15.f;
 	//이동력만 아군보다 높음
-	movingPoint = 12.f;
+	movingPoint = 15.f;
 	currentMovingPoint = movingPoint;
 
 	maxBattleResource = 10;
